@@ -1,22 +1,34 @@
-// src/main.ts
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { getBotToken } from 'nestjs-telegraf';
 import { sessionMiddleware } from './middleware/session.middleware';
 import { config } from './config/config';
 import { Telegraf } from 'telegraf';
+import { Logger } from '@nestjs/common';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const logger = new Logger('Bootstrap');
 
-  // Get the bot instance
-  const bot = app.get<Telegraf>(getBotToken());
+  try {
+    const app = await NestFactory.create(AppModule);
 
-  // Use session middleware
-  bot.use(sessionMiddleware());
+    // Get the bot instance
+    const bot = app.get<Telegraf>(getBotToken());
 
-  await app.listen(config.port);
+    // Use session middleware
+    bot.use(sessionMiddleware());
 
-  console.log(`Application is running on port: ${config.port}`);
+    // Log middleware for debugging
+    bot.use((ctx, next) => {
+      logger.debug(`Processing update ${ctx.updateType}`);
+      return next();
+    });
+
+    await app.listen(config.port);
+
+    logger.log(`Application is running on port: ${config.port}`);
+  } catch (error) {
+    logger.error('Failed to start application:', error);
+  }
 }
 bootstrap();

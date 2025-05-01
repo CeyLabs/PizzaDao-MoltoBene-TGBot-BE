@@ -1,53 +1,57 @@
 import { TelegramGroup } from '../interfaces/telegram-group.interface';
+import { Admin } from '../interfaces/admin.interface';
+import { CityData } from '../interfaces/city-data.interface';
 
+// Dummy groups data with real group IDs
 export const dummyGroups: TelegramGroup[] = [
+  // Use the group IDs directly for the chatId
   {
     id: '1',
-    name: 'Rome Pizza Lovers',
-    chatId: '-1001234567890',
-    city: 'Rome',
+    name: 'PizzaDao Testnet - Super Group',
+    chatId: '-4652819851',
+    city: 'Global',
     type: 'supergroup',
-  },
+  }, // Real group ID 4652819851
   {
     id: '2',
-    name: 'Milan Food Community',
-    chatId: '-1001234567891',
-    city: 'Milan',
+    name: 'PizzaDao Testnet - Sub Group',
+    chatId: '-4786977353',
+    city: 'Colombo',
     type: 'supergroup',
-  },
+  }, // Real group ID 4786977353
   {
     id: '3',
-    name: 'Naples Pizza Group',
+    name: 'Rome Pizza Lovers',
     chatId: '-1001234567892',
-    city: 'Naples',
+    city: 'Rome',
     type: 'supergroup',
   },
   {
     id: '4',
-    name: 'Florence Food Enthusiasts',
+    name: 'Milan Food Community',
     chatId: '-1001234567893',
-    city: 'Florence',
+    city: 'Milan',
     type: 'supergroup',
   },
   {
     id: '5',
-    name: 'Venice Culinary Arts',
+    name: 'Naples Pizza Group',
     chatId: '-1001234567894',
-    city: 'Venice',
+    city: 'Naples',
     type: 'supergroup',
   },
   {
     id: '6',
-    name: 'Rome Food Events',
+    name: 'Florence Food Enthusiasts',
     chatId: '-1001234567895',
-    city: 'Rome',
+    city: 'Florence',
     type: 'supergroup',
   },
   {
     id: '7',
-    name: 'Milan Restaurant Reviews',
+    name: 'Venice Culinary Arts',
     chatId: '-1001234567896',
-    city: 'Milan',
+    city: 'Venice',
     type: 'supergroup',
   },
   {
@@ -74,15 +78,24 @@ export const dummyGroups: TelegramGroup[] = [
 ];
 
 // Dummy city data
-export interface CityData {
-  id: string;
-  name: string;
-  venues: string[];
-}
-
 export const dummyCityData: CityData[] = [
   {
     id: '1',
+    name: 'Global',
+    venues: ['Virtual Meeting', 'Online Conference', 'Global Headquarters'],
+  },
+  {
+    id: '2',
+    name: 'Colombo',
+    venues: [
+      'Colombo City Centre',
+      'Viharamahadevi Park',
+      'Dutch Hospital',
+      'Galle Face Green',
+    ],
+  },
+  {
+    id: '3',
     name: 'Rome',
     venues: [
       'Colosseum Square',
@@ -92,7 +105,7 @@ export const dummyCityData: CityData[] = [
     ],
   },
   {
-    id: '2',
+    id: '4',
     name: 'Milan',
     venues: [
       'Duomo Square',
@@ -102,7 +115,7 @@ export const dummyCityData: CityData[] = [
     ],
   },
   {
-    id: '3',
+    id: '5',
     name: 'Naples',
     venues: [
       'Piazza del Plebiscito',
@@ -112,7 +125,7 @@ export const dummyCityData: CityData[] = [
     ],
   },
   {
-    id: '4',
+    id: '6',
     name: 'Florence',
     venues: [
       'Piazza della Signoria',
@@ -122,7 +135,7 @@ export const dummyCityData: CityData[] = [
     ],
   },
   {
-    id: '5',
+    id: '7',
     name: 'Venice',
     venues: [
       "St. Mark's Square",
@@ -132,7 +145,7 @@ export const dummyCityData: CityData[] = [
     ],
   },
   {
-    id: '6',
+    id: '8',
     name: 'Turin',
     venues: [
       'Piazza Castello',
@@ -142,7 +155,7 @@ export const dummyCityData: CityData[] = [
     ],
   },
   {
-    id: '7',
+    id: '9',
     name: 'Bologna',
     venues: [
       'Piazza Maggiore',
@@ -152,7 +165,7 @@ export const dummyCityData: CityData[] = [
     ],
   },
   {
-    id: '8',
+    id: '10',
     name: 'Palermo',
     venues: [
       'Teatro Massimo',
@@ -160,5 +173,38 @@ export const dummyCityData: CityData[] = [
       'Palermo Cathedral',
       'Ballarò Market',
     ],
+  },
+];
+
+// Dummy admin data - with wildcard to match ANY user ID
+export const dummyAdmins: Admin[] = [
+  {
+    userId: 0, // This will be replaced dynamically to match any user ID
+    name: 'Super Admin',
+    role: 'super-admin',
+    cities: [
+      'Global',
+      'Colombo',
+      'Rome',
+      'Milan',
+      'Naples',
+      'Florence',
+      'Venice',
+      'Turin',
+      'Bologna',
+      'Palermo',
+    ],
+  },
+  {
+    userId: 987654321, // Another user ID for testing
+    name: 'Colombo Admin',
+    role: 'admin',
+    cities: ['Colombo'],
+  },
+  {
+    userId: 555555555, // Another user ID for testing
+    name: 'Italy Admin',
+    role: 'admin',
+    cities: ['Rome', 'Milan', 'Florence', 'Venice'],
   },
 ];

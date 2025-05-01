@@ -12,7 +12,7 @@ import { Context, Markup } from 'telegraf';
 import { BroadcastFlowService } from './broadcast-flow.service';
 import { BroadcastMessage } from './interfaces/broadcast-message.interface';
 import { BroadcastState } from './interfaces/broadcast-state.interface';
-
+import { InlineKeyboardButton } from 'telegraf/typings/core/types/typegram';
 @Update()
 @Injectable()
 export class BroadcastFlowUpdate {
@@ -45,8 +45,8 @@ export class BroadcastFlowUpdate {
 
   private showMainKeyboard(ctx: Context) {
     return ctx.reply(
-      'Choose an option:',
-      Markup.keyboard([['Broadcast Message']]).resize(),
+      '✨ What would you like to do today? ✨',
+      Markup.keyboard([['🔊 Broadcast Message']]).resize(),
     );
   }
 
@@ -54,15 +54,75 @@ export class BroadcastFlowUpdate {
     try {
       // For inline query responses, we need to ensure we're sending a new message
       await ctx.reply(
-        'Choose an option:',
-        Markup.keyboard([['Broadcast Message']]).resize(),
+        '✨ What would you like to do today? ✨',
+        Markup.keyboard([['🔊 Broadcast Message']]).resize(),
       );
     } catch (error) {
       console.error('Error showing main keyboard:', error);
     }
   }
 
-  @Hears('Broadcast Message')
+  private async showCancelOption(ctx: any, message: string, options: any = {}) {
+    const inlineKeyboard = options.reply_markup?.inline_keyboard || [];
+
+    // Add a cancel button as the last row if it's not already there
+    const hasCancelButton = inlineKeyboard.some((row) =>
+      row.some((button) => button.callback_data === 'cancel_broadcast'),
+    );
+
+    if (!hasCancelButton) {
+      inlineKeyboard.push([
+        Markup.button.callback('❌ Cancel', 'cancel_broadcast'),
+      ]);
+    }
+
+    return ctx.reply(message, {
+      ...options,
+      reply_markup: {
+        inline_keyboard: inlineKeyboard,
+      },
+    });
+  }
+
+  @Start()
+  async onStartCommand(@Ctx() ctx: Context) {
+    // Reset user state
+    const userId = ctx.from?.id;
+    if (userId) {
+      this.resetState(userId);
+    }
+
+    const firstName = ctx.from?.first_name || 'there';
+
+    // Welcome message with emoji and formatting
+    const welcomeMessage = `
+🎉 *Welcome, ${firstName}!* 🎉
+
+I'm your Broadcasting Assistant, here to help you share messages with your Telegram communities!
+
+*What can I do?*
+📢 Send announcements to multiple groups
+🏙️ Target messages to specific cities
+🖼️ Include images and buttons in your broadcasts
+📌 Pin important messages
+
+Ready to get started?
+`;
+
+    // Send welcome message with command buttons
+    await ctx.reply(welcomeMessage, {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('🔊 Broadcast Message', 'start_broadcast')],
+        [Markup.button.callback('❓ Help', 'show_help')],
+      ]),
+    });
+
+    // Also show the main keyboard
+    await this.showMainKeyboard(ctx);
+  }
+
+  @Hears(['🔊 Broadcast Message', 'Broadcast Message'])
   async onBroadcast(@Ctx() ctx: Context) {
     const userId = ctx.from?.id;
     if (!userId) return;
@@ -70,12 +130,95 @@ export class BroadcastFlowUpdate {
     const state = this.getState(userId);
     state.step = 'select_scope';
 
+    // Check if user is a super admin
+    const isSuperAdmin = await this.broadcastFlowService.isSuperAdmin(userId);
+
+    const buttons: InlineKeyboardButton[][] = [];
+
+    // Only show "All Groups" to super admins
+    if (isSuperAdmin) {
+      buttons.push([Markup.button.callback('🌎 All Groups', 'scope_all')]);
+    }
+
+    // Show "City" option to all admins
+    buttons.push([Markup.button.callback('🏙️ City', 'scope_city')]);
+
+    // Add cancel button
+    buttons.push([Markup.button.callback('❌ Cancel', 'cancel_broadcast')]);
+
     await ctx.reply(
-      'Select broadcast target:',
-      Markup.inlineKeyboard([
-        Markup.button.callback('All Groups', 'scope_all'),
-        Markup.button.callback('City', 'scope_city'),
+      '📢 *Select broadcast target:*\n\nWhere would you like to send your message?',
+      {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard(buttons),
+      },
+    );
+  }
+
+  @Action('start_broadcast')
+  async onStartBroadcast(@Ctx() ctx: any) {
+    await ctx.answerCbQuery();
+    await ctx.deleteMessage();
+    await this.onBroadcast(ctx);
+  }
+
+  @Action('show_help')
+  async onShowHelp(@Ctx() ctx: any) {
+    await ctx.answerCbQuery();
+
+    const helpMessage = `
+📚 *Bot Usage Guide* 📚
+
+This bot helps you broadcast messages to your Telegram communities.
+
+*Commands:*
+• /start - Start the bot
+• /broadcast - Begin a new broadcast
+• /cancel - Cancel current broadcast
+• /help - Show this help message
+
+*Broadcasting Steps:*
+1️⃣ Select your target audience
+2️⃣ Provide your message content
+3️⃣ Add optional details like venue, date, etc.
+4️⃣ Choose to add images or buttons
+5️⃣ Review and send your broadcast
+
+*Tips:*
+• Use the 'Skip' button to bypass optional fields
+• Super admins can broadcast to all groups
+• Regular admins can broadcast to their city groups
+• You can cancel anytime with /cancel
+
+Need more help? Feel free to ask!
+`;
+
+    await ctx.editMessageText(helpMessage, {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('🔙 Back', 'back_to_start')],
       ]),
+    });
+  }
+
+  @Action('back_to_start')
+  async onBackToStart(@Ctx() ctx: any) {
+    await ctx.answerCbQuery();
+    const firstName = ctx.from?.first_name || 'there';
+
+    await ctx.editMessageText(
+      `
+🎉 *Welcome back, ${firstName}!* 🎉
+
+Ready to broadcast a message?
+`,
+      {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('🔊 Broadcast Message', 'start_broadcast')],
+          [Markup.button.callback('❓ Help', 'show_help')],
+        ]),
+      },
     );
   }
 
@@ -93,7 +236,13 @@ export class BroadcastFlowUpdate {
       state.message.scope = 'all';
       state.step = 'collect_message';
       await ctx.editMessageText(
-        "Broadcasting to all groups. Now, let's collect message details.",
+        "🌎 *Broadcasting to all groups*\n\nNow, let's collect your message details.",
+        {
+          parse_mode: 'Markdown',
+          ...Markup.inlineKeyboard([
+            [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
+          ]),
+        },
       );
       await this.promptForMessageContent(ctx);
     } else if (scopeMatch === 'city') {
@@ -102,12 +251,20 @@ export class BroadcastFlowUpdate {
 
       const cities = this.broadcastFlowService.getAllCities();
       const cityButtons = cities.map((city) => [
-        Markup.button.callback(city, `city_${city}`),
+        Markup.button.callback(`🏙️ ${city}`, `city_${city}`),
+      ]);
+
+      // Add cancel button
+      cityButtons.push([
+        Markup.button.callback('❌ Cancel', 'cancel_broadcast'),
       ]);
 
       await ctx.editMessageText(
-        'Select a city:',
-        Markup.inlineKeyboard(cityButtons),
+        '🏙️ *Select a city:*\n\nChoose the city where you want to broadcast your message.',
+        {
+          parse_mode: 'Markdown',
+          ...Markup.inlineKeyboard(cityButtons),
+        },
       );
     }
   }
@@ -124,13 +281,23 @@ export class BroadcastFlowUpdate {
     state.step = 'collect_message';
 
     await ctx.editMessageText(
-      `Selected city: ${state.message.city}. Now, let's collect message details.`,
+      `🏙️ *Selected city: ${state.message.city}*\n\nNow, let's collect your message details.`,
+      {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
+        ]),
+      },
     );
     await this.promptForMessageContent(ctx);
   }
 
   private async promptForMessageContent(ctx: any) {
-    await ctx.reply('Please enter the message content (required):');
+    await this.showCancelOption(
+      ctx,
+      '✏️ *Please enter your message content:* (required)\n\nType your announcement message below.',
+      { parse_mode: 'Markdown' },
+    );
   }
 
   @On('text')
@@ -143,12 +310,15 @@ export class BroadcastFlowUpdate {
 
     // Skip processing if the text is a command
     if (text.startsWith('/')) {
+      if (text === '/cancel') {
+        await this.handleCancel(ctx);
+      }
       return;
     }
 
     // If the text is "Broadcast Message" and we're not in an active flow, start the flow
     if (
-      text === 'Broadcast Message' &&
+      (text === '🔊 Broadcast Message' || text === 'Broadcast Message') &&
       (state.step === 'idle' || state.step === 'completed')
     ) {
       await this.onBroadcast(ctx);
@@ -160,7 +330,7 @@ export class BroadcastFlowUpdate {
       case 'collect_message':
         state.message.content = text;
         state.step = 'collect_place';
-        await ctx.reply('Enter venue/place (optional, type "skip" to skip):');
+        await this.promptForPlace(ctx);
         break;
 
       case 'collect_place':
@@ -168,7 +338,7 @@ export class BroadcastFlowUpdate {
           state.message.place = text;
         }
         state.step = 'collect_date';
-        await ctx.reply('Enter date (optional, type "skip" to skip):');
+        await this.promptForDate(ctx);
         break;
 
       case 'collect_date':
@@ -176,7 +346,7 @@ export class BroadcastFlowUpdate {
           state.message.date = text;
         }
         state.step = 'collect_time';
-        await ctx.reply('Enter time (optional, type "skip" to skip):');
+        await this.promptForTime(ctx);
         break;
 
       case 'collect_time':
@@ -184,9 +354,7 @@ export class BroadcastFlowUpdate {
           state.message.time = text;
         }
         state.step = 'collect_links';
-        await ctx.reply(
-          'Enter external links (optional, type "skip" to skip):',
-        );
+        await this.promptForLinks(ctx);
         break;
 
       case 'collect_links':
@@ -196,25 +364,40 @@ export class BroadcastFlowUpdate {
         state.step = 'ask_image';
 
         await ctx.reply(
-          'Would you like to add an image to this message?',
-          Markup.inlineKeyboard([
-            Markup.button.callback('Yes', 'image_yes'),
-            Markup.button.callback('No', 'image_no'),
-          ]),
+          '🖼️ *Would you like to add an image to this message?*',
+          {
+            parse_mode: 'Markdown',
+            ...Markup.inlineKeyboard([
+              [
+                Markup.button.callback('✅ Yes', 'image_yes'),
+                Markup.button.callback('❌ No', 'image_no'),
+              ],
+              [
+                Markup.button.callback(
+                  '❌ Cancel Broadcast',
+                  'cancel_broadcast',
+                ),
+              ],
+            ]),
+          },
         );
         break;
 
       case 'collect_button_text':
         state.message.buttonText = text;
         state.step = 'collect_button_url';
-        await ctx.reply('Enter the URL for the button:');
+        await this.showCancelOption(
+          ctx,
+          '🔗 *Enter the URL for the button:*\n\nThis should be a valid URL starting with http:// or https://',
+          { parse_mode: 'Markdown' },
+        );
         break;
 
       case 'collect_button_url':
         // Simple URL validation
         if (!text.startsWith('http://') && !text.startsWith('https://')) {
           await ctx.reply(
-            'Please enter a valid URL starting with http:// or https://',
+            '⚠️ Please enter a valid URL starting with http:// or https://',
           );
           return;
         }
@@ -226,11 +409,123 @@ export class BroadcastFlowUpdate {
 
       default:
         // If not in a defined step, show the main keyboard
-        if (text !== 'Broadcast Message') {
+        if (text !== '🔊 Broadcast Message' && text !== 'Broadcast Message') {
           await this.showMainKeyboard(ctx);
         }
         break;
     }
+  }
+
+  private async promptForPlace(ctx: any) {
+    await ctx.reply(
+      '🏢 *Enter venue/place:* (optional)\n\nWhere is this event taking place?',
+      {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('⏩ Skip', 'skip_place')],
+          [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
+        ]),
+      },
+    );
+  }
+
+  private async promptForDate(ctx: any) {
+    await ctx.reply('📅 *Enter date:* (optional)\n\nWhen is this happening?', {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('⏩ Skip', 'skip_date')],
+        [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
+      ]),
+    });
+  }
+
+  private async promptForTime(ctx: any) {
+    await ctx.reply('⏰ *Enter time:* (optional)\n\nAt what time?', {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('⏩ Skip', 'skip_time')],
+        [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
+      ]),
+    });
+  }
+
+  private async promptForLinks(ctx: any) {
+    await ctx.reply(
+      '🔗 *Enter external links:* (optional)\n\nAny relevant links to include?',
+      {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('⏩ Skip', 'skip_links')],
+          [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
+        ]),
+      },
+    );
+  }
+
+  @Action('skip_place')
+  async onSkipPlace(@Ctx() ctx: any) {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCbQuery('Skipped venue/place');
+
+    const state = this.getState(userId);
+    state.step = 'collect_date';
+
+    await ctx.deleteMessage();
+    await this.promptForDate(ctx);
+  }
+
+  @Action('skip_date')
+  async onSkipDate(@Ctx() ctx: any) {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCbQuery('Skipped date');
+
+    const state = this.getState(userId);
+    state.step = 'collect_time';
+
+    await ctx.deleteMessage();
+    await this.promptForTime(ctx);
+  }
+
+  @Action('skip_time')
+  async onSkipTime(@Ctx() ctx: any) {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCbQuery('Skipped time');
+
+    const state = this.getState(userId);
+    state.step = 'collect_links';
+
+    await ctx.deleteMessage();
+    await this.promptForLinks(ctx);
+  }
+
+  @Action('skip_links')
+  async onSkipLinks(@Ctx() ctx: any) {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCbQuery('Skipped external links');
+
+    const state = this.getState(userId);
+    state.step = 'ask_image';
+
+    await ctx.deleteMessage();
+
+    await ctx.reply('🖼️ *Would you like to add an image to this message?*', {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [
+          Markup.button.callback('✅ Yes', 'image_yes'),
+          Markup.button.callback('❌ No', 'image_no'),
+        ],
+        [Markup.button.callback('❌ Cancel Broadcast', 'cancel_broadcast')],
+      ]),
+    });
   }
 
   @On('photo')
@@ -247,13 +542,16 @@ export class BroadcastFlowUpdate {
       state.message.image = photoFileId;
       state.step = 'ask_button';
 
-      await ctx.reply(
-        'Would you like to include a button?',
-        Markup.inlineKeyboard([
-          Markup.button.callback('Yes', 'button_yes'),
-          Markup.button.callback('No', 'button_no'),
+      await ctx.reply('🔘 *Would you like to include a button?*', {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [
+            Markup.button.callback('✅ Yes', 'button_yes'),
+            Markup.button.callback('❌ No', 'button_no'),
+          ],
+          [Markup.button.callback('❌ Cancel Broadcast', 'cancel_broadcast')],
         ]),
-      );
+      });
     } else {
       // If user sends a photo when not asked for one, show the main keyboard
       await this.showMainKeyboard(ctx);
@@ -270,7 +568,15 @@ export class BroadcastFlowUpdate {
     const state = this.getState(userId);
     state.step = 'collect_image';
 
-    await ctx.editMessageText('Please send an image for the broadcast:');
+    await ctx.editMessageText(
+      '📸 *Please send an image for the broadcast:*\n\nUpload a photo to include with your message.',
+      {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
+        ]),
+      },
+    );
   }
 
   @Action('image_no')
@@ -283,13 +589,16 @@ export class BroadcastFlowUpdate {
     const state = this.getState(userId);
     state.step = 'ask_button';
 
-    await ctx.editMessageText(
-      'Would you like to include a button?',
-      Markup.inlineKeyboard([
-        Markup.button.callback('Yes', 'button_yes'),
-        Markup.button.callback('No', 'button_no'),
+    await ctx.editMessageText('🔘 *Would you like to include a button?*', {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [
+          Markup.button.callback('✅ Yes', 'button_yes'),
+          Markup.button.callback('❌ No', 'button_no'),
+        ],
+        [Markup.button.callback('❌ Cancel Broadcast', 'cancel_broadcast')],
       ]),
-    );
+    });
   }
 
   @Action('button_yes')
@@ -302,7 +611,15 @@ export class BroadcastFlowUpdate {
     const state = this.getState(userId);
     state.step = 'collect_button_text';
 
-    await ctx.editMessageText('Enter the text for the button:');
+    await ctx.editMessageText(
+      '🔤 *Enter the text for the button:*\n\nWhat should the button say?',
+      {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
+        ]),
+      },
+    );
   }
 
   @Action('button_no')
@@ -315,12 +632,13 @@ export class BroadcastFlowUpdate {
     const state = this.getState(userId);
     state.step = 'confirmation';
 
+    await ctx.deleteMessage();
     await this.showConfirmation(ctx, state.message);
   }
 
   private async showConfirmation(ctx: any, message: BroadcastMessage) {
     // Build message preview
-    let previewText = '📢 *Preview:*\n\n';
+    let previewText = '📢 *Broadcast Preview:*\n\n';
 
     if (message.city) {
       previewText += `📍 *${message.city}*\n`;
@@ -329,28 +647,28 @@ export class BroadcastFlowUpdate {
     previewText += message.content;
 
     if (message.place) {
-      previewText += `\n🏢 Venue: ${message.place}`;
+      previewText += `\n\n🏢 *Venue:* ${message.place}`;
     }
 
     if (message.date) {
-      previewText += `\n📅 Date: ${message.date}`;
+      previewText += `\n📅 *Date:* ${message.date}`;
     }
 
     if (message.time) {
-      previewText += `\n⏰ Time: ${message.time}`;
+      previewText += `\n⏰ *Time:* ${message.time}`;
     }
 
     if (message.externalLinks) {
-      previewText += `\n🔗 Links: ${message.externalLinks}`;
+      previewText += `\n🔗 *Links:* ${message.externalLinks}`;
     }
 
     if (message.buttonText && message.buttonUrl) {
-      previewText += `\n\n🔘 Button: [${message.buttonText}](${message.buttonUrl})`;
+      previewText += `\n\n🔘 *Button:* [${message.buttonText}](${message.buttonUrl})`;
     }
 
     previewText += '\n\n*Target:* ';
     previewText +=
-      message.scope === 'all' ? 'All Groups' : `City - ${message.city}`;
+      message.scope === 'all' ? '🌎 All Groups' : `🏙️ City - ${message.city}`;
 
     // Send the preview with confirmation buttons
     await ctx.reply(previewText, {
@@ -358,10 +676,13 @@ export class BroadcastFlowUpdate {
       disable_web_page_preview: true,
       ...Markup.inlineKeyboard([
         [
-          Markup.button.callback('Broadcast', 'confirm_broadcast'),
-          Markup.button.callback('Broadcast with Pin', 'confirm_broadcast_pin'),
+          Markup.button.callback('📢 Broadcast', 'confirm_broadcast'),
+          Markup.button.callback(
+            '📌 Broadcast with Pin',
+            'confirm_broadcast_pin',
+          ),
         ],
-        [Markup.button.callback('Cancel', 'cancel_broadcast')],
+        [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
       ]),
     });
   }
@@ -376,8 +697,48 @@ export class BroadcastFlowUpdate {
     const state = this.getState(userId);
     state.message.pin = false;
 
-    await ctx.editMessageText('Broadcasting message...');
-    await this.broadcastFlowService.broadcastMessage(state.message, ctx);
+    await ctx.editMessageText(
+      '📡 *Broadcasting message...*\n\nSending your announcement to the selected groups.',
+      {
+        parse_mode: 'Markdown',
+      },
+    );
+
+    try {
+      const result = await this.broadcastFlowService.broadcastMessage(
+        state.message,
+        ctx,
+      );
+
+      if (result.success) {
+        await ctx.reply(
+          `✅ *Success!*\n\nYour message has been broadcasted to ${result.groupCount} groups.`,
+          {
+            parse_mode: 'Markdown',
+          },
+        );
+      } else {
+        // Create a more detailed error message
+        let errorMessage = `⚠️ *Broadcast Failed*\n\n${result.message}`;
+
+        // Keep this brief for user display
+        if (result.failedGroups && result.failedGroups.length > 0) {
+          errorMessage += `\n\nFailed groups: ${result.failedGroups.join(', ')}`;
+        }
+
+        await ctx.reply(errorMessage, {
+          parse_mode: 'Markdown',
+        });
+      }
+    } catch (error) {
+      console.error('Broadcast error:', error);
+      await ctx.reply(
+        '❌ *Error*\n\nThere was a problem broadcasting your message. Please try again later.',
+        {
+          parse_mode: 'Markdown',
+        },
+      );
+    }
 
     state.step = 'completed';
 
@@ -395,8 +756,48 @@ export class BroadcastFlowUpdate {
     const state = this.getState(userId);
     state.message.pin = true;
 
-    await ctx.editMessageText('Broadcasting message with pin...');
-    await this.broadcastFlowService.broadcastMessage(state.message, ctx);
+    await ctx.editMessageText(
+      '📡 *Broadcasting message with pin...*\n\nSending and pinning your announcement in the selected groups.',
+      {
+        parse_mode: 'Markdown',
+      },
+    );
+
+    try {
+      const result = await this.broadcastFlowService.broadcastMessage(
+        state.message,
+        ctx,
+      );
+
+      if (result.success) {
+        await ctx.reply(
+          `✅ *Success!*\n\nYour message has been broadcasted and pinned in ${result.groupCount} groups.`,
+          {
+            parse_mode: 'Markdown',
+          },
+        );
+      } else {
+        // Create a more detailed error message
+        let errorMessage = `⚠️ *Broadcast Failed*\n\n${result.message}`;
+
+        // Keep this brief for user display
+        if (result.failedGroups && result.failedGroups.length > 0) {
+          errorMessage += `\n\nFailed groups: ${result.failedGroups.join(', ')}`;
+        }
+
+        await ctx.reply(errorMessage, {
+          parse_mode: 'Markdown',
+        });
+      }
+    } catch (error) {
+      console.error('Broadcast error:', error);
+      await ctx.reply(
+        '❌ *Error*\n\nThere was a problem broadcasting your message. Please try again later.',
+        {
+          parse_mode: 'Markdown',
+        },
+      );
+    }
 
     state.step = 'completed';
 
@@ -404,15 +805,37 @@ export class BroadcastFlowUpdate {
     await this.showMainKeyboardAfterInlineQuery(ctx);
   }
 
+  private async handleCancel(ctx: Context) {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    this.resetState(userId);
+
+    await ctx.reply(
+      '❌ *Broadcast canceled*\n\nYour broadcast has been canceled. What would you like to do next?',
+      {
+        parse_mode: 'Markdown',
+      },
+    );
+
+    // Show the main keyboard again
+    await this.showMainKeyboard(ctx);
+  }
+
   @Action('cancel_broadcast')
   async onCancelBroadcast(@Ctx() ctx: any) {
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    await ctx.answerCbQuery();
+    await ctx.answerCbQuery('Broadcast canceled');
     this.resetState(userId);
 
-    await ctx.editMessageText('Broadcast canceled.');
+    await ctx.editMessageText(
+      '❌ *Broadcast canceled*\n\nYour broadcast has been canceled.',
+      {
+        parse_mode: 'Markdown',
+      },
+    );
 
     // Show the main keyboard again
     await this.showMainKeyboardAfterInlineQuery(ctx);
@@ -424,30 +847,47 @@ export class BroadcastFlowUpdate {
     await this.onBroadcast(ctx);
   }
 
-  @Start()
-  async onStartCommand(@Ctx() ctx: Context) {
-    // Reset user state
-    const userId = ctx.from?.id;
-    if (userId) {
-      this.resetState(userId);
-    }
-
-    // Reply with the main keyboard directly using Markup
-    await ctx.reply(
-      'Welcome to the Broadcasting Bot!',
-      Markup.keyboard([['Broadcast Message']]).resize(),
-    );
+  @Command('cancel')
+  async onCancelCommand(@Ctx() ctx: Context) {
+    await this.handleCancel(ctx);
   }
 
   @Command('help')
   async onHelpCommand(@Ctx() ctx: Context) {
-    await ctx.reply(
-      'This bot allows you to broadcast messages to Telegram groups.\n\n' +
-        'Available commands:\n' +
-        '/start - Start the bot\n' +
-        '/broadcast - Start a new broadcast\n' +
-        '/help - Show this help message',
-    );
+    const helpMessage = `
+📚 *Bot Usage Guide* 📚
+
+This bot helps you broadcast messages to your Telegram communities.
+
+*Commands:*
+• /start - Start the bot
+• /broadcast - Begin a new broadcast
+• /cancel - Cancel current broadcast
+• /help - Show this help message
+
+*Broadcasting Steps:*
+1️⃣ Select your target audience
+2️⃣ Provide your message content
+3️⃣ Add optional details like venue, date, etc.
+4️⃣ Choose to add images or buttons
+5️⃣ Review and send your broadcast
+
+*Tips:*
+• Use the 'Skip' button to bypass optional fields
+• Super admins can broadcast to all groups
+• Regular admins can broadcast to their city groups
+• You can cancel anytime with /cancel
+
+Need more help? Feel free to ask!
+`;
+
+    await ctx.reply(helpMessage, {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('🔊 Start Broadcasting', 'start_broadcast')],
+      ]),
+    });
+
     await this.showMainKeyboard(ctx);
   }
 
