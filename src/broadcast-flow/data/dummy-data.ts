@@ -4,21 +4,20 @@ import { CityData } from '../interfaces/city-data.interface';
 
 // Dummy groups data with real group IDs
 export const dummyGroups: TelegramGroup[] = [
-  // Use the group IDs directly for the chatId
   {
     id: '1',
     name: 'PizzaDao Testnet - Super Group',
-    chatId: '-4652819851',
+    chatId: '-1002418974575',
     city: 'Global',
     type: 'supergroup',
-  }, // Real group ID 4652819851
+  },
   {
     id: '2',
     name: 'PizzaDao Testnet - Sub Group',
-    chatId: '-4786977353',
+    chatId: '-1002324184659',
     city: 'Colombo',
     type: 'supergroup',
-  }, // Real group ID 4786977353
+  },
   {
     id: '3',
     name: 'Rome Pizza Lovers',
