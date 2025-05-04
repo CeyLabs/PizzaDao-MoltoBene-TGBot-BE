@@ -1,4 +1,3 @@
-// src/app.module.ts
 import { Module } from '@nestjs/common';
 import { TelegrafModule } from 'nestjs-telegraf';
 
@@ -7,6 +6,7 @@ import { AppService } from './app.service';
 import { BroadcastFlowModule } from './broadcast-flow/broadcast-flow.module';
 import { config, validateConfig } from './config/config';
 import { BotCommandsService } from './bot-commands';
+import { PrivateChatMiddleware } from './middleware/chat-type.middleware';
 
 // Validate the configuration
 validateConfig();
@@ -15,8 +15,8 @@ validateConfig();
   imports: [
     TelegrafModule.forRoot({
       token: config.telegramToken,
-      // Include the BroadcastFlowModule in the Telegraf module
       include: [BroadcastFlowModule],
+      middlewares: [PrivateChatMiddleware],
     }),
     BroadcastFlowModule,
   ],
