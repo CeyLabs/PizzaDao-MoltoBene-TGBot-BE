@@ -1,73 +1,102 @@
-import { Update, Ctx, Command } from 'nestjs-telegraf';
-import { Context } from 'telegraf';
-import { RoleMiddleware } from './middleware/role.middleware';
-import { Use } from 'nestjs-telegraf';
+import { Update, Ctx, Command, Action, On } from 'nestjs-telegraf';
 import { TelegramService } from './telegram.service';
+import { MyContext } from './telegram.context';
 
-const MAIN_GROUP_ID = -1002418974575; // Replace with actual main group ID
+const MAIN_GROUP_ID = -1002418974575;
+const SUB_GROUP_ID = -1002324184659;
 
 @Update()
 export class TelegramUpdate {
   constructor(private telegramService: TelegramService) {}
 
   @Command('broadcast')
-  async broadcast(@Ctx() ctx: Context) {
-    const roleMiddleware = new RoleMiddleware(this.telegramService);
-    await roleMiddleware.roleValidationMiddleware(MAIN_GROUP_ID)(
-      ctx,
-      async () => {
-        if (!ctx.message || !('text' in ctx.message)) {
-          await ctx.reply('Please provide a valid text message.');
-          return;
-        }
+  async broadcast(@Ctx() ctx: MyContext) {
+    if (ctx.chat?.type !== 'private') {
+      await ctx.reply(
+        '❌ Please use this command in a private chat with the bot.',
+      );
+      return;
+    }
 
-        const userMainRole = ctx.state.userMainRole;
-        const userCurrentRole = ctx.state.userCurrentRole;
-        const messageText = ctx.message.text.replace('/broadcast', '').trim();
-
-        if (!messageText) {
-          await ctx.reply('Please provide a message to broadcast.');
-          return;
-        }
-
-        if (!ctx.chat) {
-          await ctx.reply('Chat context not available.');
-          return;
-        }
-
-        const currentChatId = ctx.chat.id;
-
-        // ✅ Only allow full broadcast if:
-        // - user is admin/creator in MAIN group
-        // - and message is sent from MAIN group
-        const isFromMainGroup = currentChatId === MAIN_GROUP_ID;
-        const isMainAdmin =
-          userMainRole === 'creator' || userMainRole === 'administrator';
-
-        if (isMainAdmin && isFromMainGroup) {
-          await this.broadcastToAllGroups(messageText, ctx);
-          await ctx.reply('Broadcasted to all groups.');
-          return;
-        }
-
-        // ✅ Allow broadcasting only in current group if user is local admin
-        if (
-          userCurrentRole === 'creator' ||
-          userCurrentRole === 'administrator'
-        ) {
-          await ctx.telegram.sendMessage(currentChatId, messageText);
-          await ctx.reply('Broadcasted to your group only.');
-          return;
-        }
-
-        await ctx.reply('You do not have permission to broadcast.');
+    await ctx.reply('Where do you want to send this message?', {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: '📤 Send to Sub Group Only',
+              callback_data: 'broadcast_subgroup',
+            },
+          ],
+          [{ text: '🌍 Send to All Groups', callback_data: 'broadcast_all' }],
+        ],
       },
+    });
+  }
+
+  @Action('broadcast_subgroup')
+  async handleSubGroup(@Ctx() ctx: MyContext) {
+    const userId = ctx.from?.id;
+    if (!userId) {
+      await ctx.reply('Could not identify user.');
+      return;
+    }
+
+    const role = await this.telegramService.getUserRole(SUB_GROUP_ID, userId);
+    if (role !== 'creator' && role !== 'administrator') {
+      await ctx.reply(
+        '❌ You are not authorized to send messages to the subgroup.',
+      );
+      return;
+    }
+
+    ctx.session.broadcastTarget = 'subgroup';
+    await ctx.reply(
+      '✅ Please send the message you want to broadcast to the Sub Group.',
     );
   }
 
-  private async broadcastToAllGroups(message: string, ctx: Context) {
-    const groupIds = [MAIN_GROUP_ID, -1002324184659];
+  @Action('broadcast_all')
+  async handleAllGroup(@Ctx() ctx: MyContext) {
+    const userId = ctx.from?.id;
+    if (!userId) {
+      await ctx.reply('Could not identify user.');
+      return;
+    }
 
+    const role = await this.telegramService.getUserRole(MAIN_GROUP_ID, userId);
+    if (role !== 'creator' && role !== 'administrator') {
+      await ctx.reply('❌ You are not authorized to broadcast to all groups.');
+      return;
+    }
+
+    ctx.session.broadcastTarget = 'all';
+    await ctx.reply(
+      '✅ Please send the message you want to broadcast to all groups.',
+    );
+  }
+
+  @On('text')
+  async handleText(@Ctx() ctx: MyContext) {
+    if (ctx.chat?.type !== 'private' || !ctx.session?.broadcastTarget) return;
+
+    const text = ctx.message && 'text' in ctx.message ? ctx.message.text : null;
+    if (!text) return;
+
+    const target = ctx.session.broadcastTarget;
+
+    if (target === 'all') {
+      await this.broadcastToAllGroups(text, ctx);
+      await ctx.reply('✅ Message sent to all groups.');
+    } else if (target === 'subgroup') {
+      await ctx.telegram.sendMessage(SUB_GROUP_ID, text);
+      await ctx.reply('✅ Message sent to subgroup.');
+    }
+
+    ctx.session.broadcastTarget = null;
+  }
+
+  private async broadcastToAllGroups(message: string, ctx: MyContext) {
+    const groupIds = [MAIN_GROUP_ID, SUB_GROUP_ID];
     for (const chatId of groupIds) {
       await ctx.telegram.sendMessage(chatId, message);
     }
