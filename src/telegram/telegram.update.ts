@@ -28,6 +28,12 @@ export class TelegramUpdate {
             },
           ],
           [{ text: '🌍 Send to All Groups', callback_data: 'broadcast_all' }],
+          [
+            {
+              text: '🌍 Send to Super Group Only',
+              callback_data: 'broadcast_supergroup',
+            },
+          ],
         ],
       },
     });
@@ -52,6 +58,28 @@ export class TelegramUpdate {
     ctx.session.broadcastTarget = 'subgroup';
     await ctx.reply(
       '✅ Please send the message you want to broadcast to the Sub Group.',
+    );
+  }
+
+  @Action('broadcast_supergroup')
+  async handleSuperGroup(@Ctx() ctx: MyContext) {
+    const userId = ctx.from?.id;
+    if (!userId) {
+      await ctx.reply('Could not identify user.');
+      return;
+    }
+
+    const role = await this.telegramService.getUserRole(MAIN_GROUP_ID, userId);
+    if (role !== 'creator' && role !== 'administrator') {
+      await ctx.reply(
+        '❌ You are not authorized to send messages to the supergroup.',
+      );
+      return;
+    }
+
+    ctx.session.broadcastTarget = 'supergroup';
+    await ctx.reply(
+      '✅ Please send the message you want to broadcast to the Super Group.',
     );
   }
 
@@ -90,6 +118,9 @@ export class TelegramUpdate {
     } else if (target === 'subgroup') {
       await ctx.telegram.sendMessage(SUB_GROUP_ID, text);
       await ctx.reply('✅ Message sent to subgroup.');
+    } else if (target === 'supergroup') {
+      await ctx.telegram.sendMessage(MAIN_GROUP_ID, text);
+      await ctx.reply('✅ Message sent to supergroup.');
     }
 
     ctx.session.broadcastTarget = null;
