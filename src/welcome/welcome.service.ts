@@ -15,6 +15,12 @@ export class WelcomeService {
 
   @On('new_chat_members')
   async handleNewMember(ctx: any) {
+    const { message } = ctx;
+
+    if (message) {
+      await ctx.telegram.deleteMessage(ctx.chat.id, message.message_id);
+    }
+
     const newMembers = ctx.message?.new_chat_members;
     if (newMembers) {
       for (const member of newMembers) {
@@ -24,8 +30,8 @@ export class WelcomeService {
         await ctx.telegram.restrictChatMember(ctx.chat.id, member.id, {
           can_send_messages: false,
         });
-        const verificationMessage = await ctx.replyWithMarkdownV2(
-          `Welcome, ${member.first_name}! Please verify you are not a robot by clicking the button below. You have 30 seconds to verify.`,
+        const verificationMessage = await ctx.replyWithMarkdown(
+          `Welcome, ${member.first_name} Please verify you are not a robot by clicking the button below. You have 30 seconds to verify.`,
           {
             reply_markup: {
               inline_keyboard: [
@@ -109,6 +115,15 @@ export class WelcomeService {
           show_alert: true,
         });
       }
+    }
+  }
+
+  @On('left_chat_member')
+  async handleLeftChatMember(ctx: any) {
+    const { message } = ctx;
+
+    if (message) {
+      await ctx.telegram.deleteMessage(ctx.chat.id, message.message_id);
     }
   }
 
