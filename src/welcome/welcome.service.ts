@@ -55,11 +55,19 @@ export class WelcomeService {
         // Start private chat for verification
         await ctx.answerCbQuery();
         this.userSteps.set(userId, 1);
-        await ctx.telegram.sendMessage(
-          userId,
-          'Let’s verify your details. Please provide the following information:',
-        );
-        await ctx.telegram.sendMessage(userId, 'What is your name?');
+
+        try {
+          await ctx.telegram.sendMessage(
+            userId,
+            'Let’s verify your details. Please provide the following information:',
+          );
+          await ctx.telegram.sendMessage(userId, 'What is your name?');
+        } catch (error) {
+          const botUsername = ctx.botInfo?.username || 'your_bot_username';
+          await ctx.replyWithMarkdown(
+            `It seems you haven't started the bot in a private chat. Please click [this link](https://t.me/${botUsername}) to start the bot and then click "Verify" again.`,
+          );
+        }
       } else {
         await ctx.answerCbQuery('You cannot verify for another user.', {
           show_alert: true,
