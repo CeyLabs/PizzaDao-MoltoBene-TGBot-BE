@@ -13,7 +13,7 @@ import { BroadcastFlowService } from './broadcast-flow.service';
 import { BroadcastMessage } from './interfaces/broadcast-message.interface';
 import { BroadcastState } from './interfaces/broadcast-state.interface';
 import { InlineKeyboardButton } from 'telegraf/typings/core/types/typegram';
-import { helpMessage } from 'src/bot-commands';
+import { helpMessage, welcomeMessage } from 'src/bot-commands';
 
 const MAIN_GROUP_ID = -1002418974575;
 
@@ -99,22 +99,14 @@ export class BroadcastFlowUpdate {
     const firstName = ctx.from?.first_name || 'there';
 
     // Welcome message with emoji and formatting
-    const welcomeMessage = `
-🎉 *Welcome, ${firstName}!* 🎉
+    const personalizedWelcomeMessage = `
+🎉 *Welcome, ${firstName}!* 🎉+
 
-I'm your Broadcasting Assistant, here to help you share messages with your Telegram communities!
-
-*What can I do?*
-📢 Send announcements to multiple groups
-🏙️ Target messages to specific cities
-🖼️ Include images and buttons in your broadcasts
-📌 Pin important messages
-
-Ready to get started?
+${welcomeMessage}
 `;
 
     // Send welcome message with command buttons
-    await ctx.reply(welcomeMessage, {
+    await ctx.reply(personalizedWelcomeMessage, {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
         [Markup.button.callback('🔊 Broadcast Message', 'start_broadcast')],
@@ -205,7 +197,15 @@ Ready to get started?
       `
 🎉 *Welcome back, ${firstName}!* 🎉
 
-Ready to broadcast a message?
+I'm your Broadcasting Assistant, here to help you share messages with your Telegram communities!
+
+*What can I do?*
+📢 Send announcements to multiple groups
+🏙️ Target messages to specific cities
+🖼️ Include images and buttons in your broadcasts
+📌 Pin important messages
+
+Ready to get started?
 `,
       {
         parse_mode: 'Markdown',

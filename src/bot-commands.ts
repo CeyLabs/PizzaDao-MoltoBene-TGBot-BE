@@ -49,3 +49,13 @@ This bot helps you broadcast messages to your Telegram communities.
 
 Need more help? Feel free to ask!
 `;
+
+export const welcomeMessage = `I'm your Broadcasting Assistant, here to help you share messages with your Telegram communities!
+
+*What can I do?*
+📢 Send announcements to multiple groups
+🏙️ Target messages to specific cities
+🖼️ Include images and buttons in your broadcasts
+📌 Pin important messages
+
+Ready to get started?`;
