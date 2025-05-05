@@ -4,54 +4,57 @@ import { Context } from 'telegraf';
 
 @Update()
 @Injectable()
-export class WelcomeService {
-  getWelcome(): { message: string } {
-    return { message: 'Welcome to the bot! How can I assist you today?' };
-  }
-
+export class WelcomeFlowService {
   private userSteps = new Map<number, number>();
   private registeredUsers = new Set<number>();
   private userGroupMap = new Map<number, number>();
 
   @On('new_chat_members')
-  async handleNewMember(ctx: any) {
+  async handleNewMember(ctx: Context) {
     const { message } = ctx;
 
-    if (message) {
-      await ctx.telegram.deleteMessage(ctx.chat.id, message.message_id);
+    if (!message || !('new_chat_members' in message) || !('chat' in message)) {
+      return;
     }
 
-    const newMembers = ctx.message?.new_chat_members;
-    if (newMembers) {
-      for (const member of newMembers) {
-        this.userGroupMap.set(member.id, ctx.chat.id);
+    const chatId = ctx.chat?.id ?? 0;
 
-        // Mute the user and send a verification message
-        await ctx.telegram.restrictChatMember(ctx.chat.id, member.id, {
+    try {
+      await ctx.telegram.deleteMessage(chatId, message.message_id);
+    } catch (error) {
+      console.error('Failed to delete the new member message:', error);
+    }
+
+    for (const member of message?.new_chat_members) {
+      this.userGroupMap.set(member.id, chatId);
+
+      // Mute the user and send a verification message
+      await ctx.telegram.restrictChatMember(chatId, member.id, {
+        permissions: {
           can_send_messages: false,
-        });
-        const verificationMessage = await ctx.replyWithMarkdown(
-          `Welcome, ${member.first_name} Please verify you are not a robot by clicking the button below. You have 30 seconds to verify.`,
-          {
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: 'Verify', callback_data: `verify_${member.id}` }],
-              ],
-            },
+        },
+      });
+      const verificationMessage = await ctx.replyWithMarkdownV2(
+        `Welcome\, ${`[${member.first_name}](tg://user?id=${member.id})`} \\! Please verify you are not a robot by clicking the button below\\. You have 30 seconds to verify\\.`,
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Verify', callback_data: `verify_${member.id}` }],
+            ],
           },
-        );
+        },
+      );
 
-        setTimeout(async () => {
-          try {
-            await ctx.telegram.deleteMessage(
-              ctx.chat.id,
-              verificationMessage.message_id,
-            );
-          } catch (error) {
-            console.error('Failed to delete message:', error);
-          }
-        }, 30000);
-      }
+      setTimeout(async () => {
+        try {
+          await ctx.telegram.deleteMessage(
+            chatId,
+            verificationMessage.message_id,
+          );
+        } catch (error) {
+          console.error('Failed to delete message:', error);
+        }
+      }, 30000);
     }
   }
 
@@ -78,7 +81,11 @@ export class WelcomeService {
             userId,
             'Let’s verify your details. Please provide the following information:',
           );
-          await ctx.telegram.sendMessage(userId, 'What is your name?');
+          await ctx.telegram.sendMessage(userId, 'What is your name?', {
+            reply_markup: {
+              force_reply: true,
+            },
+          });
         } catch (error) {
           const botUsername = ctx.botInfo?.username || 'your_bot_username';
 
@@ -138,44 +145,47 @@ export class WelcomeService {
       // Collect name
       const name = ctx.message?.text;
       this.userSteps.set(userId, 2);
-      await ctx.reply('Which country are you from?');
+      await ctx.reply('Which country are you from?', {
+        reply_markup: {
+          force_reply: true,
+        },
+      });
     } else if (step === 2) {
       // Collect country
       const country = ctx.message?.text;
       this.userSteps.set(userId, 3);
-      await ctx.reply('Which city are you from?');
+      await ctx.reply('Which city are you from?', {
+        reply_markup: {
+          force_reply: true,
+        },
+      });
     } else if (step === 3) {
       // Collect city
       const city = ctx.message?.text;
       this.userSteps.set(userId, 4);
-      await ctx.reply('What is your favorite Mafia movie?');
+      await ctx.reply('What is your favorite Mafia movie?', {
+        reply_markup: {
+          force_reply: true,
+        },
+      });
     } else if (step === 4) {
       // Collect Mafia movie
       const mafiaMovie = ctx.message?.text;
       this.userSteps.set(userId, 5);
-      await ctx.reply('What is your favorite Ninja Turtle character?');
+      await ctx.reply('What is your favorite Ninja Turtle character?', {
+        reply_markup: {
+          force_reply: true,
+        },
+      });
     } else if (step === 5) {
       // Collect Ninja Turtle character
       const ninjaTurtle = ctx.message?.text;
       this.userSteps.delete(userId);
       this.registeredUsers.add(userId);
 
-      // Send wallet connect button
-      // await ctx.replyWithMarkdown(
-      //   'Thank you for providing your details. Please connect your wallet by clicking the button below.',
-      //   {
-      //     reply_markup: {
-      //       inline_keyboard: [
-      //         [
-      //           {
-      //             text: 'Connect Wallet',
-      //             url: 'https://your-wallet-connect-url.com',
-      //           },
-      //         ],
-      //       ],
-      //     },
-      //   },
-      // );
+      await ctx.reply(
+        'Thank you for providing your details! You are now verified.',
+      );
 
       const groupId = this.userGroupMap.get(userId);
       if (groupId) {
@@ -191,9 +201,23 @@ export class WelcomeService {
             can_pin_messages: false,
           },
         });
+
+        // const verificationMessage = await ctx.replyWithMarkdownV2(
+        //     `Welcome\, ${`[${member.first_name}](tg://user?id=${member.id})`} \\! Please verify you are not a robot by clicking the button below\\. You have 30 seconds to verify\\.`,
+        //     {
+        //       reply_markup: {
+        //         inline_keyboard: [
+        //           [{ text: 'Verify', callback_data: `verify_${member.id}` }],
+        //         ],
+        //       },
+        //     },
+        //   );
         const welcomeMessage = await ctx.telegram.sendMessage(
           groupId,
-          `User ${ctx.message?.from.first_name} has been verified and unmuted. Welcome to the group!`,
+          `User ${`[${ctx.message?.from.first_name}](tg://user?id=${ctx.message?.from.id})`} has been verified and unmuted\\. Welcome to the group\\!`,
+          {
+            parse_mode: 'MarkdownV2',
+          },
         );
 
         setTimeout(async () => {
