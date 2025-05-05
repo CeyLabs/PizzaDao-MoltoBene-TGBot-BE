@@ -24,8 +24,8 @@ export class WelcomeService {
         await ctx.telegram.restrictChatMember(ctx.chat.id, member.id, {
           can_send_messages: false,
         });
-        await ctx.replyWithMarkdown(
-          `Welcome, ${member.first_name}! Please verify you are not a robot by clicking the button below.`,
+        const verificationMessage = await ctx.replyWithMarkdownV2(
+          `Welcome, ${member.first_name}! Please verify you are not a robot by clicking the button below. You have 30 seconds to verify.`,
           {
             reply_markup: {
               inline_keyboard: [
@@ -34,6 +34,17 @@ export class WelcomeService {
             },
           },
         );
+
+        setTimeout(async () => {
+          try {
+            await ctx.telegram.deleteMessage(
+              ctx.chat.id,
+              verificationMessage.message_id,
+            );
+          } catch (error) {
+            console.error('Failed to delete message:', error);
+          }
+        }, 30000);
       }
     }
   }
@@ -64,9 +75,34 @@ export class WelcomeService {
           await ctx.telegram.sendMessage(userId, 'What is your name?');
         } catch (error) {
           const botUsername = ctx.botInfo?.username || 'your_bot_username';
-          await ctx.replyWithMarkdown(
-            `It seems you haven't started the bot in a private chat. Please click [this link](https://t.me/${botUsername}) to start the bot and then click "Verify" again.`,
-          );
+
+          const groupId = this.userGroupMap.get(userId);
+
+          if (groupId) {
+            const verificationMessage = await ctx.telegram.sendMessage(
+              groupId,
+              `It seems you haven't started the bot in a private chat. Please click [this link](https://t.me/${botUsername}) to start the bot and then click "Verify" again. You have 30 seconds to verify.`,
+              {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                  inline_keyboard: [
+                    [{ text: 'Verify', callback_data: `verify_${userId}` }],
+                  ],
+                },
+              },
+            );
+
+            setTimeout(async () => {
+              try {
+                await ctx.telegram.deleteMessage(
+                  groupId,
+                  verificationMessage.message_id,
+                );
+              } catch (error) {
+                console.error('Failed to delete message:', error);
+              }
+            }, 30000);
+          }
         }
       } else {
         await ctx.answerCbQuery('You cannot verify for another user.', {
@@ -140,10 +176,21 @@ export class WelcomeService {
             can_pin_messages: false,
           },
         });
-        await ctx.telegram.sendMessage(
+        const welcomeMessage = await ctx.telegram.sendMessage(
           groupId,
           `User ${ctx.message?.from.first_name} has been verified and unmuted. Welcome to the group!`,
         );
+
+        setTimeout(async () => {
+          try {
+            await ctx.telegram.deleteMessage(
+              groupId,
+              welcomeMessage.message_id,
+            );
+          } catch (error) {
+            console.error('Failed to delete verified message:', error);
+          }
+        }, 10000);
       }
     }
   }
