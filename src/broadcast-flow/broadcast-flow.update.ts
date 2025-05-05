@@ -49,21 +49,21 @@ export class BroadcastFlowUpdate {
   private showMainKeyboard(ctx: Context) {
     return ctx.reply(
       '✨ What would you like to do today? ✨',
-      Markup.keyboard([['🔊 Broadcast Message']]).resize(),
+      // Markup.keyboard([['🔊 Broadcast Message']]).resize(),
     );
   }
 
-  private async showMainKeyboardAfterInlineQuery(ctx: any) {
-    try {
-      // For inline query responses, we need to ensure we're sending a new message
-      await ctx.reply(
-        '✨ What would you like to do today? ✨',
-        Markup.keyboard([['🔊 Broadcast Message']]).resize(),
-      );
-    } catch (error) {
-      console.error('Error showing main keyboard:', error);
-    }
-  }
+  // private async showMainKeyboardAfterInlineQuery(ctx: any) {
+  //   try {
+  //     // For inline query responses, we need to ensure we're sending a new message
+  //     await ctx.reply(
+  //       '✨ What would you like to do today? ✨',
+  //       Markup.keyboard([['🔊 Broadcast Message']]).resize(),
+  //     );
+  //   } catch (error) {
+  //     console.error('Error showing main keyboard:', error);
+  //   }
+  // }
 
   private async showCancelOption(ctx: any, message: string, options: any = {}) {
     const inlineKeyboard = options.reply_markup?.inline_keyboard || [];
@@ -126,6 +126,7 @@ Ready to get started?
   }
 
   @Hears(['🔊 Broadcast Message', 'Broadcast Message'])
+  @Command('broadcast')
   async onBroadcast(@Ctx() ctx: Context) {
     const userId = ctx.from?.id;
     if (!userId) return;
@@ -751,7 +752,7 @@ Ready to broadcast a message?
     state.step = 'completed';
 
     // Show the main keyboard again
-    await this.showMainKeyboardAfterInlineQuery(ctx);
+    // await this.showMainKeyboardAfterInlineQuery(ctx);
   }
 
   @Action('confirm_broadcast_pin')
@@ -810,7 +811,7 @@ Ready to broadcast a message?
     state.step = 'completed';
 
     // Show the main keyboard again
-    await this.showMainKeyboardAfterInlineQuery(ctx);
+    // await this.showMainKeyboardAfterInlineQuery(ctx);
   }
 
   private async handleCancel(ctx: Context) {
@@ -846,7 +847,7 @@ Ready to broadcast a message?
     );
 
     // Show the main keyboard again
-    await this.showMainKeyboardAfterInlineQuery(ctx);
+    // await this.showMainKeyboardAfterInlineQuery(ctx);
   }
 
   // Handle command interactions
