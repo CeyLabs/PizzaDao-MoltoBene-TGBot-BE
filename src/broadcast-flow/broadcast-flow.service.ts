@@ -31,6 +31,16 @@ export class BroadcastFlowService {
     return this.groups.filter((group) => group.city === city);
   }
 
+  getCityGroupId(city: string): string | null {
+    const group = dummyGroups.find(
+      (group) =>
+        group.type === 'subgroup' &&
+        group.city?.toLowerCase() === city.toLowerCase(),
+    );
+
+    return group && group.chatId ? group.chatId : null;
+  }
+
   getAllCities(): string[] {
     return [
       ...new Set(

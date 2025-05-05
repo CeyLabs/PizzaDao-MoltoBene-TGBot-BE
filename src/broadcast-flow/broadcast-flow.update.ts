@@ -311,11 +311,35 @@ Ready to get started?
     await ctx.answerCbQuery();
 
     const state = this.getState(userId);
-    state.message.city = ctx.match[1];
+    const selectedCity = ctx.match[1];
+
+    // Dynamically get the SUB_GROUP_ID for the selected city
+    const SUB_GROUP_ID = this.broadcastFlowService.getCityGroupId(selectedCity);
+
+    if (!SUB_GROUP_ID) {
+      await ctx.reply('❌ Invalid city selected. Please try again.');
+      return;
+    }
+
+    // Check if the user is an admin or creator in the city group
+    const role = await this.broadcastFlowService.getUserRole(
+      Number(SUB_GROUP_ID),
+      userId,
+    );
+    if (role !== 'creator' && role !== 'administrator') {
+      await ctx.reply(
+        `❌ You are not authorized to send messages to the ${selectedCity} group`,
+      );
+      return;
+    }
+
+    // Update the state with the selected city and proceed to collect the message
+    state.message.city = selectedCity;
+    state.message.scope = 'city';
     state.step = 'collect_message';
 
     await ctx.editMessageText(
-      `🏙️ *Selected city: ${state.message.city}*\n\nNow, let's collect your message details.`,
+      `🏙️ *Selected city: ${selectedCity}*\n\nNow, let's collect your message details.`,
       {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
