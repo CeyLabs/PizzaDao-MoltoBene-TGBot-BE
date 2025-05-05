@@ -13,6 +13,9 @@ import { BroadcastFlowService } from './broadcast-flow.service';
 import { BroadcastMessage } from './interfaces/broadcast-message.interface';
 import { BroadcastState } from './interfaces/broadcast-state.interface';
 import { InlineKeyboardButton } from 'telegraf/typings/core/types/typegram';
+
+const MAIN_GROUP_ID = -1002418974575;
+
 @Update()
 @Injectable()
 export class BroadcastFlowUpdate {
@@ -130,15 +133,9 @@ Ready to get started?
     const state = this.getState(userId);
     state.step = 'select_scope';
 
-    // Check if user is a super admin
-    const isSuperAdmin = await this.broadcastFlowService.isSuperAdmin(userId);
-
     const buttons: InlineKeyboardButton[][] = [];
 
-    // Only show "All Groups" to super admins
-    if (isSuperAdmin) {
-      buttons.push([Markup.button.callback('🌎 All Groups', 'scope_all')]);
-    }
+    buttons.push([Markup.button.callback('🌎 All Groups', 'scope_all')]);
 
     // Show "City" option to all admins
     buttons.push([Markup.button.callback('🏙️ City', 'scope_city')]);
@@ -233,6 +230,17 @@ Ready to broadcast a message?
     const scopeMatch = ctx.match[1];
 
     if (scopeMatch === 'all') {
+      const role = await this.broadcastFlowService.getUserRole(
+        MAIN_GROUP_ID,
+        userId,
+      );
+      // Only group creators and admins can broadcast messages in super(Main) group
+      if (role !== 'creator' && role !== 'administrator') {
+        await ctx.reply(
+          '❌ You are not authorized to broadcast to all groups.',
+        );
+        return;
+      }
       state.message.scope = 'all';
       state.step = 'collect_message';
       await ctx.editMessageText(

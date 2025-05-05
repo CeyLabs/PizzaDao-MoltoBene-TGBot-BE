@@ -1,5 +1,5 @@
 export interface BroadcastMessage {
-  scope: 'all' | 'city';
+  scope: 'all' | 'supergroup' | 'allsubgroups' | 'city';
   city?: string;
   place?: string;
   date?: string;

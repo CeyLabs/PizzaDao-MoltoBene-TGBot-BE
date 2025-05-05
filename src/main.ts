@@ -1,9 +1,9 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { getBotToken } from 'nestjs-telegraf';
-import { sessionMiddleware } from './middleware/session.middleware';
+//import { sessionMiddleware } from './middleware/session.middleware';
 import { config } from './config/config';
-import { Telegraf } from 'telegraf';
+import { session, Telegraf } from 'telegraf';
 import { Logger } from '@nestjs/common';
 
 async function bootstrap() {
@@ -16,7 +16,7 @@ async function bootstrap() {
     const bot = app.get<Telegraf>(getBotToken());
 
     // Use session middleware
-    bot.use(sessionMiddleware());
+    bot.use(session());
 
     // Log middleware for debugging
     bot.use((ctx, next) => {

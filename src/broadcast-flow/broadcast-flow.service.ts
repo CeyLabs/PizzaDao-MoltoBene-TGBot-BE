@@ -1,25 +1,25 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { TelegramGroup } from './interfaces/telegram-group.interface';
 import { BroadcastMessage } from './interfaces/broadcast-message.interface';
-import { dummyGroups, dummyCityData, dummyAdmins } from './data/dummy-data';
+import { dummyGroups } from './data/dummy-data';
 import { BroadcastResult } from './interfaces/broadcast-result.interface';
-import { config } from '../config/config';
+// import { config } from '../config/config';
+import { InjectBot } from 'nestjs-telegraf';
+import { Context, Telegraf } from 'telegraf';
 
 @Injectable()
 export class BroadcastFlowService {
   private readonly logger = new Logger(BroadcastFlowService.name);
   private groups: TelegramGroup[] = dummyGroups;
-  private cityData = dummyCityData;
-  private admins = dummyAdmins;
 
-  constructor() {
-    this.logger.log(
-      `Broadcasting service initialized in ${config.environment} mode`,
-    );
-    if (config.isDev) {
-      this.logger.log(
-        'Development mode: All users will have admin permissions',
-      );
+  constructor(@InjectBot() private bot: Telegraf<Context>) {}
+
+  async getUserRole(chatId: number, userId: number): Promise<string> {
+    try {
+      const member = await this.bot.telegram.getChatMember(chatId, userId);
+      return member.status;
+    } catch (error) {
+      return 'none';
     }
   }
 
@@ -32,61 +32,13 @@ export class BroadcastFlowService {
   }
 
   getAllCities(): string[] {
-    return [...new Set(this.groups.map((group) => group.city))];
-  }
-
-  async isSuperAdmin(userId: number): Promise<boolean> {
-    this.logger.debug(`Checking super admin status for user: ${userId}`);
-
-    // In development mode, treat all users as super admins
-    if (config.isDev) {
-      this.logger.debug('Development mode: Auto-granting super admin rights');
-      return true;
-    }
-
-    // Check if user matches any admin records
-    const adminRecord = this.admins.find(
-      (admin) => admin.userId === userId || admin.userId === 0,
-    );
-    const isSuperAdmin =
-      adminRecord?.role === 'super-admin' || adminRecord?.userId === 0;
-
-    this.logger.debug(`User ${userId} super admin status: ${isSuperAdmin}`);
-    return isSuperAdmin;
-  }
-
-  async isAdminForCity(userId: number, city: string): Promise<boolean> {
-    this.logger.debug(
-      `Checking admin rights for user: ${userId}, city: ${city}`,
-    );
-
-    // In development mode, treat all users as having permission
-    if (config.isDev) {
-      this.logger.debug('Development mode: Auto-granting city admin rights');
-      return true;
-    }
-
-    // Check if user matches any admin records
-    const adminRecord = this.admins.find(
-      (admin) => admin.userId === userId || admin.userId === 0,
-    );
-    if (!adminRecord) {
-      this.logger.debug(`User ${userId} has no admin record`);
-      return false;
-    }
-
-    // Super admins have access to all cities
-    if (adminRecord.role === 'super-admin' || adminRecord.userId === 0) {
-      this.logger.debug(
-        `User ${userId} is super admin with access to all cities`,
-      );
-      return true;
-    }
-
-    // Regular admins only have access to their assigned cities
-    const hasAccess = adminRecord.cities.includes(city);
-    this.logger.debug(`User ${userId} has access to ${city}: ${hasAccess}`);
-    return hasAccess;
+    return [
+      ...new Set(
+        this.groups
+          .map((group) => group.city)
+          .filter((city): city is string => city !== undefined),
+      ),
+    ];
   }
 
   async broadcastMessage(
@@ -101,32 +53,10 @@ export class BroadcastFlowService {
     try {
       // Determine target groups based on scope and permissions
       if (message.scope === 'all') {
-        // Check if user is super admin
-        const isSuperAdmin = await this.isSuperAdmin(userId);
-        this.logger.log(`User ${userId} is super admin: ${isSuperAdmin}`);
-
-        if (!isSuperAdmin) {
-          return {
-            success: false,
-            message: "You don't have permission to broadcast to all groups.",
-            groupCount: 0,
-          };
-        }
         targetGroups = this.groups;
       } else if (message.scope === 'city' && message.city) {
         // Check if user has admin rights for this city
-        const hasPermission = await this.isAdminForCity(userId, message.city);
-        this.logger.log(
-          `User ${userId} has permission for city ${message.city}: ${hasPermission}`,
-        );
 
-        if (!hasPermission) {
-          return {
-            success: false,
-            message: `You don't have permission to broadcast to ${message.city}.`,
-            groupCount: 0,
-          };
-        }
         targetGroups = this.getGroupsByCity(message.city);
       }
 
