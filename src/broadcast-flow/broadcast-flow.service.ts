@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { TelegramGroup } from './interfaces/telegram-group.interface';
 import { BroadcastMessage } from './interfaces/broadcast-message.interface';
-import { dummyGroups } from './data/dummy-data';
+import { dummyGroups } from './data/group-data';
 import { BroadcastResult } from './interfaces/broadcast-result.interface';
 // import { config } from '../config/config';
 import { InjectBot } from 'nestjs-telegraf';

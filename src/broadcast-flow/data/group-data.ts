@@ -12,6 +12,13 @@ export const dummyGroups: TelegramGroup[] = [
     name: 'PizzaDao Testnet - Sub Group',
     chatId: '-1002324184659',
     city: 'Colombo',
-    type: 'supergroup',
+    type: 'subgroup',
+  },
+  {
+    id: '3',
+    name: 'PizzaDao Testnet - Galle',
+    chatId: '-1002630593822',
+    city: 'Galle',
+    type: 'subgroup',
   },
 ];

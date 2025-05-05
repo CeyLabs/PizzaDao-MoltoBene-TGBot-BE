@@ -3,5 +3,5 @@ export interface TelegramGroup {
   name: string;
   chatId?: string;
   city?: string;
-  type: 'group' | 'supergroup' | 'channel';
+  type: 'group' | 'supergroup' | 'subgroup' | 'channel';
 }
