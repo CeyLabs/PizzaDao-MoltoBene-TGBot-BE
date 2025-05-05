@@ -188,6 +188,30 @@ ${welcomeMessage}
     }
   }
 
+  @Action('back_from_city')
+  async onBackFromCity(@Ctx() ctx: any) {
+    await ctx.answerCbQuery();
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    // Reset the user's state to 'select_scope'
+    const state = this.getState(userId);
+    state.step = 'select_scope';
+
+    const buttons: InlineKeyboardButton[][] = [];
+    buttons.push([Markup.button.callback('🌎 All Groups', 'scope_all')]);
+    buttons.push([Markup.button.callback('🏙️ City', 'scope_city')]);
+    buttons.push([Markup.button.callback('❌ Cancel', 'cancel_broadcast')]);
+
+    await ctx.editMessageText(
+      '📢 *Select broadcast target:*\n\nWhere would you like to send your message?',
+      {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard(buttons),
+      },
+    );
+  }
+
   @Action('back_to_start')
   async onBackToStart(@Ctx() ctx: any) {
     await ctx.answerCbQuery();
@@ -258,6 +282,10 @@ Ready to get started?
       const cities = this.broadcastFlowService.getAllCities();
       const cityButtons = cities.map((city) => [
         Markup.button.callback(`🏙️ ${city}`, `city_${city}`),
+      ]);
+
+      cityButtons.push([
+        Markup.button.callback('🔙 Back to main', 'back_from_city'),
       ]);
 
       // Add cancel button
