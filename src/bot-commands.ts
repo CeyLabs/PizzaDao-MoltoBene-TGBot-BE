@@ -22,3 +22,30 @@ export class BotCommandsService implements OnModuleInit {
     }
   }
 }
+
+export const helpMessage = `
+📚 *Bot Usage Guide* 📚
+
+This bot helps you broadcast messages to your Telegram communities.
+
+*Commands:*
+• /start - Start the bot
+• /broadcast - Begin a new broadcast
+• /cancel - Cancel current broadcast
+• /help - Show this help message
+
+*Broadcasting Steps:*
+1️⃣ Select your target audience
+2️⃣ Provide your message content
+3️⃣ Add optional details like venue, date, etc.
+4️⃣ Choose to add images or buttons
+5️⃣ Review and send your broadcast
+
+*Tips:*
+• Use the 'Skip' button to bypass optional fields
+• Super admins can broadcast to all groups
+• Regular admins can broadcast to their city groups
+• You can cancel anytime with /cancel
+
+Need more help? Feel free to ask!
+`;

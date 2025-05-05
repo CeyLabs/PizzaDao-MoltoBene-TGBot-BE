@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   Action,
   Command,
@@ -13,6 +13,7 @@ import { BroadcastFlowService } from './broadcast-flow.service';
 import { BroadcastMessage } from './interfaces/broadcast-message.interface';
 import { BroadcastState } from './interfaces/broadcast-state.interface';
 import { InlineKeyboardButton } from 'telegraf/typings/core/types/typegram';
+import { helpMessage } from 'src/bot-commands';
 
 const MAIN_GROUP_ID = -1002418974575;
 
@@ -53,17 +54,17 @@ export class BroadcastFlowUpdate {
     );
   }
 
-  // private async showMainKeyboardAfterInlineQuery(ctx: any) {
-  //   try {
-  //     // For inline query responses, we need to ensure we're sending a new message
-  //     await ctx.reply(
-  //       '✨ What would you like to do today? ✨',
-  //       Markup.keyboard([['🔊 Broadcast Message']]).resize(),
-  //     );
-  //   } catch (error) {
-  //     console.error('Error showing main keyboard:', error);
-  //   }
-  // }
+  private async showMainKeyboardAfterInlineQuery(ctx: any) {
+    try {
+      // For inline query responses, we need to ensure we're sending a new message
+      await ctx.reply(
+        '✨ What would you like to do today? ✨',
+        Markup.keyboard([['🔊 Broadcast Message']]).resize(),
+      );
+    } catch (error) {
+      console.error('Error showing main keyboard:', error);
+    }
+  }
 
   private async showCancelOption(ctx: any, message: string, options: any = {}) {
     const inlineKeyboard = options.reply_markup?.inline_keyboard || [];
@@ -160,43 +161,39 @@ Ready to get started?
     await this.onBroadcast(ctx);
   }
 
+  @Command(['help', 'h'])
   @Action('show_help')
-  async onShowHelp(@Ctx() ctx: any) {
-    await ctx.answerCbQuery();
+  async showHelp(@Ctx() ctx: Context) {
+    try {
+      // Answer callback query if this came from a button
+      if ('callback_query' in ctx.update) {
+        await ctx.answerCbQuery();
+      }
 
-    const helpMessage = `
-📚 *Bot Usage Guide* 📚
+      const helpText = helpMessage;
 
-This bot helps you broadcast messages to your Telegram communities.
+      const replyOptions = {
+        parse_mode: 'Markdown' as const,
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Back to Start', callback_data: 'back_to_start' }],
+            [{ text: '📢 Start Broadcast', callback_data: 'start_broadcast' }],
+          ],
+        },
+      };
 
-*Commands:*
-• /start - Start the bot
-• /broadcast - Begin a new broadcast
-• /cancel - Cancel current broadcast
-• /help - Show this help message
-
-*Broadcasting Steps:*
-1️⃣ Select your target audience
-2️⃣ Provide your message content
-3️⃣ Add optional details like venue, date, etc.
-4️⃣ Choose to add images or buttons
-5️⃣ Review and send your broadcast
-
-*Tips:*
-• Use the 'Skip' button to bypass optional fields
-• Super admins can broadcast to all groups
-• Regular admins can broadcast to their city groups
-• You can cancel anytime with /cancel
-
-Need more help? Feel free to ask!
-`;
-
-    await ctx.editMessageText(helpMessage, {
-      parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([
-        [Markup.button.callback('🔙 Back', 'back_to_start')],
-      ]),
-    });
+      // Different handling for callback vs command
+      if ('message' in ctx.update) {
+        await ctx.reply(helpText, replyOptions);
+      } else {
+        await ctx.editMessageText(helpText, replyOptions);
+      }
+    } catch (error) {
+      Logger.error('Help command failed:', error);
+      await ctx.reply('Failed to show help. Please try again.', {
+        parse_mode: 'Markdown',
+      });
+    }
   }
 
   @Action('back_to_start')
@@ -851,6 +848,7 @@ Ready to broadcast a message?
   }
 
   // Handle command interactions
+
   @Command('broadcast')
   async onBroadcastCommand(@Ctx() ctx: Context) {
     await this.onBroadcast(ctx);
@@ -863,41 +861,30 @@ Ready to broadcast a message?
 
   @Command('help')
   async onHelpCommand(@Ctx() ctx: Context) {
-    const helpMessage = `
-📚 *Bot Usage Guide* 📚
-
-This bot helps you broadcast messages to your Telegram communities.
-
-*Commands:*
-• /start - Start the bot
-• /broadcast - Begin a new broadcast
-• /cancel - Cancel current broadcast
-• /help - Show this help message
-
-*Broadcasting Steps:*
-1️⃣ Select your target audience
-2️⃣ Provide your message content
-3️⃣ Add optional details like venue, date, etc.
-4️⃣ Choose to add images or buttons
-5️⃣ Review and send your broadcast
-
-*Tips:*
-• Use the 'Skip' button to bypass optional fields
-• Super admins can broadcast to all groups
-• Regular admins can broadcast to their city groups
-• You can cancel anytime with /cancel
-
-Need more help? Feel free to ask!
-`;
-
-    await ctx.reply(helpMessage, {
-      parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([
-        [Markup.button.callback('🔊 Start Broadcasting', 'start_broadcast')],
-      ]),
-    });
-
-    await this.showMainKeyboard(ctx);
+    try {
+      // Try to edit the message if it's a callback query context
+      if (ctx.updateType === 'callback_query') {
+        await ctx.editMessageText(helpMessage, {
+          parse_mode: 'Markdown',
+          ...Markup.inlineKeyboard([
+            [Markup.button.callback('🔙 Back', 'back_to_start')],
+          ]),
+        });
+      } else {
+        // Otherwise send a new message
+        await ctx.reply(helpMessage, {
+          parse_mode: 'Markdown',
+          ...Markup.inlineKeyboard([
+            [Markup.button.callback('🔙 Back', 'back_to_start')],
+          ]),
+        });
+      }
+    } catch (error) {
+      console.error('Error in help command:', error);
+      await ctx.reply(
+        "Sorry, I couldn't display the help right now. Please try again later.",
+      );
+    }
   }
 
   // Fallback handler for any unhandled updates
