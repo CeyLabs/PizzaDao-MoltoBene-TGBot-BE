@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Update, On, Command } from 'nestjs-telegraf';
+import { Update, On, Command, Start } from 'nestjs-telegraf';
 import { Context } from 'telegraf';
 import { UsersService } from '../users/users.service';
 
@@ -18,6 +18,19 @@ export class WelcomeService {
 
   private userSteps = new Map<number, number>();
   private userGroupMap = new Map<number, number>();
+
+  @Start()
+  async startCommand(ctx: Context) {
+    const userId = ctx.message?.from.id ?? 0;
+
+    if (this.isUserRegistered(userId)) {
+      await ctx.reply('You are already registered and verified!');
+    } else {
+      await ctx.reply(
+        'Welcome! It seems you are not registered yet. Please use the /register command to start the registration process.',
+      );
+    }
+  }
 
   @On('new_chat_members')
   async handleNewMember(ctx: Context) {
@@ -76,9 +89,6 @@ export class WelcomeService {
 
     if (callbackData?.startsWith('verify_')) {
       const targetUserId = parseInt(callbackData.split('_')[1], 10);
-
-      console.log('User ID:', userId);
-      console.log(this.isUserRegistered(userId));
 
       if (userId === targetUserId) {
         if (this.isUserRegistered(userId)) {
@@ -153,9 +163,6 @@ export class WelcomeService {
   async handlePrivateChat(ctx: any) {
     const userId = ctx.message?.from.id;
     if (!userId) return;
-    
-    console.log('User ID:', userId);
-    console.log(this.isUserRegistered(userId));
 
     const step = this.userSteps.get(userId);
 
@@ -239,22 +246,6 @@ export class WelcomeService {
           }
         }, 10000);
       }
-    }
-  }
-
-  @Command('welcome')
-  async welcomeCommand(ctx: Context) {
-    const userId = ctx.message?.from.id;
-    if (!userId) return;
-
-    console.log(this.isUserRegistered(userId));
-
-    if (this.isUserRegistered(userId)) {
-      await ctx.reply('You are already registered and verified!');
-    } else {
-      await ctx.reply(
-        'Welcome! It seems you are not registered yet. Please use the /register command to start the registration process.',
-      );
     }
   }
 }

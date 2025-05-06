@@ -4,7 +4,9 @@ import { AppService } from './app.service';
 import { WelcomeModule } from './modules/welcome/welcome.module';
 import { GeneralModule } from './modules/general/general.module';
 import { UsersModule } from './modules/users/users.module';
-import { UsersService } from './modules/users/users.service';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
 
 @Module({
   imports: [
@@ -15,10 +17,10 @@ import { UsersService } from './modules/users/users.service';
           throw new Error('TELEGRAM_BOT_TOKEN is not defined');
         })(),
     }),
-    WelcomeModule,
-    GeneralModule,
     UsersModule,
+    GeneralModule,
+    WelcomeModule,
   ],
-  providers: [AppService, UsersService],
+  providers: [AppService],
 })
 export class AppModule {}
