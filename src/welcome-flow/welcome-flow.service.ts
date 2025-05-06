@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Hears, Command, Update, On } from 'nestjs-telegraf';
+import { Update, On } from 'nestjs-telegraf';
 import { Context } from 'telegraf';
 
 @Update()
@@ -59,8 +59,9 @@ export class WelcomeFlowService {
   }
 
   @On('callback_query')
-  async handleCallbackQuery(ctx: any) {
-    const callbackData = ctx.callbackQuery?.data;
+  async handleCallbackQuery(ctx: Context) {
+    const callbackQuery = ctx.callbackQuery as any;
+    const callbackData = callbackQuery.data;
     const userId = ctx.callbackQuery?.from.id;
 
     if (callbackData?.startsWith('verify_')) {
@@ -126,11 +127,12 @@ export class WelcomeFlowService {
   }
 
   @On('left_chat_member')
-  async handleLeftChatMember(ctx: any) {
+  async handleLeftChatMember(ctx: Context) {
     const { message } = ctx;
+    const chatId = ctx.chat?.id ?? 0;
 
     if (message) {
-      await ctx.telegram.deleteMessage(ctx.chat.id, message.message_id);
+      await ctx.telegram.deleteMessage(chatId, message.message_id);
     }
   }
 
@@ -202,16 +204,6 @@ export class WelcomeFlowService {
           },
         });
 
-        // const verificationMessage = await ctx.replyWithMarkdownV2(
-        //     `Welcome\, ${`[${member.first_name}](tg://user?id=${member.id})`} \\! Please verify you are not a robot by clicking the button below\\. You have 30 seconds to verify\\.`,
-        //     {
-        //       reply_markup: {
-        //         inline_keyboard: [
-        //           [{ text: 'Verify', callback_data: `verify_${member.id}` }],
-        //         ],
-        //       },
-        //     },
-        //   );
         const welcomeMessage = await ctx.telegram.sendMessage(
           groupId,
           `User ${`[${ctx.message?.from.first_name}](tg://user?id=${ctx.message?.from.id})`} has been verified and unmuted\\. Welcome to the group\\!`,
@@ -232,10 +224,5 @@ export class WelcomeFlowService {
         }, 10000);
       }
     }
-  }
-
-  @Command('welcome')
-  async welcomeCommand(ctx: any) {
-    await ctx.reply('hello world');
   }
 }
