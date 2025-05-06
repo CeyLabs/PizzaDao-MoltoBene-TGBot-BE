@@ -1,12 +1,22 @@
 import { Injectable } from '@nestjs/common';
-import { Update, On } from 'nestjs-telegraf';
+import { Update, On, Command } from 'nestjs-telegraf';
 import { Context } from 'telegraf';
+import { UsersService } from '../users/users.service';
 
 @Update()
 @Injectable()
-export class WelcomeFlowService {
+export class WelcomeService {
+  constructor(private readonly userRegistryService: UsersService) {}
+
+  addUser(userId: number): void {
+    this.userRegistryService.addUser(userId);
+  }
+
+  isUserRegistered(userId: number): boolean {
+    return this.userRegistryService.isUserRegistered(userId);
+  }
+
   private userSteps = new Map<number, number>();
-  private registeredUsers = new Set<number>();
   private userGroupMap = new Map<number, number>();
 
   @On('new_chat_members')
@@ -59,7 +69,7 @@ export class WelcomeFlowService {
   }
 
   @On('callback_query')
-  async handleCallbackQuery(ctx: Context) {
+  async handleCallbackQuery(ctx: any) {
     const callbackQuery = ctx.callbackQuery as any;
     const callbackData = callbackQuery.data;
     const userId = ctx.callbackQuery?.from.id;
@@ -67,8 +77,11 @@ export class WelcomeFlowService {
     if (callbackData?.startsWith('verify_')) {
       const targetUserId = parseInt(callbackData.split('_')[1], 10);
 
+      console.log('User ID:', userId);
+      console.log(this.isUserRegistered(userId));
+
       if (userId === targetUserId) {
-        if (this.registeredUsers.has(userId)) {
+        if (this.isUserRegistered(userId)) {
           await ctx.answerCbQuery('You are already verified.');
           return;
         }
@@ -140,6 +153,9 @@ export class WelcomeFlowService {
   async handlePrivateChat(ctx: any) {
     const userId = ctx.message?.from.id;
     if (!userId) return;
+    
+    console.log('User ID:', userId);
+    console.log(this.isUserRegistered(userId));
 
     const step = this.userSteps.get(userId);
 
@@ -183,7 +199,7 @@ export class WelcomeFlowService {
       // Collect Ninja Turtle character
       const ninjaTurtle = ctx.message?.text;
       this.userSteps.delete(userId);
-      this.registeredUsers.add(userId);
+      this.addUser(userId);
 
       await ctx.reply(
         'Thank you for providing your details! You are now verified.',
@@ -223,6 +239,22 @@ export class WelcomeFlowService {
           }
         }, 10000);
       }
+    }
+  }
+
+  @Command('welcome')
+  async welcomeCommand(ctx: Context) {
+    const userId = ctx.message?.from.id;
+    if (!userId) return;
+
+    console.log(this.isUserRegistered(userId));
+
+    if (this.isUserRegistered(userId)) {
+      await ctx.reply('You are already registered and verified!');
+    } else {
+      await ctx.reply(
+        'Welcome! It seems you are not registered yet. Please use the /register command to start the registration process.',
+      );
     }
   }
 }
