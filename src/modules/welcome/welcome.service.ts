@@ -8,12 +8,16 @@ import { UsersService } from '../users/users.service';
 export class WelcomeService {
   constructor(private readonly userRegistryService: UsersService) {}
 
-  addUser(userId: number): void {
-    this.userRegistryService.addUser(userId);
+  addUser(userId: number, first_name: string): void {
+    this.userRegistryService.addUser(userId, first_name);
   }
 
-  isUserRegistered(userId: number): boolean {
+  isUserRegistered(userId: number): Promise<boolean> {
     return this.userRegistryService.isUserRegistered(userId);
+  }
+
+  findUser(userId: number) {
+    return this.userRegistryService.findUser(userId);
   }
 
   private userSteps = new Map<number, number>();
@@ -22,12 +26,100 @@ export class WelcomeService {
   @Start()
   async startCommand(ctx: Context) {
     const userId = ctx.message?.from.id ?? 0;
+    const firstName = ctx.message?.from.first_name || 'there';
 
-    if (this.isUserRegistered(userId)) {
-      await ctx.reply('You are already registered and verified!');
+    if (await this.isUserRegistered(userId)) {
+      await ctx.replyWithMarkdownV2(
+        `👋 *Hello, ${(await this.findUser(userId)).first_name}\\!* \n\n` +
+          `Welcome to *PizzaDAO Molto Bene Bot* 🍕\\. I'm here to assist you\\. \n\n` +
+          `Here are some things you can do:\n` +
+          `1\\. Ask me for help anytime by typing /help\\.\n\n` +
+          `Let's get started 🚀`,
+      );
     } else {
+      await ctx.replyWithMarkdownV2(
+        `👋 *Hello, ${firstName}\\!* \n\n` +
+          `Welcome to *PizzaDAO Molto Bene Bot* 🍕\\. I'm here to assist you\\. \n\n` +
+          `Here are some things you can do:\n` +
+          `1\\. Use the /register command to register yourself\\.\n` +
+          `2\\. Verify yourself to join the group\\.\n` +
+          `3\\. Ask me for help anytime by typing /help\\.\n\n` +
+          `Let's get started 🚀`,
+      );
       await ctx.reply(
-        'Welcome! It seems you are not registered yet. Please use the /register command to start the registration process.',
+        'It seems you are not registered yet. Please use the /register command to start the registration process.',
+      );
+    }
+  }
+
+  @Command('register')
+  async handleUserRegistration(ctx: any) {
+    const userId = ctx.message?.from.id;
+    if (!userId) return;
+
+    this.userSteps.set(userId, 0);
+
+    const step = this.userSteps.get(userId);
+
+    if (step === 0) {
+      // Start the registration process
+      this.userSteps.set(userId, 1);
+      await ctx.telegram.sendMessage(userId, 'What is your name?', {
+        reply_markup: {
+          force_reply: true,
+        },
+      });
+    } else if (step === 1) {
+      // Collect name
+      const name = ctx.message?.text;
+      this.userSteps.set(userId, 2);
+      await ctx.reply('Which country are you from?', {
+        reply_markup: {
+          force_reply: true,
+        },
+      });
+    } else if (step === 2) {
+      // Collect country
+      const country = ctx.message?.text;
+      this.userSteps.set(userId, 3);
+      await ctx.reply('Which city are you from?', {
+        reply_markup: {
+          force_reply: true,
+        },
+      });
+    } else if (step === 3) {
+      // Collect city
+      const city = ctx.message?.text;
+      this.userSteps.set(userId, 4);
+      await ctx.reply('What is your favorite Mafia movie?', {
+        reply_markup: {
+          force_reply: true,
+        },
+      });
+    } else if (step === 4) {
+      // Collect Mafia movie
+      const mafiaMovie = ctx.message?.text;
+      this.userSteps.set(userId, 5);
+      await ctx.reply('What is your favorite Ninja Turtle character?', {
+        reply_markup: {
+          force_reply: true,
+        },
+      });
+    } else if (step === 5) {
+      // Collect Ninja Turtle character
+      const ninjaTurtle = ctx.message?.text;
+      this.userSteps.delete(userId);
+      const first_name = ctx.message?.from.first_name || 'Unknown';
+      this.addUser(userId, first_name);
+
+      await ctx.reply(
+        'Thank you for providing your details! You are now registered.',
+      );
+
+      // Send group link
+      const groupLink = 'https://t.me/your_group_link'; // Replace with your actual group link
+      await ctx.reply(
+        `You can now join our group using this link: ${groupLink}`,
       );
     }
   }
@@ -91,7 +183,7 @@ export class WelcomeService {
       const targetUserId = parseInt(callbackData.split('_')[1], 10);
 
       if (userId === targetUserId) {
-        if (this.isUserRegistered(userId)) {
+        if (await this.isUserRegistered(userId)) {
           await ctx.answerCbQuery('You are already verified.');
           return;
         }
@@ -206,7 +298,8 @@ export class WelcomeService {
       // Collect Ninja Turtle character
       const ninjaTurtle = ctx.message?.text;
       this.userSteps.delete(userId);
-      this.addUser(userId);
+      const first_name = ctx.message?.from.first_name || 'Unknown';
+      this.addUser(userId, first_name);
 
       await ctx.reply(
         'Thank you for providing your details! You are now verified.',

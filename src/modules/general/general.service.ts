@@ -8,7 +8,7 @@ import { UsersService } from '../users/users.service';
 export class GeneralService {
   constructor(private readonly userRegistryService: UsersService) {}
 
-  isUserRegistered(userId: number): boolean {
+  isUserRegistered(userId: number): Promise<boolean> {
     return this.userRegistryService.isUserRegistered(userId);
   }
 }
