@@ -285,6 +285,7 @@ export class WelcomeService {
           username: ctx.callbackQuery?.from.username || null,
           tg_first_name: ctx.callbackQuery?.from.first_name || null,
           tg_last_name: ctx.callbackQuery?.from.last_name || null,
+          group_id: ctx.callbackQuery.message?.chat.id,
           custom_full_name: null,
           region_id: null,
           country_id: null,
@@ -306,9 +307,10 @@ export class WelcomeService {
             },
           });
         } catch (error) {
-          const botUsername = ctx.botInfo?.username || 'your_bot_username';
+          const botUsername = 'udanabot';
 
           const groupId = this.userGroupMap.get(userId)?.group_id;
+          console.log("🚀 ~ WelcomeService ~ handleCallbackQuery ~ groupId:", groupId)
 
           if (groupId) {
             const verificationMessage = await ctx.telegram.sendMessage(
