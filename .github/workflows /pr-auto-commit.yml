@@ -1,0 +1,41 @@
+name: Vercel Kickstart
+
+on:
+  pull_request:
+    types:
+      - synchronize
+      - opened
+  issue_comment:
+permissions:
+  contents: write
+jobs:
+  commit_as_user:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+
+      - name: Set up Git with the target user info
+        env:
+          GIT_USER_NAME: ${{ secrets.GIT_USER_NAME }}
+          GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
+        run: |
+          git config user.name "$GIT_USER_NAME"
+          git config user.email "$GIT_USER_EMAIL"
+
+      - name: Update timestamp.txt with current time
+        run: |
+          echo "Last updated: $(date)" > timestamp.txt
+          git add timestamp.txt
+          git commit -m "Vercel Magic 🪄 - Update timestamp.txt with latest date"
+
+      - name: Push as CMNisal
+        env:
+          GITHUB_TOKEN: ${{ secrets.USER_PAT }} # The PAT of the target user
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          git push --force-with-lease origin HEAD:$PR_HEAD_REF
