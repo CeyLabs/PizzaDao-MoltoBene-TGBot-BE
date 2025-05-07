@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Hears, Help, On, Start, Update } from 'nestjs-telegraf';
+import { Hears, Help, Update } from 'nestjs-telegraf';
 import { Context } from 'telegraf';
 @Update()
 @Injectable()
