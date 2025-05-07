@@ -15,8 +15,8 @@ export class WelcomeService {
     tg_first_name: string | null,
     tg_last_name: string | null,
     custom_full_name: string | null,
-    country: string | null,
-    city: string | null,
+    country_id: string | null,
+    city_id: string | null,
     role: string,
     mafia_movie: string | null,
     ninja_turtle_character: string | null,
@@ -28,8 +28,8 @@ export class WelcomeService {
       tg_first_name,
       tg_last_name,
       custom_full_name,
-      country,
-      city,
+      country_id,
+      city_id,
       role,
       mafia_movie,
       ninja_turtle_character,
@@ -101,17 +101,33 @@ export class WelcomeService {
       tg_first_name: ctx.message?.from.first_name || null,
       tg_last_name: ctx.message?.from.last_name || null,
       custom_full_name: null,
-      country: null,
-      city: null,
+      region_id: null,
+      country_id: null,
+      city_id: null,
       role: 'user',
       mafia_movie: null,
       ninja_turtle_character: null,
       pizza_topping: null,
     });
 
-    await ctx.telegram.sendMessage(userId, 'What is your name?', {
+    // Fetch regions from the database
+    const regions = await this.userRegistryService.getAllRegions();
+
+    // Group regions into rows of 2 buttons
+    const regionButtons: { text: string; callback_data: string }[][] = [];
+    for (let i = 0; i < regions.length; i += 2) {
+      regionButtons.push(
+        regions.slice(i, i + 2).map((region) => ({
+          text: region.name,
+          callback_data: `region_${region.id}`,
+        })),
+      );
+    }
+
+    // Present regions as inline buttons
+    await ctx.reply('Please select your region:', {
       reply_markup: {
-        force_reply: true,
+        inline_keyboard: regionButtons,
       },
     });
   }
@@ -141,8 +157,9 @@ export class WelcomeService {
         tg_first_name: member.first_name || null,
         tg_last_name: member.last_name || null,
         custom_full_name: null,
-        country: null,
-        city: null,
+        region_id: null,
+        country_id: null,
+        city_id: null,
         role: 'user',
         mafia_movie: null,
         ninja_turtle_character: null,
@@ -187,6 +204,70 @@ export class WelcomeService {
 
     if (!userId) return;
 
+    if (callbackData?.startsWith('region_')) {
+      const regionId = callbackData.split('_')[1];
+      const userData = this.userGroupMap.get(userId);
+
+      if (userData) {
+        userData.region_id = regionId; // Save the selected region
+        this.userSteps.set(userId, 2);
+
+        // Fetch countries for the selected region
+        const countries =
+          await this.userRegistryService.getCountriesByRegion(regionId);
+
+        // Group countries into rows of 2 buttons
+        const countryButtons: { text: string; callback_data: string }[][] = [];
+        for (let i = 0; i < countries.length; i += 2) {
+          countryButtons.push(
+            countries.slice(i, i + 2).map((country) => ({
+              text: country.name,
+              callback_data: `country_${country.id}`,
+            })),
+          );
+        }
+
+        // Present countries as inline buttons
+        await ctx.editMessageText('Please select your country:', {
+          reply_markup: {
+            inline_keyboard: countryButtons,
+          },
+        });
+      }
+    } else if (callbackData?.startsWith('country_')) {
+      const countryId = callbackData.split('_')[1];
+      const userData = this.userGroupMap.get(userId);
+
+      if (userData) {
+        userData.country_id = countryId; // Save the selected country
+        this.userSteps.set(userId, 3);
+
+        // Fetch cities for the selected country
+        const cities =
+          await this.userRegistryService.getCitiesByCountry(countryId);
+
+        // Present cities as inline buttons
+        await ctx.editMessageText('Please select your city:', {
+          reply_markup: {
+            inline_keyboard: cities.map((city) => [
+              { text: city.name, callback_data: `city_${city.id}` },
+            ]),
+          },
+        });
+      }
+    } else if (callbackData?.startsWith('city_')) {
+      const cityId = callbackData.split('_')[1];
+      const userData = this.userGroupMap.get(userId);
+
+      if (userData) {
+        userData.city_id = cityId; // Save the selected city
+        this.userSteps.set(userId, 4);
+
+        // Ask for the user's name
+        await ctx.editMessageText('What is your name?');
+      }
+    }
+
     if (callbackData?.startsWith('verify_')) {
       const targetUserId = parseInt(callbackData.split('_')[1], 10);
 
@@ -198,7 +279,21 @@ export class WelcomeService {
 
         // Start private chat for verification
         await ctx.answerCbQuery();
-        this.userSteps.set(userId, 1);
+        this.userSteps.set(userId, 4);
+        this.userGroupMap.set(userId, {
+          telegram_id: userId,
+          username: ctx.callbackQuery?.from.username || null,
+          tg_first_name: ctx.callbackQuery?.from.first_name || null,
+          tg_last_name: ctx.callbackQuery?.from.last_name || null,
+          custom_full_name: null,
+          region_id: null,
+          country_id: null,
+          city_id: null,
+          role: 'user',
+          mafia_movie: null,
+          ninja_turtle_character: null,
+          pizza_topping: null,
+        });
 
         try {
           await ctx.telegram.sendMessage(
@@ -253,11 +348,24 @@ export class WelcomeService {
         return;
       }
 
+      // Fetch country and city names from the database
+      const country = user.country_id
+        ? await this.userRegistryService.getCountryById(user.country_id)
+        : null;
+      const city = user.city_id
+        ? await this.userRegistryService.getCityById(user.city_id)
+        : null;
+
+      console.log(
+        '🚀 ~ WelcomeService ~ handleCallbackQuery ~ country:',
+        user.pizza_topping,
+      );
+
       await ctx.editMessageText(
         `📋 *Your Profile*\n\n` +
           `👤 *Name*: ${user.custom_full_name || 'Not set'}\n` +
-          `🌍 *Country*: ${user.country || 'Not set'}\n` +
-          `🏙️ *City*: ${user.city || 'Not set'}\n` +
+          `🌍 *Country*: ${country?.name || 'Not set'}\n` +
+          `🏙️ *City*: ${city?.name || 'Not set'}\n` +
           `🎥 *Favorite Mafia Movie*: ${user.mafia_movie || 'Not set'}\n` +
           `🐢 *Favorite Ninja Turtle*: ${user.ninja_turtle_character || 'Not set'}\n` +
           `🍕 *Favorite Pizza Topping*: ${user.pizza_topping || 'Not set'}\n\n` +
@@ -346,7 +454,7 @@ export class WelcomeService {
 
     if (!userData) return;
 
-    if (step === 1) {
+    if (step === 4) {
       // Collect name
       if ('text' in ctx.message) {
         userData.custom_full_name = ctx.message.text;
@@ -354,72 +462,42 @@ export class WelcomeService {
         await ctx.reply('Invalid input. Please provide a valid name.');
         return;
       }
-      this.userSteps.set(userId, 2);
-      await ctx.reply('Which country are you from?', {
-        reply_markup: {
-          force_reply: true,
-        },
-      });
-    } else if (step === 2) {
-      // Collect country
-      if ('text' in ctx.message) {
-        userData.country = ctx.message.text;
-      } else {
-        await ctx.reply('Invalid input. Please provide a valid country.');
-        return;
-      }
-      this.userSteps.set(userId, 3);
-      await ctx.reply('Which city are you from?', {
-        reply_markup: {
-          force_reply: true,
-        },
-      });
-    } else if (step === 3) {
-      // Collect city
-      if ('text' in ctx.message) {
-        userData.city = ctx.message.text;
-      } else {
-        await ctx.reply('Invalid input. Please provide a valid city.');
-        return;
-      }
-      this.userSteps.set(userId, 4);
+      this.userSteps.set(userId, 5);
       await ctx.reply('What is your favorite Mafia movie?', {
         reply_markup: {
           force_reply: true,
         },
       });
-    } else if (step === 4) {
-      // Collect Mafia movie
+    } else if (step === 5) {
+      // Collect country
       if ('text' in ctx.message) {
         userData.mafia_movie = ctx.message.text;
       } else {
         await ctx.reply('Invalid input. Please provide a valid movie name.');
         return;
       }
-      this.userSteps.set(userId, 5);
+      this.userSteps.set(userId, 6);
       await ctx.reply('What is your favorite Ninja Turtle character?', {
         reply_markup: {
           force_reply: true,
         },
       });
-    } else if (step === 5) {
-      // Collect Ninja Turtle character
+    } else if (step === 6) {
+      // Collect city
       if ('text' in ctx.message) {
         userData.ninja_turtle_character = ctx.message.text;
       } else {
-        await ctx.reply(
-          'Invalid input. Please provide a valid character name.',
-        );
+        await ctx.reply('Invalid input. Please provide a valid city.');
         return;
       }
-      this.userSteps.set(userId, 6);
+      this.userSteps.set(userId, 7);
       await ctx.reply('What is your favorite pizza topping?', {
         reply_markup: {
           force_reply: true,
         },
       });
-    } else if (step === 6) {
-      // Collect pizza topping and save to database
+    } else if (step === 7) {
+      // Collect Mafia movie
       if ('text' in ctx.message) {
         userData.pizza_topping = ctx.message.text;
       } else {
@@ -434,8 +512,8 @@ export class WelcomeService {
         userData.tg_first_name,
         userData.tg_last_name,
         userData.custom_full_name,
-        userData.country,
-        userData.city,
+        userData.country_id ?? '',
+        userData.city_id ?? '',
         userData.role,
         userData.mafia_movie,
         userData.ninja_turtle_character,

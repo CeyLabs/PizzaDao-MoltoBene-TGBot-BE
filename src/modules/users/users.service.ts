@@ -13,8 +13,8 @@ export class UsersService {
     tg_first_name: string | null,
     tg_last_name: string | null,
     custom_full_name: string | null,
-    country: string | null,
-    city: string | null,
+    country_id: string | null,
+    city_id: string | null,
     role: string,
     mafia_movie: string | null,
     ninja_turtle_character: string | null,
@@ -26,8 +26,8 @@ export class UsersService {
       tg_first_name,
       tg_last_name,
       custom_full_name,
-      country,
-      city,
+      country_id,
+      city_id,
       role,
       mafia_movie,
       ninja_turtle_character,
@@ -63,5 +63,39 @@ export class UsersService {
       .knex('user')
       .where({ telegram_id })
       .update({ [field]: value });
+  }
+
+  async getAllRegions(): Promise<{ id: string; name: string }[]> {
+    return this.knexService.knex('region').select('id', 'name');
+  }
+
+  async getCountriesByRegion(
+    regionId: string,
+  ): Promise<{ id: string; name: string }[]> {
+    return this.knexService
+      .knex('country')
+      .where({ region_id: regionId })
+      .select('id', 'name');
+  }
+
+  async getCitiesByCountry(
+    countryId: string,
+  ): Promise<{ id: string; name: string }[]> {
+    return this.knexService
+      .knex('city')
+      .where({ country_id: countryId })
+      .select('id', 'name');
+  }
+
+  async getCityById(
+    cityId: string,
+  ): Promise<{ id: string; name: string } | null> {
+    return this.knexService.knex('city').where({ id: cityId }).first();
+  }
+
+  async getCountryById(
+    countryId: string,
+  ): Promise<{ id: string; name: string } | null> {
+    return this.knexService.knex('country').where({ id: countryId }).first();
   }
 }

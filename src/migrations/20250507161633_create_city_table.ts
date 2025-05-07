@@ -1,23 +1,21 @@
 import type { Knex } from 'knex';
 
-const tableName = 'admin';
+const tableName = 'city';
 
 export async function up(knex: Knex): Promise<void> {
-  return knex.schema.createTable(tableName, (table) => {
+  await knex.schema.createTable(tableName, (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('uuid_generate_v4()'));
+    table.string('name').notNullable();
     table
-      .string('telegram_id')
+      .uuid('country_id')
       .notNullable()
-      .unique()
-      .references('telegram_id')
-      .inTable('user')
+      .references('id')
+      .inTable('country')
       .onDelete('CASCADE');
-    table.string('role').notNullable();
-    table.specificType('cities', 'text[]');
     table.timestamps(true, true);
   });
 }
 
 export async function down(knex: Knex): Promise<void> {
-  return knex.schema.dropTable(tableName);
+  await knex.schema.dropTable(tableName);
 }

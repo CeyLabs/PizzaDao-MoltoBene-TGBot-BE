@@ -12,8 +12,8 @@ export async function up(knex: Knex): Promise<void> {
     table.string('tg_first_name').notNullable();
     table.string('tg_last_name');
     table.string('custom_full_name');
-    table.string('country');
-    table.string('city');
+    table.string('country_id');
+    table.string('city_id');
     table.string('role').defaultTo('user');
     table.string('mafia_movie');
     table.string('ninja_turtle_character');

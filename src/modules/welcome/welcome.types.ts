@@ -5,8 +5,9 @@ export interface UserRegistrationData {
   tg_first_name: string | null;
   tg_last_name: string | null;
   custom_full_name: string | null;
-  country: string | null;
-  city: string | null;
+  region_id?: string | null;
+  country_id?: string | null;
+  city_id?: string | null;
   role: string;
   mafia_movie: string | null;
   ninja_turtle_character: string | null;
