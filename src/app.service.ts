@@ -9,11 +9,6 @@ export class AppService {
     await ctx.reply('Send me a sticker');
   }
 
-  @On('sticker')
-  async onSticker(ctx: Context) {
-    await ctx.reply('👍');
-  }
-
   @Hears('hi')
   async hearsHi(ctx: Context) {
     await ctx.reply('Hey there');

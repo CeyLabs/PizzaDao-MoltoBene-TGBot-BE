@@ -318,7 +318,7 @@ export class WelcomeService {
   }
 
   @On('text')
-  async handlePrivateChat(ctx: any) {
+  async handlePrivateChat(ctx: Context) {
     const userId = ctx.message?.from.id;
     if (!userId) return;
 
@@ -327,7 +327,12 @@ export class WelcomeService {
 
     if (step && typeof step === 'string' && step.startsWith('edit_')) {
       const field = step.split('_').slice(1).join('_');
-      const newValue = ctx.message?.text;
+      const newValue = 'text' in ctx.message ? ctx.message.text : null;
+
+      if (!newValue) {
+        await ctx.reply('Invalid input. Please provide a valid value.');
+        return;
+      }
 
       await this.userRegistryService.updateUserField(userId, field, newValue);
 
@@ -343,7 +348,12 @@ export class WelcomeService {
 
     if (step === 1) {
       // Collect name
-      userData.custom_full_name = ctx.message?.text;
+      if ('text' in ctx.message) {
+        userData.custom_full_name = ctx.message.text;
+      } else {
+        await ctx.reply('Invalid input. Please provide a valid name.');
+        return;
+      }
       this.userSteps.set(userId, 2);
       await ctx.reply('Which country are you from?', {
         reply_markup: {
@@ -352,7 +362,12 @@ export class WelcomeService {
       });
     } else if (step === 2) {
       // Collect country
-      userData.country = ctx.message?.text;
+      if ('text' in ctx.message) {
+        userData.country = ctx.message.text;
+      } else {
+        await ctx.reply('Invalid input. Please provide a valid country.');
+        return;
+      }
       this.userSteps.set(userId, 3);
       await ctx.reply('Which city are you from?', {
         reply_markup: {
@@ -361,7 +376,12 @@ export class WelcomeService {
       });
     } else if (step === 3) {
       // Collect city
-      userData.city = ctx.message?.text;
+      if ('text' in ctx.message) {
+        userData.city = ctx.message.text;
+      } else {
+        await ctx.reply('Invalid input. Please provide a valid city.');
+        return;
+      }
       this.userSteps.set(userId, 4);
       await ctx.reply('What is your favorite Mafia movie?', {
         reply_markup: {
@@ -370,7 +390,12 @@ export class WelcomeService {
       });
     } else if (step === 4) {
       // Collect Mafia movie
-      userData.mafia_movie = ctx.message?.text;
+      if ('text' in ctx.message) {
+        userData.mafia_movie = ctx.message.text;
+      } else {
+        await ctx.reply('Invalid input. Please provide a valid movie name.');
+        return;
+      }
       this.userSteps.set(userId, 5);
       await ctx.reply('What is your favorite Ninja Turtle character?', {
         reply_markup: {
@@ -379,7 +404,14 @@ export class WelcomeService {
       });
     } else if (step === 5) {
       // Collect Ninja Turtle character
-      userData.ninja_turtle_character = ctx.message?.text;
+      if ('text' in ctx.message) {
+        userData.ninja_turtle_character = ctx.message.text;
+      } else {
+        await ctx.reply(
+          'Invalid input. Please provide a valid character name.',
+        );
+        return;
+      }
       this.userSteps.set(userId, 6);
       await ctx.reply('What is your favorite pizza topping?', {
         reply_markup: {
@@ -388,7 +420,12 @@ export class WelcomeService {
       });
     } else if (step === 6) {
       // Collect pizza topping and save to database
-      userData.pizza_topping = ctx.message?.text;
+      if ('text' in ctx.message) {
+        userData.pizza_topping = ctx.message.text;
+      } else {
+        await ctx.reply('Invalid input. Please provide a valid topping name.');
+        return;
+      }
 
       // Save user data to the database
       this.addUser(
@@ -412,12 +449,11 @@ export class WelcomeService {
         'Thank you for providing your details! You are now verified.',
       );
 
-      const groupId = this.userGroupMap.get(userId);
+      const groupId = this.userGroupMap.get(userId)?.group_id;
       if (groupId) {
         await ctx.telegram.restrictChatMember(groupId, userId, {
           permissions: {
             can_send_messages: true,
-            can_send_media_messages: true,
             can_send_polls: true,
             can_send_other_messages: true,
             can_add_web_page_previews: true,
