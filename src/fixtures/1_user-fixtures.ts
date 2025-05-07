@@ -1,6 +1,6 @@
 import { Knex } from 'knex';
 
-const tableName = "user";
+const tableName = 'user';
 
 export async function seed(knex: Knex): Promise<void> {
   const [{ count }] = await knex(tableName).count();
