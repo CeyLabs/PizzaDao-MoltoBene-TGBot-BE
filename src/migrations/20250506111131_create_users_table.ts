@@ -1,7 +1,11 @@
 import type { Knex } from 'knex';
 
+const tableName = "user";
+
 export async function up(knex: Knex): Promise<void> {
-  return knex.schema.createTable('user', (table) => {
+  await knex.raw('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";');
+
+  await knex.schema.createTable(tableName, (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('uuid_generate_v4()'));
     table.string('telegram_id').notNullable().unique();
     table.string('username');
@@ -19,5 +23,5 @@ export async function up(knex: Knex): Promise<void> {
 }
 
 export async function down(knex: Knex): Promise<void> {
-  return knex.schema.dropTable('user');
+  return knex.schema.dropTable(tableName);
 }
