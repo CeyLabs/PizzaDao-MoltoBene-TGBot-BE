@@ -152,5 +152,8 @@ export async function seed(knex: Knex): Promise<void> {
     { name: 'Lugano', country_id: countryMap['Switzerland'] },
     { name: 'Cambridge', country_id: countryMap['UK'] },
     { name: 'Bruges', country_id: countryMap['Belgium'] },
+    { name: 'Colombo', country_id: countryMap['Sri Lanka'] },
+    { name: 'Galle', country_id: countryMap['Sri Lanka'] },
+    { name: 'Kandy', country_id: countryMap['Sri Lanka'] },
   ]);
 }

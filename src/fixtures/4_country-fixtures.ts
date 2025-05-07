@@ -114,5 +114,6 @@ export async function seed(knex: Knex): Promise<void> {
     { name: 'Finland', region_id: regionMap['Western Europe'] },
     { name: 'UK', region_id: regionMap['Western Europe'] },
     { name: 'Belgium', region_id: regionMap['Western Europe'] },
+    { name: 'Sri Lanka', region_id: regionMap['Asia'] },
   ]);
 }
