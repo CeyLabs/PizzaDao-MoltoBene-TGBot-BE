@@ -12,8 +12,12 @@ import { Context, Markup } from 'telegraf';
 import { BroadcastFlowService } from './broadcast-flow.service';
 import { BroadcastMessage } from './interfaces/broadcast-message.interface';
 import { BroadcastState } from './interfaces/broadcast-state.interface';
-import { InlineKeyboardButton } from 'telegraf/typings/core/types/typegram';
+import {
+  InlineKeyboardButton,
+  InlineQueryResultArticle,
+} from 'telegraf/typings/core/types/typegram';
 import { helpMessage, welcomeMessage } from 'src/bot-commands';
+import { nanoid } from 'nanoid';
 
 const MAIN_GROUP_ID = -1002418974575;
 
@@ -52,6 +56,58 @@ export class BroadcastFlowUpdate {
       '✨ What would you like to do today? ✨',
       // Markup.keyboard([['🔊 Broadcast Message']]).resize(),
     );
+  }
+
+  private async handleCitySelection(
+    ctx: Context,
+    selectedCity: string,
+  ): Promise<number | null> {
+    const userId = ctx.from?.id;
+    if (!userId) return null;
+
+    const state = this.getState(userId);
+    const SUB_GROUP_ID = this.broadcastFlowService.getCityGroupId(selectedCity);
+
+    if (!SUB_GROUP_ID) {
+      await ctx.reply('❌ Invalid city selected. Please try again.');
+      return null;
+    }
+
+    const role = await this.broadcastFlowService.getUserRole(
+      Number(SUB_GROUP_ID),
+      userId,
+    );
+
+    if (role !== 'creator' && role !== 'administrator') {
+      await ctx.reply(
+        `❌ You are not authorized to send messages to the ${selectedCity} group`,
+      );
+      return null;
+    }
+
+    state.message.city = selectedCity;
+    state.message.scope = 'city';
+    state.step = 'collect_message';
+
+    await ctx.reply(
+      `🏙️ *Selected city: ${selectedCity}*\n\nNow, let's collect your message details.`,
+      {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
+        ]),
+      },
+    );
+
+    await this.promptForMessageContent(ctx);
+    return Number(SUB_GROUP_ID);
+  }
+
+  @Command('cityselect')
+  async handleCitySelectCommand(@Ctx() ctx: Context) {
+    if (!ctx.from?.id || !ctx.message || !('text' in ctx.message)) return;
+    const selectedCity = ctx.message.text.split(' ').slice(1).join(' ').trim();
+    await this.handleCitySelection(ctx, selectedCity);
   }
 
   private async showMainKeyboardAfterInlineQuery(ctx: any) {
@@ -256,7 +312,6 @@ Ready to get started?
         MAIN_GROUP_ID,
         userId,
       );
-      // Only group creators and admins can broadcast messages in super(Main) group
       if (role !== 'creator' && role !== 'administrator') {
         await ctx.reply(
           '❌ You are not authorized to broadcast to all groups.',
@@ -279,19 +334,11 @@ Ready to get started?
       state.message.scope = 'city';
       state.step = 'select_city';
 
-      const cities = this.broadcastFlowService.getAllCities();
-      const cityButtons = cities.map((city) => [
-        Markup.button.callback(`🏙️ ${city}`, `city_${city}`),
-      ]);
-
-      cityButtons.push([
-        Markup.button.callback('🔙 Back to main', 'back_from_city'),
-      ]);
-
-      // Add cancel button
-      cityButtons.push([
-        Markup.button.callback('❌ Cancel', 'cancel_broadcast'),
-      ]);
+      const cityButtons: InlineKeyboardButton[][] = [
+        [Markup.button.switchToCurrentChat('🔍 Search City', '')],
+        [Markup.button.callback('🔙 Back to main', 'back_from_city')],
+        [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
+      ];
 
       await ctx.editMessageText(
         '🏙️ *Select a city:*\n\nChoose the city where you want to broadcast your message.',
@@ -303,51 +350,52 @@ Ready to get started?
     }
   }
 
+  @On('inline_query')
+  async handleInlineQuery(@Ctx() ctx: any) {
+    const query = ctx.inlineQuery.query.trim().toLowerCase();
+    const offset = parseInt(ctx.inlineQuery.offset || '0');
+    const pageSize = 20;
+
+    const allCities = this.broadcastFlowService.getAllCities();
+    const filtered = query
+      ? allCities.filter((city) => city.toLowerCase().includes(query))
+      : allCities;
+
+    const results: InlineQueryResultArticle[] = filtered
+      .slice(offset, offset + pageSize)
+      .map((city, index) => ({
+        type: 'article',
+        id: nanoid(),
+        title: city,
+        description: `Broadcast to ${city}`,
+        input_message_content: {
+          message_text: `/cityselect ${city}`,
+          parse_mode: 'Markdown',
+        },
+      }));
+
+    const nextOffset =
+      offset + pageSize < filtered.length ? `${offset + pageSize}` : '';
+
+    await ctx.answerInlineQuery(results, {
+      cache_time: 0,
+      is_personal: true,
+      next_offset: nextOffset,
+    });
+  }
   @Action(/^city_(.+)$/)
   async onCitySelect(@Ctx() ctx: any) {
     const userId = ctx.from?.id;
     if (!userId) return;
 
     await ctx.answerCbQuery();
-
-    const state = this.getState(userId);
     const selectedCity = ctx.match[1];
-
-    // Dynamically get the SUB_GROUP_ID for the selected city
-    const SUB_GROUP_ID = this.broadcastFlowService.getCityGroupId(selectedCity);
+    const SUB_GROUP_ID = await this.handleCitySelection(ctx, selectedCity);
 
     if (!SUB_GROUP_ID) {
       await ctx.reply('❌ Invalid city selected. Please try again.');
       return;
     }
-
-    // Check if the user is an admin or creator in the city group
-    const role = await this.broadcastFlowService.getUserRole(
-      Number(SUB_GROUP_ID),
-      userId,
-    );
-    if (role !== 'creator' && role !== 'administrator') {
-      await ctx.reply(
-        `❌ You are not authorized to send messages to the ${selectedCity} group`,
-      );
-      return;
-    }
-
-    // Update the state with the selected city and proceed to collect the message
-    state.message.city = selectedCity;
-    state.message.scope = 'city';
-    state.step = 'collect_message';
-
-    await ctx.editMessageText(
-      `🏙️ *Selected city: ${selectedCity}*\n\nNow, let's collect your message details.`,
-      {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([
-          [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
-        ]),
-      },
-    );
-    await this.promptForMessageContent(ctx);
   }
 
   private async promptForMessageContent(ctx: any) {

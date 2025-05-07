@@ -21,4 +21,13 @@ export const dummyGroups: TelegramGroup[] = [
     city: 'Galle',
     type: 'subgroup',
   },
+
+  // ✅ Add 72 more realistic dummy cities
+  ...Array.from({ length: 72 }, (_, i) => ({
+    id: `${i + 4}`,
+    name: `PizzaDAO Group - City${i + 4}`,
+    chatId: `-1002${1000000000 + i}`,
+    city: `City${i + 4}`,
+    type: 'subgroup' as 'subgroup',
+  })),
 ];
