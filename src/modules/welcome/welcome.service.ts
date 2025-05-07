@@ -22,7 +22,7 @@ export class WelcomeService {
     ninja_turtle_character: string | null,
     pizza_topping: string | null,
   ): void {
-    this.userRegistryService.addUser(
+    void this.userRegistryService.addUser(
       telegram_id,
       username,
       tg_first_name,
@@ -41,7 +41,7 @@ export class WelcomeService {
     return this.userRegistryService.isUserRegistered(userId);
   }
 
-  findUser(userId: number) {
+  findUser(userId: number): Promise<UserRegistrationData | null> {
     return this.userRegistryService.findUser(userId);
   }
 
@@ -55,7 +55,7 @@ export class WelcomeService {
 
     if (await this.isUserRegistered(userId)) {
       await ctx.replyWithMarkdownV2(
-        `👋 *Hello, ${(await this.findUser(userId)).custom_full_name}\\!* \n\n` +
+        `👋 *Hello, ${(await this.findUser(userId))?.custom_full_name || 'there'}\\!* \n\n` +
           `Welcome to *PizzaDAO Molto Bene Bot* 🍕\\. I'm here to assist you\\. \n\n` +
           `Here are some things you can do:\n` +
           `1\\. Ask me for help anytime by typing /help\\.\n\n` +
@@ -85,8 +85,8 @@ export class WelcomeService {
   }
 
   @Command('register')
-  async handleUserRegistration(ctx: any) {
-    const userId = ctx.message?.from.id;
+  async handleUserRegistration(ctx: Context) {
+    const userId = ctx.message?.from?.id ?? 0;
     if (!userId) return;
 
     if (await this.isUserRegistered(userId)) {
@@ -148,58 +148,64 @@ export class WelcomeService {
       console.error('Failed to delete the new member message:', error);
     }
 
-    for (const member of message?.new_chat_members) {
-      // Store the group_id in userGroupMap
-      this.userGroupMap.set(member.id, {
-        group_id: chatId,
-        telegram_id: member.id,
-        username: member.username || null,
-        tg_first_name: member.first_name || null,
-        tg_last_name: member.last_name || null,
-        custom_full_name: null,
-        region_id: null,
-        country_id: null,
-        city_id: null,
-        role: 'user',
-        mafia_movie: null,
-        ninja_turtle_character: null,
-        pizza_topping: null,
-      });
+    if (message?.new_chat_members) {
+      for (const member of message.new_chat_members) {
+        // Store the group_id in userGroupMap
+        this.userGroupMap.set(member.id, {
+          group_id: chatId,
+          telegram_id: member.id,
+          username: member.username || null,
+          tg_first_name: member.first_name || null,
+          tg_last_name: member.last_name || null,
+          custom_full_name: null,
+          region_id: null,
+          country_id: null,
+          city_id: null,
+          role: 'user',
+          mafia_movie: null,
+          ninja_turtle_character: null,
+          pizza_topping: null,
+        });
 
-      // Mute the user and send a verification message
-      await ctx.telegram.restrictChatMember(chatId, member.id, {
-        permissions: {
-          can_send_messages: false,
-        },
-      });
-      const verificationMessage = await ctx.replyWithMarkdownV2(
-        `Welcome\, ${`[${member.first_name}](tg://user?id=${member.id})`} \\! Please verify you are not a robot by clicking the button below\\. You have 30 seconds to verify\\.`,
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: 'Verify', callback_data: `verify_${member.id}` }],
-            ],
+        // Mute the user and send a verification message
+        await ctx.telegram.restrictChatMember(chatId, member.id, {
+          permissions: {
+            can_send_messages: false,
           },
-        },
-      );
+        });
+        const verificationMessage = await ctx.replyWithMarkdownV2(
+          `Welcome\\, ${`[${member.first_name}](tg://user?id=${member.id})`} \\! Please verify you are not a robot by clicking the button below\\. You have 30 seconds to verify\\.`,
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: 'Verify', callback_data: `verify_${member.id}` }],
+              ],
+            },
+          },
+        );
 
-      setTimeout(async () => {
-        try {
-          await ctx.telegram.deleteMessage(
-            chatId,
-            verificationMessage.message_id,
-          );
-        } catch (error) {
-          console.error('Failed to delete message:', error);
-        }
-      }, 30000);
+        setTimeout(() => {
+          void (async () => {
+            try {
+              await ctx.telegram.deleteMessage(
+                chatId,
+                verificationMessage.message_id,
+              );
+            } catch {
+              console.error('Failed to delete message.');
+            }
+          })();
+        }, 30000);
+      }
     }
   }
 
   @On('callback_query')
   async handleCallbackQuery(ctx: Context) {
-    const callbackQuery = ctx.callbackQuery as any;
-    const callbackData = callbackQuery.data;
+    const callbackData =
+      ctx.callbackQuery && 'data' in ctx.callbackQuery
+        ? ctx.callbackQuery.data
+        : undefined;
     const userId = ctx.callbackQuery?.from.id;
 
     if (!userId) return;
@@ -306,11 +312,10 @@ export class WelcomeService {
               force_reply: true,
             },
           });
-        } catch (error) {
+        } catch {
           const botUsername = 'udanabot';
 
           const groupId = this.userGroupMap.get(userId)?.group_id;
-          console.log("🚀 ~ WelcomeService ~ handleCallbackQuery ~ groupId:", groupId)
 
           if (groupId) {
             const verificationMessage = await ctx.telegram.sendMessage(
@@ -326,15 +331,17 @@ export class WelcomeService {
               },
             );
 
-            setTimeout(async () => {
-              try {
-                await ctx.telegram.deleteMessage(
-                  groupId,
-                  verificationMessage.message_id,
-                );
-              } catch (error) {
-                console.error('Failed to delete message:', error);
-              }
+            setTimeout(() => {
+              void (async () => {
+                try {
+                  await ctx.telegram.deleteMessage(
+                    groupId,
+                    verificationMessage.message_id,
+                  );
+                } catch (error) {
+                  console.error('Failed to delete message:', error);
+                }
+              })();
             }, 30000);
           }
         }
@@ -405,7 +412,7 @@ export class WelcomeService {
           },
         },
       );
-    } else if (callbackData.startsWith('edit_')) {
+    } else if (callbackData?.startsWith('edit_')) {
       const field = callbackData.split('_').slice(1).join('_');
       await ctx.editMessageText(
         `Please enter your new ${field.replace('_', ' ')}:`,
@@ -551,15 +558,17 @@ export class WelcomeService {
           },
         );
 
-        setTimeout(async () => {
-          try {
-            await ctx.telegram.deleteMessage(
-              groupId,
-              welcomeMessage.message_id,
-            );
-          } catch (error) {
-            console.error('Failed to delete verified message:', error);
-          }
+        setTimeout(() => {
+          void (async () => {
+            try {
+              await ctx.telegram.deleteMessage(
+                groupId,
+                welcomeMessage.message_id,
+              );
+            } catch (error) {
+              console.error('Failed to delete message:', error);
+            }
+          })();
         }, 10000);
       }
     }
