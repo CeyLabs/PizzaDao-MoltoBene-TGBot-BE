@@ -50,7 +50,7 @@ export class WelcomeService {
 
   @Start()
   async startCommand(ctx: Context) {
-    const userId = ctx.message?.from.id ?? 0;
+    const userId = ctx.message?.from.id ?? ctx.from?.id ?? 0;
     const firstName = ctx.message?.from.first_name || 'there';
 
     if (await this.isUserRegistered(userId)) {
@@ -267,7 +267,7 @@ export class WelcomeService {
               [
                 {
                   text: '✏️ Edit Ninja Turtle',
-                  callback_data: 'edit_ninja_turtle',
+                  callback_data: 'edit_ninja_turtle_character',
                 },
                 {
                   text: '✏️ Edit Pizza Topping',
@@ -286,6 +286,7 @@ export class WelcomeService {
       );
       this.userSteps.set(userId, `edit_${field}`);
     } else if (callbackData === 'back_to_start') {
+      await ctx.deleteMessage();
       await this.startCommand(ctx);
     }
   }
