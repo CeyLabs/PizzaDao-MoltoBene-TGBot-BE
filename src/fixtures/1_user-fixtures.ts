@@ -1,9 +1,12 @@
 import { Knex } from 'knex';
 
-export async function seed(knex: Knex): Promise<void> {
-  await knex('users').del();
+const tableName = "user";
 
-  await knex('users').insert([
+export async function seed(knex: Knex): Promise<void> {
+  const [{ count }] = await knex(tableName).count();
+  if (Number(count) > 0) return;
+
+  await knex(tableName).insert([
     {
       telegram_id: '555555555',
       username: 'italy_admin',

@@ -1,14 +1,14 @@
 import type { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
-  return knex.schema.createTable('admins', (table) => {
+  return knex.schema.createTable('admin', (table) => {
     table.increments('id').primary();
     table
       .string('telegram_id')
       .notNullable()
       .unique()
       .references('telegram_id')
-      .inTable('users')
+      .inTable('user')
       .onDelete('CASCADE');
     table.string('role').notNullable();
     table.specificType('cities', 'text[]');

@@ -2,14 +2,39 @@ import { Injectable } from '@nestjs/common';
 import { Update, On, Command, Start } from 'nestjs-telegraf';
 import { Context } from 'telegraf';
 import { UsersService } from '../users/users.service';
+import { UserRegistrationData } from './welcome.types';
 
 @Update()
 @Injectable()
 export class WelcomeService {
   constructor(private readonly userRegistryService: UsersService) {}
 
-  addUser(userId: number, first_name: string): void {
-    this.userRegistryService.addUser(userId, first_name);
+  addUser(
+    telegram_id: number,
+    username: string | null,
+    tg_first_name: string | null,
+    tg_last_name: string | null,
+    custom_full_name: string | null,
+    country: string | null,
+    city: string | null,
+    role: string,
+    mafia_movie: string | null,
+    ninja_turtle_character: string | null,
+    pizza_topping: string | null,
+  ): void {
+    this.userRegistryService.addUser(
+      telegram_id,
+      username,
+      tg_first_name,
+      tg_last_name,
+      custom_full_name,
+      country,
+      city,
+      role,
+      mafia_movie,
+      ninja_turtle_character,
+      pizza_topping,
+    );
   }
 
   isUserRegistered(userId: number): Promise<boolean> {
@@ -20,8 +45,8 @@ export class WelcomeService {
     return this.userRegistryService.findUser(userId);
   }
 
-  private userSteps = new Map<number, number>();
-  private userGroupMap = new Map<number, number>();
+  private userSteps = new Map<number, number | string>();
+  private userGroupMap = new Map<number, UserRegistrationData>();
 
   @Start()
   async startCommand(ctx: Context) {
@@ -30,11 +55,18 @@ export class WelcomeService {
 
     if (await this.isUserRegistered(userId)) {
       await ctx.replyWithMarkdownV2(
-        `👋 *Hello, ${(await this.findUser(userId)).first_name}\\!* \n\n` +
+        `👋 *Hello, ${(await this.findUser(userId)).custom_full_name}\\!* \n\n` +
           `Welcome to *PizzaDAO Molto Bene Bot* 🍕\\. I'm here to assist you\\. \n\n` +
           `Here are some things you can do:\n` +
           `1\\. Ask me for help anytime by typing /help\\.\n\n` +
           `Let's get started 🚀`,
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '📋 View Profile', callback_data: 'view_profile' }],
+            ],
+          },
+        },
       );
     } else {
       await ctx.replyWithMarkdownV2(
@@ -57,71 +89,31 @@ export class WelcomeService {
     const userId = ctx.message?.from.id;
     if (!userId) return;
 
-    this.userSteps.set(userId, 0);
-
-    const step = this.userSteps.get(userId);
-
-    if (step === 0) {
-      // Start the registration process
-      this.userSteps.set(userId, 1);
-      await ctx.telegram.sendMessage(userId, 'What is your name?', {
-        reply_markup: {
-          force_reply: true,
-        },
-      });
-    } else if (step === 1) {
-      // Collect name
-      const name = ctx.message?.text;
-      this.userSteps.set(userId, 2);
-      await ctx.reply('Which country are you from?', {
-        reply_markup: {
-          force_reply: true,
-        },
-      });
-    } else if (step === 2) {
-      // Collect country
-      const country = ctx.message?.text;
-      this.userSteps.set(userId, 3);
-      await ctx.reply('Which city are you from?', {
-        reply_markup: {
-          force_reply: true,
-        },
-      });
-    } else if (step === 3) {
-      // Collect city
-      const city = ctx.message?.text;
-      this.userSteps.set(userId, 4);
-      await ctx.reply('What is your favorite Mafia movie?', {
-        reply_markup: {
-          force_reply: true,
-        },
-      });
-    } else if (step === 4) {
-      // Collect Mafia movie
-      const mafiaMovie = ctx.message?.text;
-      this.userSteps.set(userId, 5);
-      await ctx.reply('What is your favorite Ninja Turtle character?', {
-        reply_markup: {
-          force_reply: true,
-        },
-      });
-    } else if (step === 5) {
-      // Collect Ninja Turtle character
-      const ninjaTurtle = ctx.message?.text;
-      this.userSteps.delete(userId);
-      const first_name = ctx.message?.from.first_name || 'Unknown';
-      this.addUser(userId, first_name);
-
-      await ctx.reply(
-        'Thank you for providing your details! You are now registered.',
-      );
-
-      // Send group link
-      const groupLink = 'https://t.me/your_group_link'; // Replace with your actual group link
-      await ctx.reply(
-        `You can now join our group using this link: ${groupLink}`,
-      );
+    if (await this.isUserRegistered(userId)) {
+      await ctx.reply('You are already verified and registered!');
+      return;
     }
+
+    this.userSteps.set(userId, 1);
+    this.userGroupMap.set(userId, {
+      telegram_id: userId,
+      username: ctx.message?.from.username || null,
+      tg_first_name: ctx.message?.from.first_name || null,
+      tg_last_name: ctx.message?.from.last_name || null,
+      custom_full_name: null,
+      country: null,
+      city: null,
+      role: 'user',
+      mafia_movie: null,
+      ninja_turtle_character: null,
+      pizza_topping: null,
+    });
+
+    await ctx.telegram.sendMessage(userId, 'What is your name?', {
+      reply_markup: {
+        force_reply: true,
+      },
+    });
   }
 
   @On('new_chat_members')
@@ -141,8 +133,6 @@ export class WelcomeService {
     }
 
     for (const member of message?.new_chat_members) {
-      this.userGroupMap.set(member.id, chatId);
-
       // Mute the user and send a verification message
       await ctx.telegram.restrictChatMember(chatId, member.id, {
         permissions: {
@@ -174,10 +164,12 @@ export class WelcomeService {
   }
 
   @On('callback_query')
-  async handleCallbackQuery(ctx: any) {
+  async handleCallbackQuery(ctx: Context) {
     const callbackQuery = ctx.callbackQuery as any;
     const callbackData = callbackQuery.data;
     const userId = ctx.callbackQuery?.from.id;
+
+    if (!userId) return;
 
     if (callbackData?.startsWith('verify_')) {
       const targetUserId = parseInt(callbackData.split('_')[1], 10);
@@ -205,7 +197,7 @@ export class WelcomeService {
         } catch (error) {
           const botUsername = ctx.botInfo?.username || 'your_bot_username';
 
-          const groupId = this.userGroupMap.get(userId);
+          const groupId = this.userGroupMap.get(userId)?.group_id;
 
           if (groupId) {
             const verificationMessage = await ctx.telegram.sendMessage(
@@ -238,6 +230,63 @@ export class WelcomeService {
           show_alert: true,
         });
       }
+    } else if (callbackData === 'view_profile') {
+      const user = await this.findUser(userId);
+      if (!user) {
+        await ctx.answerCbQuery('You are not registered yet.');
+        return;
+      }
+
+      await ctx.editMessageText(
+        `📋 *Your Profile*\n\n` +
+          `👤 *Name*: ${user.custom_full_name || 'Not set'}\n` +
+          `🌍 *Country*: ${user.country || 'Not set'}\n` +
+          `🏙️ *City*: ${user.city || 'Not set'}\n` +
+          `🎥 *Favorite Mafia Movie*: ${user.mafia_movie || 'Not set'}\n` +
+          `🐢 *Favorite Ninja Turtle*: ${user.ninja_turtle_character || 'Not set'}\n` +
+          `🍕 *Favorite Pizza Topping*: ${user.pizza_topping || 'Not set'}\n\n` +
+          `What would you like to edit?`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: '✏️ Edit Name',
+                  callback_data: 'edit_custom_full_name',
+                },
+                { text: '✏️ Edit Country', callback_data: 'edit_country' },
+              ],
+              [
+                { text: '✏️ Edit City', callback_data: 'edit_city' },
+                {
+                  text: '✏️ Edit Mafia Movie',
+                  callback_data: 'edit_mafia_movie',
+                },
+              ],
+              [
+                {
+                  text: '✏️ Edit Ninja Turtle',
+                  callback_data: 'edit_ninja_turtle',
+                },
+                {
+                  text: '✏️ Edit Pizza Topping',
+                  callback_data: 'edit_pizza_topping',
+                },
+              ],
+              [{ text: '🔙 Back', callback_data: 'back_to_start' }],
+            ],
+          },
+        },
+      );
+    } else if (callbackData.startsWith('edit_')) {
+      const field = callbackData.split('_').slice(1).join('_');
+      await ctx.editMessageText(
+        `Please enter your new ${field.replace('_', ' ')}:`,
+      );
+      this.userSteps.set(userId, `edit_${field}`);
+    } else if (callbackData === 'back_to_start') {
+      await this.startCommand(ctx);
     }
   }
 
@@ -257,10 +306,27 @@ export class WelcomeService {
     if (!userId) return;
 
     const step = this.userSteps.get(userId);
+    const userData = this.userGroupMap.get(userId);
+
+    if (step && typeof step === 'string' && step.startsWith('edit_')) {
+      const field = step.split('_').slice(1).join('_');
+      const newValue = ctx.message?.text;
+
+      await this.userRegistryService.updateUserField(userId, field, newValue);
+
+      this.userSteps.delete(userId);
+
+      await ctx.reply(
+        `Your ${field.replaceAll('_', ' ')} has been updated to "${newValue}".`,
+      );
+      await this.startCommand(ctx);
+    }
+
+    if (!userData) return;
 
     if (step === 1) {
       // Collect name
-      const name = ctx.message?.text;
+      userData.custom_full_name = ctx.message?.text;
       this.userSteps.set(userId, 2);
       await ctx.reply('Which country are you from?', {
         reply_markup: {
@@ -269,7 +335,7 @@ export class WelcomeService {
       });
     } else if (step === 2) {
       // Collect country
-      const country = ctx.message?.text;
+      userData.country = ctx.message?.text;
       this.userSteps.set(userId, 3);
       await ctx.reply('Which city are you from?', {
         reply_markup: {
@@ -278,7 +344,7 @@ export class WelcomeService {
       });
     } else if (step === 3) {
       // Collect city
-      const city = ctx.message?.text;
+      userData.city = ctx.message?.text;
       this.userSteps.set(userId, 4);
       await ctx.reply('What is your favorite Mafia movie?', {
         reply_markup: {
@@ -287,7 +353,7 @@ export class WelcomeService {
       });
     } else if (step === 4) {
       // Collect Mafia movie
-      const mafiaMovie = ctx.message?.text;
+      userData.mafia_movie = ctx.message?.text;
       this.userSteps.set(userId, 5);
       await ctx.reply('What is your favorite Ninja Turtle character?', {
         reply_markup: {
@@ -296,10 +362,34 @@ export class WelcomeService {
       });
     } else if (step === 5) {
       // Collect Ninja Turtle character
-      const ninjaTurtle = ctx.message?.text;
+      userData.ninja_turtle_character = ctx.message?.text;
+      this.userSteps.set(userId, 6);
+      await ctx.reply('What is your favorite pizza topping?', {
+        reply_markup: {
+          force_reply: true,
+        },
+      });
+    } else if (step === 6) {
+      // Collect pizza topping and save to database
+      userData.pizza_topping = ctx.message?.text;
+
+      // Save user data to the database
+      this.addUser(
+        userData.telegram_id,
+        userData.username,
+        userData.tg_first_name,
+        userData.tg_last_name,
+        userData.custom_full_name,
+        userData.country,
+        userData.city,
+        userData.role,
+        userData.mafia_movie,
+        userData.ninja_turtle_character,
+        userData.pizza_topping,
+      );
+
       this.userSteps.delete(userId);
-      const first_name = ctx.message?.from.first_name || 'Unknown';
-      this.addUser(userId, first_name);
+      this.userGroupMap.delete(userId);
 
       await ctx.reply(
         'Thank you for providing your details! You are now verified.',
