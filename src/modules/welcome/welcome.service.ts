@@ -133,6 +133,22 @@ export class WelcomeService {
     }
 
     for (const member of message?.new_chat_members) {
+      // Store the group_id in userGroupMap
+      this.userGroupMap.set(member.id, {
+        group_id: chatId,
+        telegram_id: member.id,
+        username: member.username || null,
+        tg_first_name: member.first_name || null,
+        tg_last_name: member.last_name || null,
+        custom_full_name: null,
+        country: null,
+        city: null,
+        role: 'user',
+        mafia_movie: null,
+        ninja_turtle_character: null,
+        pizza_topping: null,
+      });
+
       // Mute the user and send a verification message
       await ctx.telegram.restrictChatMember(chatId, member.id, {
         permissions: {

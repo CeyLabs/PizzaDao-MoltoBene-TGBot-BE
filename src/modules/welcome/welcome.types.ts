@@ -1,6 +1,6 @@
 export interface UserRegistrationData {
   telegram_id: number;
-  group_id?: string | null;
+  group_id?: string | number | null;
   username: string | null;
   tg_first_name: string | null;
   tg_last_name: string | null;
