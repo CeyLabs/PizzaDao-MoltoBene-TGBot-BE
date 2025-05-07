@@ -10,7 +10,11 @@ dotenv.config();
 @Module({
   imports: [
     TelegrafModule.forRoot({
-      token: process.env.TELEGRAM_BOT_TOKEN || (() => { throw new Error('TELEGRAM_BOT_TOKEN is not defined'); })(),
+      token:
+        process.env.TELEGRAM_BOT_TOKEN ||
+        (() => {
+          throw new Error('TELEGRAM_BOT_TOKEN is not defined');
+        })(),
     }),
     KnexModule,
   ],
