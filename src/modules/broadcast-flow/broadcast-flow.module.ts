@@ -3,8 +3,7 @@ import { BroadcastFlowService } from './broadcast-flow.service';
 import { BroadcastFlowController } from './broadcast-flow.controller';
 
 @Module({
-  providers: [BroadcastFlowService],
-  controllers: [BroadcastFlowController],
+  providers: [BroadcastFlowService, BroadcastFlowController],
   exports: [BroadcastFlowService],
 })
 export class BroadcastFlowModule {}
