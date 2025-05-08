@@ -10,12 +10,12 @@
   },
   "rewrites": [
     {
-      "source": "/api(.*)",
+      "source": "/api/*",
       "destination": "/api/restful"
     },
     {
       "source": "/(.*)",
-      "destination": "/public"
+      "destination": "/public/$1"
     }
   ]
 }
