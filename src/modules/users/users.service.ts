@@ -1,6 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { KnexService } from '../knex/knex.service';
 
+interface User {
+  telegram_id: number;
+  username: string | null;
+  tg_first_name: string | null;
+  tg_last_name: string | null;
+  custom_full_name: string | null;
+  country_id: string | null;
+  city_id: string | null;
+  role: string;
+  mafia_movie: string | null;
+  ninja_turtle_character: string | null;
+  pizza_topping: string | null;
+}
+
 @Injectable()
 export class UsersService {
   constructor(private readonly knexService: KnexService) {}
@@ -33,11 +47,13 @@ export class UsersService {
       ninja_turtle_character,
       pizza_topping,
     });
+
+    await this.knexService.knex<User>('user').where({ telegram_id }).first();
   }
 
   async isUserRegistered(telegramId: number): Promise<boolean> {
-    const user = await this.knexService
-      .knex('user')
+    const user: User | undefined = await this.knexService
+      .knex<User>('user')
       .where({ telegram_id: telegramId })
       .first();
     return !!user;
@@ -47,9 +63,9 @@ export class UsersService {
     return this.registeredUsers;
   }
 
-  async findUser(telegramId: number) {
+  async findUser(telegramId: number): Promise<User | undefined> {
     return this.knexService
-      .knex('user')
+      .knex<User>('user')
       .where({ telegram_id: telegramId })
       .first();
   }
@@ -67,35 +83,5 @@ export class UsersService {
 
   async getAllRegions(): Promise<{ id: string; name: string }[]> {
     return this.knexService.knex('region').select('id', 'name');
-  }
-
-  async getCountriesByRegion(
-    regionId: string,
-  ): Promise<{ id: string; name: string }[]> {
-    return this.knexService
-      .knex('country')
-      .where({ region_id: regionId })
-      .select('id', 'name');
-  }
-
-  async getCitiesByCountry(
-    countryId: string,
-  ): Promise<{ id: string; name: string }[]> {
-    return this.knexService
-      .knex('city')
-      .where({ country_id: countryId })
-      .select('id', 'name');
-  }
-
-  async getCityById(
-    cityId: string,
-  ): Promise<{ id: string; name: string } | null> {
-    return this.knexService.knex('city').where({ id: cityId }).first();
-  }
-
-  async getCountryById(
-    countryId: string,
-  ): Promise<{ id: string; name: string } | null> {
-    return this.knexService.knex('country').where({ id: countryId }).first();
   }
 }
