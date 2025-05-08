@@ -1,18 +1,28 @@
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
 import { Telegraf } from 'telegraf';
-import express from 'express';
+import { ExpressAdapter } from '@nestjs/platform-express';
+import * as express from 'express';
 
-const bot = new Telegraf(process.env.BOT_TOKEN!);
+async function bootstrap() {
+  const server = express(); // Create an Express server
+  const app = await NestFactory.create(AppModule, new ExpressAdapter(server));
 
-// Define your bot commands and handlers here
-bot.start((ctx) => ctx.reply('Welcome!'));
-bot.on('text', (ctx) => ctx.reply(`You said: ${ctx.message.text}`));
+  const bot = new Telegraf(process.env.BOT_TOKEN!);
 
-// Set up webhook
-const app = express();
-app.use(bot.webhookCallback('/webhook'));
+  // Define your bot commands and handlers here
+  bot.start((ctx) => ctx.reply('Welcome!'));
+  bot.on('text', (ctx) => ctx.reply(`You said: ${ctx.message.text}`));
 
-// Start the server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Bot is running on port ${PORT}`);
+  // Set up webhook
+  server.use(bot.webhookCallback('/webhook'));
+
+  // Start the NestJS application
+  const PORT = process.env.PORT || 3000;
+  await app.listen(PORT, () => {
+    console.log(`Application is running on port ${PORT}`);
+  });
+}
+bootstrap().catch((error) => {
+  console.error('Error during application bootstrap:', error);
 });
