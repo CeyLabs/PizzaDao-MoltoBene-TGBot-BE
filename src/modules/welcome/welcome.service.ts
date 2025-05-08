@@ -320,7 +320,7 @@ export class WelcomeService {
             },
           });
         } catch {
-          const botUsername = 'udanabot';
+          const botUsername = process.env.BOT_USERNAME;
 
           const groupId = this.userGroupMap.get(userId)?.group_id;
 
