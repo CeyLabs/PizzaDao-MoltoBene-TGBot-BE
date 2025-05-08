@@ -12,8 +12,12 @@ export async function up(knex: Knex): Promise<void> {
     table.string('tg_first_name').notNullable();
     table.string('tg_last_name');
     table.string('custom_full_name');
-    table.string('country_id');
-    table.string('city_id');
+    table
+      .uuid('country_id')
+      .references('id')
+      .inTable('country')
+      .onDelete('SET NULL');
+    table.uuid('city_id').references('id').inTable('city').onDelete('SET NULL');
     table.string('role').defaultTo('user');
     table.string('mafia_movie');
     table.string('ninja_turtle_character');
