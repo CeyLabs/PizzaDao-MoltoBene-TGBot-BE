@@ -6,7 +6,7 @@ import { AppService } from './app.service';
 import { BroadcastFlowModule } from './broadcast-flow/broadcast-flow.module';
 import { BotCommandsService } from './bot-commands';
 import { PrivateChatMiddleware } from './middleware/chat-type.middleware';
-import { BroadcastFlowUpdate } from './broadcast-flow/broadcast-flow.update';
+import { BroadcastFlowUpdate } from './broadcast-flow/broadcast-flow.controller';
 import { KnexModule } from './modules/knex/knex.module';
 
 dotenv.config();
