@@ -20,7 +20,7 @@ export class BroadcastFlowController {
 
   constructor(private readonly broadcastFlowService: BroadcastFlowService) {}
 
-  private getState(userId: number): BroadcastState {
+  private getSession(userId: number): BroadcastState {
     if (!this.userStates.has(userId)) {
       this.userStates.set(userId, {
         step: 'idle',
@@ -54,7 +54,7 @@ export class BroadcastFlowController {
     const userId: number | undefined = ctx.from?.id;
     if (!userId) return null;
 
-    const state = this.getState(userId);
+    const state = this.getSession(userId);
     const SUB_GROUP_ID = this.broadcastFlowService.getCityGroupId(selectedCity);
 
     if (!SUB_GROUP_ID) {
@@ -171,7 +171,7 @@ ${welcomeMessage}
     const userId: number | undefined = ctx.from?.id;
     if (!userId) return;
 
-    const state = this.getState(userId);
+    const state = this.getSession(userId);
     state.step = 'select_scope';
 
     const buttons: InlineKeyboardButton[][] = [];
@@ -245,7 +245,7 @@ ${welcomeMessage}
     if (!userId) return;
 
     // Reset the user's state to 'select_scope'
-    const state = this.getState(userId);
+    const state = this.getSession(userId);
     state.step = 'select_scope';
 
     const buttons: InlineKeyboardButton[][] = [];
@@ -300,7 +300,7 @@ Ready to get started?
 
     await ctx.answerCbQuery();
 
-    const state = this.getState(userId);
+    const state = this.getSession(userId);
     const scopeMatch = Array.isArray((ctx as Context & { match: RegExpExecArray }).match)
       ? ((ctx as Context & { match: RegExpExecArray }).match[1] as string | undefined)
       : undefined;
@@ -407,7 +407,7 @@ Ready to get started?
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    const state = this.getState(userId);
+    const state = this.getSession(userId);
     const text =
       ctx.message && 'text' in ctx.message && typeof ctx.message.text === 'string'
         ? ctx.message.text
@@ -573,7 +573,7 @@ Ready to get started?
 
     await ctx.answerCbQuery('Skipped venue/place');
 
-    const state = this.getState(userId);
+    const state = this.getSession(userId);
     state.step = 'collect_date';
 
     await ctx.deleteMessage();
@@ -587,7 +587,7 @@ Ready to get started?
 
     await ctx.answerCbQuery('Skipped date');
 
-    const state = this.getState(userId);
+    const state = this.getSession(userId);
     state.step = 'collect_time';
 
     await ctx.deleteMessage();
@@ -601,7 +601,7 @@ Ready to get started?
 
     await ctx.answerCbQuery('Skipped time');
 
-    const state = this.getState(userId);
+    const state = this.getSession(userId);
     state.step = 'collect_links';
 
     await ctx.deleteMessage();
@@ -615,7 +615,7 @@ Ready to get started?
 
     await ctx.answerCbQuery('Skipped external links');
 
-    const state = this.getState(userId);
+    const state = this.getSession(userId);
     state.step = 'ask_image';
 
     await ctx.deleteMessage();
@@ -637,7 +637,7 @@ Ready to get started?
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    const state = this.getState(userId);
+    const state = this.getSession(userId);
 
     if (state.step === 'collect_image') {
       // Get the file ID of the highest resolution photo
@@ -681,7 +681,7 @@ Ready to get started?
 
     await ctx.answerCbQuery();
 
-    const state = this.getState(userId);
+    const state = this.getSession(userId);
     state.step = 'collect_image';
 
     await ctx.editMessageText(
@@ -700,7 +700,7 @@ Ready to get started?
 
     await ctx.answerCbQuery();
 
-    const state = this.getState(userId);
+    const state = this.getSession(userId);
     state.step = 'ask_button';
 
     await ctx.editMessageText('🔘 *Would you like to include a button?*', {
@@ -722,7 +722,7 @@ Ready to get started?
 
     await ctx.answerCbQuery();
 
-    const state = this.getState(userId);
+    const state = this.getSession(userId);
     state.step = 'collect_button_text';
 
     await ctx.editMessageText(
@@ -741,7 +741,7 @@ Ready to get started?
 
     await ctx.answerCbQuery();
 
-    const state = this.getState(userId);
+    const state = this.getSession(userId);
     state.step = 'confirmation';
 
     await ctx.deleteMessage();
@@ -802,7 +802,7 @@ Ready to get started?
 
     await ctx.answerCbQuery();
 
-    const state = this.getState(userId);
+    const state = this.getSession(userId);
     state.message.pin = false;
 
     await ctx.editMessageText(
@@ -864,7 +864,7 @@ Ready to get started?
 
     await ctx.answerCbQuery();
 
-    const state = this.getState(userId);
+    const state = this.getSession(userId);
     state.message.pin = true;
 
     await ctx.editMessageText(
@@ -986,7 +986,7 @@ Ready to get started?
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    const state = this.getState(userId);
+    const state = this.getSession(userId);
 
     // Only show the keyboard if we're not in the middle of a flow
     if (state.step === 'idle' || state.step === 'completed') {
