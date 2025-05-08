@@ -1,21 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { Hears, Help, On, Update } from 'nestjs-telegraf';
-import { Context, Markup } from 'telegraf';
-
+import { Hears, Help, Update } from 'nestjs-telegraf';
+import { Context } from 'telegraf';
 @Update()
 @Injectable()
 export class AppService {
-  getData(): { message: string } {
-    return { message: 'Welcome to server!' };
-  }
-
-  @On('sticker')
-  async onSticker(ctx: Context) {
-    await ctx.reply('👍');
+  @Help()
+  async helpCommand(ctx: Context) {
+    await ctx.reply('Send me a sticker');
   }
 
   @Hears('hi')
   async hearsHi(ctx: Context) {
-    await ctx.reply('Hey there! 👋');
+    await ctx.reply('Hey there');
   }
 }

@@ -29,4 +29,4 @@ async function bootstrap() {
     logger.error('Failed to start application:', error);
   }
 }
-bootstrap();
+void bootstrap();

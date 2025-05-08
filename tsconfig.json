@@ -1,4 +1,5 @@
 {
+  "exclude": ["node_modules", "dist", ".eslintrc.js"],
   "compilerOptions": {
     "module": "commonjs",
     "declaration": true,
