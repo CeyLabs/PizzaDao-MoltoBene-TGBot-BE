@@ -22,6 +22,12 @@ async function bootstrap() {
   const webhookUrl = `${process.env.WEBHOOK_DOMAIN}${webhookPath}`;
   await bot.telegram.setWebhook(webhookUrl);
 
+  server.post('/customer', (req, res) => {
+    // Example logic: echo back JSON body
+    console.log('Received customer data:', req.body);
+    res.status(201).json({ message: 'Customer data received' });
+  });
+
   // Start the NestJS application
   const PORT = process.env.PORT || 3000;
   await app.listen(PORT, () => {
@@ -29,6 +35,7 @@ async function bootstrap() {
     console.log(`Webhook set to: ${webhookUrl}`);
   });
 }
+
 bootstrap().catch((error) => {
   console.error('Error during application bootstrap:', error);
 });
