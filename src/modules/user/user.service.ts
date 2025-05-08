@@ -1,19 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { KnexService } from '../knex/knex.service';
-
-interface IUser {
-  telegram_id: number;
-  username: string | null;
-  tg_first_name: string | null;
-  tg_last_name: string | null;
-  custom_full_name: string | null;
-  country_id: string | null;
-  city_id: string | null;
-  role: string;
-  mafia_movie: string | null;
-  ninja_turtle_character: string | null;
-  pizza_topping: string | null;
-}
+import { IUser } from './user.interface';
 
 @Injectable()
 export class UserService {
@@ -21,34 +8,8 @@ export class UserService {
 
   private registeredUsers = new Set<number>();
 
-  async addUser(
-    telegram_id: number,
-    username: string | null,
-    tg_first_name: string | null,
-    tg_last_name: string | null,
-    custom_full_name: string | null,
-    country_id: string | null,
-    city_id: string | null,
-    role: string,
-    mafia_movie: string | null,
-    ninja_turtle_character: string | null,
-    pizza_topping: string | null,
-  ): Promise<void> {
-    await this.knexService.knex('user').insert({
-      telegram_id,
-      username,
-      tg_first_name,
-      tg_last_name,
-      custom_full_name,
-      country_id,
-      city_id,
-      role,
-      mafia_movie,
-      ninja_turtle_character,
-      pizza_topping,
-    });
-
-    await this.knexService.knex<IUser>('user').where({ telegram_id }).first();
+  async addUser(user: IUser): Promise<void> {
+    await this.knexService.knex<IUser>('user').insert(user);
   }
 
   async isUserRegistered(telegramId: number): Promise<boolean> {

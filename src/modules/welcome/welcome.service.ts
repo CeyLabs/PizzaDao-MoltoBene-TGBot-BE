@@ -5,6 +5,7 @@ import { UserService } from '../user/user.service';
 import { IUserRegistrationData } from './welcome.types';
 import { CountryService } from '../country/country.service';
 import { CityService } from '../city/city.service';
+import { IUser } from '../user/user.interface';
 
 @Update()
 @Injectable()
@@ -479,19 +480,21 @@ export class WelcomeService {
       }
 
       // Save user data to the database
-      await this.userService.addUser(
-        userData.telegram_id,
-        userData.username,
-        userData.tg_first_name,
-        userData.tg_last_name,
-        userData.custom_full_name,
-        userData.country_id ?? '',
-        userData.city_id ?? '',
-        userData.role,
-        userData.mafia_movie,
-        userData.ninja_turtle_character,
-        userData.pizza_topping,
-      );
+      const newUser: IUser = {
+        telegram_id: userData.telegram_id,
+        username: userData.username,
+        tg_first_name: userData.tg_first_name,
+        tg_last_name: userData.tg_last_name,
+        custom_full_name: userData.custom_full_name,
+        country_id: userData.country_id ?? '',
+        city_id: userData.city_id ?? '',
+        role: userData.role,
+        mafia_movie: userData.mafia_movie,
+        ninja_turtle_character: userData.ninja_turtle_character,
+        pizza_topping: userData.pizza_topping,
+      };
+
+      await this.userService.addUser(newUser);
 
       this.userSteps.delete(userId);
       this.userGroupMap.delete(userId);
