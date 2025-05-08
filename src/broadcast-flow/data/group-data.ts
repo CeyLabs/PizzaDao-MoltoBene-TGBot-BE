@@ -1,4 +1,4 @@
-import { TelegramGroup } from '../interfaces/telegram-group.interface';
+import { TelegramGroup } from '../broadcast-flow.interface';
 
 export const dummyGroups: TelegramGroup[] = [
   {

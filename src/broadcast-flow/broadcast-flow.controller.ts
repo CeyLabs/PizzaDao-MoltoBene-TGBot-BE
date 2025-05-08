@@ -1,23 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
-import {
-  Action,
-  Command,
-  Ctx,
-  Hears,
-  On,
-  Start,
-  Update,
-} from 'nestjs-telegraf';
+import { Action, Command, Ctx, Hears, On, Start, Update } from 'nestjs-telegraf';
 import { Context, Markup } from 'telegraf';
 import { BroadcastFlowService } from './broadcast-flow.service';
-import { BroadcastMessage } from './interfaces/broadcast-message.interface';
-import { BroadcastState } from './interfaces/broadcast-state.interface';
+
 import {
   InlineKeyboardButton,
   InlineQueryResultArticle,
 } from 'telegraf/typings/core/types/typegram';
 import { helpMessage, welcomeMessage } from 'src/bot-commands';
 import { nanoid } from 'nanoid';
+import { BroadcastMessage, BroadcastState } from './broadcast-flow.interface';
 
 const MAIN_GROUP_ID = Number(process.env.MAIN_GROUP_ID);
 
@@ -58,10 +50,7 @@ export class BroadcastFlowUpdate {
     );
   }
 
-  private async handleCitySelection(
-    ctx: Context,
-    selectedCity: string,
-  ): Promise<number | null> {
+  private async handleCitySelection(ctx: Context, selectedCity: string): Promise<number | null> {
     const userId: number | undefined = ctx.from?.id;
     if (!userId) return null;
 
@@ -73,15 +62,10 @@ export class BroadcastFlowUpdate {
       return null;
     }
 
-    const role = await this.broadcastFlowService.getUserRole(
-      Number(SUB_GROUP_ID),
-      userId,
-    );
+    const role = await this.broadcastFlowService.getUserRole(Number(SUB_GROUP_ID), userId);
 
     if (role !== 'creator' && role !== 'administrator') {
-      await ctx.reply(
-        `❌ You are not authorized to send messages to the ${selectedCity} group`,
-      );
+      await ctx.reply(`❌ You are not authorized to send messages to the ${selectedCity} group`);
       return null;
     }
 
@@ -93,9 +77,7 @@ export class BroadcastFlowUpdate {
       `🏙️ *Selected city: ${selectedCity}*\n\nNow, let's collect your message details.`,
       {
         parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([
-          [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
-        ]),
+        ...Markup.inlineKeyboard([[Markup.button.callback('❌ Cancel', 'cancel_broadcast')]]),
       },
     );
 
@@ -128,26 +110,21 @@ export class BroadcastFlowUpdate {
     options: Record<string, any> = {},
   ): Promise<unknown> {
     const inlineKeyboard: InlineKeyboardButton[][] = Array.isArray(
-      (options.reply_markup as { inline_keyboard?: InlineKeyboardButton[][] })
-        ?.inline_keyboard,
+      (options.reply_markup as { inline_keyboard?: InlineKeyboardButton[][] })?.inline_keyboard,
     )
-      ? (options.reply_markup as { inline_keyboard: InlineKeyboardButton[][] })
-          .inline_keyboard
+      ? (options.reply_markup as { inline_keyboard: InlineKeyboardButton[][] }).inline_keyboard
       : [];
 
     // Add a cancel button as the last row if it's not already there
     const hasCancelButton = inlineKeyboard.some((row) =>
       row.some(
         (button: InlineKeyboardButton) =>
-          'callback_data' in button &&
-          button.callback_data === 'cancel_broadcast',
+          'callback_data' in button && button.callback_data === 'cancel_broadcast',
       ),
     );
 
     if (!hasCancelButton) {
-      inlineKeyboard.push([
-        Markup.button.callback('❌ Cancel', 'cancel_broadcast'),
-      ]);
+      inlineKeyboard.push([Markup.button.callback('❌ Cancel', 'cancel_broadcast')]);
     }
 
     return ctx.reply(message, {
@@ -207,13 +184,10 @@ ${welcomeMessage}
     // Add cancel button
     buttons.push([Markup.button.callback('❌ Cancel', 'cancel_broadcast')]);
 
-    await ctx.reply(
-      '📢 *Select broadcast target:*\n\nWhere would you like to send your message?',
-      {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard(buttons),
-      },
-    );
+    await ctx.reply('📢 *Select broadcast target:*\n\nWhere would you like to send your message?', {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard(buttons),
+    });
   }
 
   @Action('start_broadcast')
@@ -327,23 +301,14 @@ Ready to get started?
     await ctx.answerCbQuery();
 
     const state = this.getState(userId);
-    const scopeMatch = Array.isArray(
-      (ctx as Context & { match: RegExpExecArray }).match,
-    )
-      ? ((ctx as Context & { match: RegExpExecArray }).match[1] as
-          | string
-          | undefined)
+    const scopeMatch = Array.isArray((ctx as Context & { match: RegExpExecArray }).match)
+      ? ((ctx as Context & { match: RegExpExecArray }).match[1] as string | undefined)
       : undefined;
 
     if (scopeMatch === 'all') {
-      const role = await this.broadcastFlowService.getUserRole(
-        MAIN_GROUP_ID,
-        userId,
-      );
+      const role = await this.broadcastFlowService.getUserRole(MAIN_GROUP_ID, userId);
       if (role !== 'creator' && role !== 'administrator') {
-        await ctx.reply(
-          '❌ You are not authorized to broadcast to all groups.',
-        );
+        await ctx.reply('❌ You are not authorized to broadcast to all groups.');
         return;
       }
       state.message.scope = 'all';
@@ -352,9 +317,7 @@ Ready to get started?
         "🌎 *Broadcasting to all groups*\n\nNow, let's collect your message details.",
         {
           parse_mode: 'Markdown',
-          ...Markup.inlineKeyboard([
-            [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
-          ]),
+          ...Markup.inlineKeyboard([[Markup.button.callback('❌ Cancel', 'cancel_broadcast')]]),
         },
       );
       await this.promptForMessageContent(ctx);
@@ -408,8 +371,7 @@ Ready to get started?
         },
       }));
 
-    const nextOffset =
-      offset + pageSize < filtered.length ? `${offset + pageSize}` : '';
+    const nextOffset = offset + pageSize < filtered.length ? `${offset + pageSize}` : '';
 
     await ctx.answerInlineQuery?.(results, {
       cache_time: 0,
@@ -447,9 +409,7 @@ Ready to get started?
 
     const state = this.getState(userId);
     const text =
-      ctx.message &&
-      'text' in ctx.message &&
-      typeof ctx.message.text === 'string'
+      ctx.message && 'text' in ctx.message && typeof ctx.message.text === 'string'
         ? ctx.message.text
         : '';
 
@@ -514,24 +474,16 @@ Ready to get started?
         }
         state.step = 'ask_image';
 
-        await ctx.reply(
-          '🖼️ *Would you like to add an image to this message?*',
-          {
-            parse_mode: 'Markdown',
-            ...Markup.inlineKeyboard([
-              [
-                Markup.button.callback('✅ Yes', 'image_yes'),
-                Markup.button.callback('❌ No', 'image_no'),
-              ],
-              [
-                Markup.button.callback(
-                  '❌ Cancel Broadcast',
-                  'cancel_broadcast',
-                ),
-              ],
-            ]),
-          },
-        );
+        await ctx.reply('🖼️ *Would you like to add an image to this message?*', {
+          parse_mode: 'Markdown',
+          ...Markup.inlineKeyboard([
+            [
+              Markup.button.callback('✅ Yes', 'image_yes'),
+              Markup.button.callback('❌ No', 'image_no'),
+            ],
+            [Markup.button.callback('❌ Cancel Broadcast', 'cancel_broadcast')],
+          ]),
+        });
         break;
 
       case 'collect_button_text':
@@ -556,9 +508,7 @@ Ready to get started?
           typeof text !== 'string' ||
           (!text.startsWith('http://') && !text.startsWith('https://'))
         ) {
-          await ctx.reply(
-            '⚠️ Please enter a valid URL starting with http:// or https://',
-          );
+          await ctx.reply('⚠️ Please enter a valid URL starting with http:// or https://');
           return;
         }
 
@@ -577,16 +527,13 @@ Ready to get started?
   }
 
   private async promptForPlace(ctx: Context) {
-    await ctx.reply(
-      '🏢 *Enter venue/place:* (optional)\n\nWhere is this event taking place?',
-      {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([
-          [Markup.button.callback('⏩ Skip', 'skip_place')],
-          [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
-        ]),
-      },
-    );
+    await ctx.reply('🏢 *Enter venue/place:* (optional)\n\nWhere is this event taking place?', {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('⏩ Skip', 'skip_place')],
+        [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
+      ]),
+    });
   }
 
   private async promptForDate(ctx: Context) {
@@ -610,16 +557,13 @@ Ready to get started?
   }
 
   private async promptForLinks(ctx: Context) {
-    await ctx.reply(
-      '🔗 *Enter external links:* (optional)\n\nAny relevant links to include?',
-      {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([
-          [Markup.button.callback('⏩ Skip', 'skip_links')],
-          [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
-        ]),
-      },
-    );
+    await ctx.reply('🔗 *Enter external links:* (optional)\n\nAny relevant links to include?', {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('⏩ Skip', 'skip_links')],
+        [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
+      ]),
+    });
   }
 
   @Action('skip_place')
@@ -744,9 +688,7 @@ Ready to get started?
       '📸 *Please send an image for the broadcast:*\n\nUpload a photo to include with your message.',
       {
         parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([
-          [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
-        ]),
+        ...Markup.inlineKeyboard([[Markup.button.callback('❌ Cancel', 'cancel_broadcast')]]),
       },
     );
   }
@@ -787,9 +729,7 @@ Ready to get started?
       '🔤 *Enter the text for the button:*\n\nWhat should the button say?',
       {
         parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([
-          [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
-        ]),
+        ...Markup.inlineKeyboard([[Markup.button.callback('❌ Cancel', 'cancel_broadcast')]]),
       },
     );
   }
@@ -839,8 +779,7 @@ Ready to get started?
     }
 
     previewText += '\n\n*Target:* ';
-    previewText +=
-      message.scope === 'all' ? '🌎 All Groups' : `🏙️ City - ${message.city}`;
+    previewText += message.scope === 'all' ? '🌎 All Groups' : `🏙️ City - ${message.city}`;
 
     // Send the preview with confirmation buttons
     await ctx.reply(previewText, {
@@ -849,10 +788,7 @@ Ready to get started?
       ...Markup.inlineKeyboard([
         [
           Markup.button.callback('📢 Broadcast', 'confirm_broadcast'),
-          Markup.button.callback(
-            '📌 Broadcast with Pin',
-            'confirm_broadcast_pin',
-          ),
+          Markup.button.callback('📌 Broadcast with Pin', 'confirm_broadcast_pin'),
         ],
         [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
       ]),
@@ -877,10 +813,7 @@ Ready to get started?
     );
 
     try {
-      const result = await this.broadcastFlowService.broadcastMessage(
-        state.message,
-        ctx,
-      );
+      const result = await this.broadcastFlowService.broadcastMessage(state.message, ctx);
 
       if (result.success) {
         await ctx.reply(
@@ -942,10 +875,7 @@ Ready to get started?
     );
 
     try {
-      const result = await this.broadcastFlowService.broadcastMessage(
-        state.message,
-        ctx,
-      );
+      const result = await this.broadcastFlowService.broadcastMessage(state.message, ctx);
 
       if (result.success) {
         await ctx.reply(
@@ -1008,12 +938,9 @@ Ready to get started?
     await ctx.answerCbQuery('Broadcast canceled');
     this.resetState(userId);
 
-    await ctx.editMessageText(
-      '❌ *Broadcast canceled*\n\nYour broadcast has been canceled.',
-      {
-        parse_mode: 'Markdown',
-      },
-    );
+    await ctx.editMessageText('❌ *Broadcast canceled*\n\nYour broadcast has been canceled.', {
+      parse_mode: 'Markdown',
+    });
 
     // Show the main keyboard again
     // await this.showMainKeyboardAfterInlineQuery(ctx);
@@ -1038,24 +965,18 @@ Ready to get started?
       if (ctx.updateType === 'callback_query') {
         await ctx.editMessageText(helpMessage, {
           parse_mode: 'Markdown',
-          ...Markup.inlineKeyboard([
-            [Markup.button.callback('🔙 Back', 'back_to_start')],
-          ]),
+          ...Markup.inlineKeyboard([[Markup.button.callback('🔙 Back', 'back_to_start')]]),
         });
       } else {
         // Otherwise send a new message
         await ctx.reply(helpMessage, {
           parse_mode: 'Markdown',
-          ...Markup.inlineKeyboard([
-            [Markup.button.callback('🔙 Back', 'back_to_start')],
-          ]),
+          ...Markup.inlineKeyboard([[Markup.button.callback('🔙 Back', 'back_to_start')]]),
         });
       }
     } catch (error) {
       console.error('Error in help command:', error);
-      await ctx.reply(
-        "Sorry, I couldn't display the help right now. Please try again later.",
-      );
+      await ctx.reply("Sorry, I couldn't display the help right now. Please try again later.");
     }
   }
 

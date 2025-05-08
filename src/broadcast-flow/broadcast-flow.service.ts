@@ -1,11 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { TelegramGroup } from './interfaces/telegram-group.interface';
-import { BroadcastMessage } from './interfaces/broadcast-message.interface';
 import { dummyGroups } from './data/group-data';
-import { BroadcastResult } from './interfaces/broadcast-result.interface';
-// import { config } from '../config/config';
 import { InjectBot } from 'nestjs-telegraf';
 import { Context, Telegraf } from 'telegraf';
+import { BroadcastMessage, BroadcastResult, TelegramGroup } from './broadcast-flow.interface';
 
 @Injectable()
 export class BroadcastFlowService {
@@ -34,9 +31,7 @@ export class BroadcastFlowService {
 
   getCityGroupId(city: string): string | null {
     const group = dummyGroups.find(
-      (group) =>
-        group.type === 'subgroup' &&
-        group.city?.toLowerCase() === city.toLowerCase(),
+      (group) => group.type === 'subgroup' && group.city?.toLowerCase() === city.toLowerCase(),
     );
 
     return group && group.chatId ? group.chatId : null;
@@ -45,17 +40,12 @@ export class BroadcastFlowService {
   getAllCities(): string[] {
     return [
       ...new Set(
-        this.groups
-          .map((group) => group.city)
-          .filter((city): city is string => city !== undefined),
+        this.groups.map((group) => group.city).filter((city): city is string => city !== undefined),
       ),
     ];
   }
 
-  async broadcastMessage(
-    message: BroadcastMessage,
-    ctx: Context,
-  ): Promise<BroadcastResult> {
+  async broadcastMessage(message: BroadcastMessage, ctx: Context): Promise<BroadcastResult> {
     let targetGroups: TelegramGroup[] = [];
     const userId = ctx.from?.id ?? null;
 
@@ -116,17 +106,13 @@ export class BroadcastFlowService {
       for (const group of targetGroups) {
         try {
           if (!group.chatId) {
-            this.logger.warn(
-              `Skipping group ${group.name} due to missing chatId.`,
-            );
+            this.logger.warn(`Skipping group ${group.name} due to missing chatId.`);
             failedGroups.push(group.name);
             errorDetails[group.name] = 'Missing chatId';
             continue;
           }
 
-          this.logger.log(
-            `Broadcasting to group: ${group.name} (${group.chatId})`,
-          );
+          this.logger.log(`Broadcasting to group: ${group.name} (${group.chatId})`);
 
           // Prepare message options
           const messageOptions: {
@@ -141,9 +127,7 @@ export class BroadcastFlowService {
           // Add inline keyboard if button exists
           if (message.buttonText && message.buttonUrl) {
             messageOptions.reply_markup = {
-              inline_keyboard: [
-                [{ text: message.buttonText, url: message.buttonUrl }],
-              ],
+              inline_keyboard: [[{ text: message.buttonText, url: message.buttonUrl }]],
             };
           }
 
@@ -152,26 +136,19 @@ export class BroadcastFlowService {
             this.logger.log(`Sending image message to ${group.name}`);
 
             try {
-              sentMessage = await ctx.telegram.sendPhoto(
-                group.chatId,
-                message.image,
-                {
-                  caption: messageText,
-                  parse_mode: messageOptions.parse_mode,
-                  reply_markup: messageOptions.reply_markup,
-                },
-              );
+              sentMessage = await ctx.telegram.sendPhoto(group.chatId, message.image, {
+                caption: messageText,
+                parse_mode: messageOptions.parse_mode,
+                reply_markup: messageOptions.reply_markup,
+              });
               successfulGroups.push(group.name);
-              this.logger.log(
-                `Successfully sent image message to ${group.name}`,
-              );
+              this.logger.log(`Successfully sent image message to ${group.name}`);
             } catch (error) {
               this.logger.error(
                 `Error sending photo to ${group.name}: ${(error as Error).message || 'Unknown error'}`,
               );
               failedGroups.push(group.name);
-              errorDetails[group.name] =
-                (error as Error).message || 'Unknown error';
+              errorDetails[group.name] = (error as Error).message || 'Unknown error';
               continue;
             }
           } else {
@@ -184,16 +161,13 @@ export class BroadcastFlowService {
                 messageOptions,
               );
               successfulGroups.push(group.name);
-              this.logger.log(
-                `Successfully sent text message to ${group.name}`,
-              );
+              this.logger.log(`Successfully sent text message to ${group.name}`);
             } catch (error) {
               this.logger.error(
                 `Error sending message to ${group.name}: ${(error as Error).message || 'Unknown error'}`,
               );
               failedGroups.push(group.name);
-              errorDetails[group.name] =
-                (error as Error).message || 'Unknown error';
+              errorDetails[group.name] = (error as Error).message || 'Unknown error';
               continue;
             }
           }
@@ -203,10 +177,7 @@ export class BroadcastFlowService {
             this.logger.log(`Pinning message in ${group.name}`);
 
             try {
-              await ctx.telegram.pinChatMessage(
-                group.chatId,
-                sentMessage?.message_id ?? 0,
-              );
+              await ctx.telegram.pinChatMessage(group.chatId, sentMessage?.message_id ?? 0);
               this.logger.log(`Successfully pinned message in ${group.name}`);
             } catch (error) {
               this.logger.warn(
@@ -216,13 +187,9 @@ export class BroadcastFlowService {
             }
           }
         } catch (error) {
-          this.logger.error(
-            `Error broadcasting to group ${group.name}:`,
-            error,
-          );
+          this.logger.error(`Error broadcasting to group ${group.name}:`, error);
           failedGroups.push(group.name);
-          errorDetails[group.name] =
-            (error as Error).message || 'Unknown error';
+          errorDetails[group.name] = (error as Error).message || 'Unknown error';
         }
       }
 
@@ -262,8 +229,7 @@ export class BroadcastFlowService {
       }
     } catch (error: unknown) {
       this.logger.error('Broadcast error:', error);
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return {
         success: false,
         message: `An error occurred during broadcast: ${errorMessage}`,
