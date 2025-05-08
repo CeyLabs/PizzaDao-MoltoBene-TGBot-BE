@@ -3,11 +3,17 @@ import { Update, On, Command, Start } from 'nestjs-telegraf';
 import { Context } from 'telegraf';
 import { UsersService } from '../users/users.service';
 import { UserRegistrationData } from './welcome.types';
+import { CountryService } from '../country/country.service';
+import { CityService } from '../city/city.service';
 
 @Update()
 @Injectable()
 export class WelcomeService {
-  constructor(private readonly userRegistryService: UsersService) {}
+  constructor(
+    private readonly userRegistryService: UsersService,
+    private readonly countryService: CountryService,
+    private readonly cityService: CityService,
+  ) {}
 
   addUser(
     telegram_id: number,
@@ -41,8 +47,10 @@ export class WelcomeService {
     return this.userRegistryService.isUserRegistered(userId);
   }
 
-  findUser(userId: number): Promise<UserRegistrationData | null> {
-    return this.userRegistryService.findUser(userId);
+  async findUser(userId: number): Promise<UserRegistrationData | null> {
+    return this.userRegistryService
+      .findUser(userId)
+      .then((user) => user ?? null);
   }
 
   private userSteps = new Map<number, number | string>();
@@ -220,7 +228,7 @@ export class WelcomeService {
 
         // Fetch countries for the selected region
         const countries =
-          await this.userRegistryService.getCountriesByRegion(regionId);
+          await this.countryService.getCountriesByRegion(regionId);
 
         // Group countries into rows of 2 buttons
         const countryButtons: { text: string; callback_data: string }[][] = [];
@@ -249,8 +257,7 @@ export class WelcomeService {
         this.userSteps.set(userId, 3);
 
         // Fetch cities for the selected country
-        const cities =
-          await this.userRegistryService.getCitiesByCountry(countryId);
+        const cities = await this.cityService.getCitiesByCountry(countryId);
 
         // Present cities as inline buttons
         await ctx.editMessageText('Please select your city:', {
@@ -359,10 +366,10 @@ export class WelcomeService {
 
       // Fetch country and city names from the database
       const country = user.country_id
-        ? await this.userRegistryService.getCountryById(user.country_id)
+        ? await this.countryService.getCountryById(user.country_id)
         : null;
       const city = user.city_id
-        ? await this.userRegistryService.getCityById(user.city_id)
+        ? await this.cityService.getCityById(user.city_id)
         : null;
 
       console.log(
