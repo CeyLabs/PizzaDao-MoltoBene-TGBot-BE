@@ -500,6 +500,8 @@ export class WelcomeService {
 
       await this.userService.addUser(newUser);
 
+      const groupId = this.userGroupMap.get(userId)?.group_id;
+
       this.userSteps.delete(userId);
       this.userGroupMap.delete(userId);
 
@@ -507,7 +509,6 @@ export class WelcomeService {
         'Thank you for providing your details! You are now verified.',
       );
 
-      const groupId = this.userGroupMap.get(userId)?.group_id;
       if (groupId) {
         await ctx.telegram.restrictChatMember(groupId, userId, {
           permissions: {
