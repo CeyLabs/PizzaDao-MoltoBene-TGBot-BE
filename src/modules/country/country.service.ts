@@ -7,10 +7,7 @@ export class CountryService {
   constructor(private readonly knexService: KnexService) {}
 
   async getCountriesByRegion(regionId: string): Promise<ICountry[]> {
-    return this.knexService
-      .knex('country')
-      .where({ region_id: regionId })
-      .select('id', 'name');
+    return this.knexService.knex('country').where({ region_id: regionId }).select('id', 'name');
   }
 
   async getCountryById(countryId: string): Promise<ICountry | null> {

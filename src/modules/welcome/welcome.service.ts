@@ -33,9 +33,7 @@ export class WelcomeService {
           `Let's get started 🚀`,
         {
           reply_markup: {
-            inline_keyboard: [
-              [{ text: '📋 View Profile', callback_data: 'view_profile' }],
-            ],
+            inline_keyboard: [[{ text: '📋 View Profile', callback_data: 'view_profile' }]],
           },
         },
       );
@@ -148,9 +146,7 @@ export class WelcomeService {
           `Welcome\\, ${`[${member.first_name}](tg://user?id=${member.id})`} \\! Please verify you are not a robot by clicking the button below\\. You have 30 seconds to verify\\.`,
           {
             reply_markup: {
-              inline_keyboard: [
-                [{ text: 'Verify', callback_data: `verify_${member.id}` }],
-              ],
+              inline_keyboard: [[{ text: 'Verify', callback_data: `verify_${member.id}` }]],
             },
           },
         );
@@ -158,10 +154,7 @@ export class WelcomeService {
         setTimeout(() => {
           void (async () => {
             try {
-              await ctx.telegram.deleteMessage(
-                chatId,
-                verificationMessage.message_id,
-              );
+              await ctx.telegram.deleteMessage(chatId, verificationMessage.message_id);
             } catch {
               console.error('Failed to delete message.');
             }
@@ -174,9 +167,7 @@ export class WelcomeService {
   @On('callback_query')
   async handleCallbackQuery(ctx: Context) {
     const callbackData =
-      ctx.callbackQuery && 'data' in ctx.callbackQuery
-        ? ctx.callbackQuery.data
-        : undefined;
+      ctx.callbackQuery && 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : undefined;
     const userId = ctx.callbackQuery?.from.id;
 
     if (!userId) return;
@@ -190,8 +181,7 @@ export class WelcomeService {
         this.userSteps.set(userId, 2);
 
         // Fetch countries for the selected region
-        const countries =
-          await this.countryService.getCountriesByRegion(regionId);
+        const countries = await this.countryService.getCountriesByRegion(regionId);
 
         // Group countries into rows of 2 buttons
         const countryButtons: { text: string; callback_data: string }[][] = [];
@@ -298,9 +288,7 @@ export class WelcomeService {
               {
                 parse_mode: 'Markdown',
                 reply_markup: {
-                  inline_keyboard: [
-                    [{ text: 'Verify', callback_data: `verify_${userId}` }],
-                  ],
+                  inline_keyboard: [[{ text: 'Verify', callback_data: `verify_${userId}` }]],
                 },
               },
             );
@@ -308,10 +296,7 @@ export class WelcomeService {
             setTimeout(() => {
               void (async () => {
                 try {
-                  await ctx.telegram.deleteMessage(
-                    groupId,
-                    verificationMessage.message_id,
-                  );
+                  await ctx.telegram.deleteMessage(groupId, verificationMessage.message_id);
                 } catch (error) {
                   console.error('Failed to delete message:', error);
                 }
@@ -335,9 +320,7 @@ export class WelcomeService {
       const country = user.country_id
         ? await this.countryService.getCountryById(user.country_id)
         : null;
-      const city = user.city_id
-        ? await this.cityService.getCityById(String(user.city_id))
-        : null;
+      const city = user.city_id ? await this.cityService.getCityById(String(user.city_id)) : null;
 
       await ctx.editMessageText(
         `📋 *Your Profile*\n\n` +
@@ -383,9 +366,7 @@ export class WelcomeService {
       );
     } else if (callbackData?.startsWith('edit_')) {
       const field = callbackData.split('_').slice(1).join('_');
-      await ctx.editMessageText(
-        `Please enter your new ${field.replace('_', ' ')}:`,
-      );
+      await ctx.editMessageText(`Please enter your new ${field.replace('_', ' ')}:`);
       this.userSteps.set(userId, `edit_${field}`);
     } else if (callbackData === 'back_to_start') {
       await ctx.deleteMessage();
@@ -424,9 +405,7 @@ export class WelcomeService {
 
       this.userSteps.delete(userId);
 
-      await ctx.reply(
-        `Your ${field.replaceAll('_', ' ')} has been updated to "${newValue}".`,
-      );
+      await ctx.reply(`Your ${field.replaceAll('_', ' ')} has been updated to "${newValue}".`);
       await this.startCommand(ctx);
     }
 
@@ -505,9 +484,7 @@ export class WelcomeService {
       this.userSteps.delete(userId);
       this.userGroupMap.delete(userId);
 
-      await ctx.reply(
-        'Thank you for providing your details! You are now verified.',
-      );
+      await ctx.reply('Thank you for providing your details! You are now verified.');
 
       if (groupId) {
         await ctx.telegram.restrictChatMember(groupId, userId, {
@@ -533,10 +510,7 @@ export class WelcomeService {
         setTimeout(() => {
           void (async () => {
             try {
-              await ctx.telegram.deleteMessage(
-                groupId,
-                welcomeMessage.message_id,
-              );
+              await ctx.telegram.deleteMessage(groupId, welcomeMessage.message_id);
             } catch (error) {
               console.error('Failed to delete message:', error);
             }

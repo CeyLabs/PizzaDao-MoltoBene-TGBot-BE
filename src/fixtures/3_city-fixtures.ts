@@ -11,9 +11,7 @@ export async function seed(knex: Knex): Promise<void> {
   const countries = await knex<ICountry>('country').select('id', 'name');
 
   // Map country names to their IDs
-  const countryMap = Object.fromEntries(
-    countries.map((country) => [country.name, country.id]),
-  );
+  const countryMap = Object.fromEntries(countries.map((country) => [country.name, country.id]));
 
   // Insert cities with their group IDs
   await knex(tableName).insert([

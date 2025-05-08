@@ -7,10 +7,7 @@ export class CityService {
   constructor(private readonly knexService: KnexService) {}
 
   async getCitiesByCountry(countryId: string): Promise<ICity[]> {
-    return this.knexService
-      .knex('city')
-      .where({ country_id: countryId })
-      .select('id', 'name');
+    return this.knexService.knex('city').where({ country_id: countryId }).select('id', 'name');
   }
 
   async getCityById(cityId: string): Promise<ICity | null> {
@@ -31,10 +28,7 @@ export class CityService {
       .pluck('id');
 
     // Update the city with the validated admin IDs
-    await this.knexService
-      .knex('city')
-      .where({ id: cityId })
-      .update({ admin_ids: validAdminIds });
+    await this.knexService.knex('city').where({ id: cityId }).update({ admin_ids: validAdminIds });
   }
 
   async getCityByGroupId(groupId: string | number): Promise<ICity | null> {

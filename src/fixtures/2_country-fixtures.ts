@@ -7,17 +7,11 @@ export async function seed(knex: Knex): Promise<void> {
   if (Number(count) > 0) return;
 
   // Fetch region IDs
-  const regions: { id: number; name: string }[] = await knex('region').select(
-    'id',
-    'name',
-  );
+  const regions: { id: number; name: string }[] = await knex('region').select('id', 'name');
 
   // Map region names to their IDs
   const regionMap = Object.fromEntries(
-    regions.map((region: { id: number; name: string }) => [
-      region.name,
-      region.id,
-    ]),
+    regions.map((region: { id: number; name: string }) => [region.name, region.id]),
   );
 
   // Insert countries with their respective regions

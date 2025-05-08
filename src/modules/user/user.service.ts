@@ -25,17 +25,10 @@ export class UserService {
   }
 
   async findUser(telegramId: number): Promise<IUser | undefined> {
-    return this.knexService
-      .knex<IUser>('user')
-      .where({ telegram_id: telegramId })
-      .first();
+    return this.knexService.knex<IUser>('user').where({ telegram_id: telegramId }).first();
   }
 
-  async updateUserField(
-    telegram_id: number,
-    field: string,
-    value: string,
-  ): Promise<void> {
+  async updateUserField(telegram_id: number, field: string, value: string): Promise<void> {
     await this.knexService
       .knex('user')
       .where({ telegram_id })
