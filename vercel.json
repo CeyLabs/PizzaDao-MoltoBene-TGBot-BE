@@ -10,12 +10,8 @@
   },
   "rewrites": [
     {
-      "source": "/api/*",
-      "destination": "/api/restful"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/public/$1"
+      "source": "/api/(.*)",
+      "destination": "/api/restful.js"
     }
   ]
 }
