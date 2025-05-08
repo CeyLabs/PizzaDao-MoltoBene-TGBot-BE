@@ -3,8 +3,9 @@ import { TelegrafModule } from 'nestjs-telegraf';
 import { AppService } from './app.service';
 import { KnexModule } from './modules/knex/knex.module';
 import { WelcomeModule } from './modules/welcome/welcome.module';
-import { GeneralModule } from './modules/general/general.module';
 import { UsersModule } from './modules/users/users.module';
+import { CountryModule } from './modules/country/country.module';
+import { CityModule } from './modules/city/city.module';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
@@ -20,8 +21,9 @@ dotenv.config();
     }),
     KnexModule,
     UsersModule,
-    GeneralModule,
     WelcomeModule,
+    CountryModule,
+    CityModule,
   ],
   providers: [AppService],
 })
