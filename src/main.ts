@@ -10,13 +10,10 @@ async function bootstrap() {
 
   const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN!);
 
-  // Define your bot commands and handlers here
-  bot.on('text', (ctx) => ctx.reply(`You said: ${ctx.message.text}`));
-
   await bot.launch({
     webhook: {
       domain: process.env.WEBHOOK_DOMAIN as string,
-      port: 8080,
+      port: 3000,
       path: '/webhook',
     },
   });
