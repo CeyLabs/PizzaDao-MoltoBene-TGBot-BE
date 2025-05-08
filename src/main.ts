@@ -13,7 +13,7 @@ async function bootstrap() {
   await bot.launch({
     webhook: {
       domain: process.env.WEBHOOK_DOMAIN as string,
-      port: 3000,
+      port: 443,
       path: '/webhook',
     },
   });

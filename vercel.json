@@ -4,8 +4,8 @@
   "buildCommand": "npm run build",
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/restful.js"
+      "source": "/api/webhook",
+      "destination": "/src/main.js"
     }
   ]
 }
