@@ -1,4 +1,4 @@
-export interface UserRegistrationData {
+export interface IUserRegistrationData {
   telegram_id: number;
   group_id?: string | number | null;
   username: string | null;

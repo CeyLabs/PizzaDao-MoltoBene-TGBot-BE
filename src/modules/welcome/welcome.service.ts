@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Update, On, Command, Start } from 'nestjs-telegraf';
 import { Context } from 'telegraf';
 import { UsersService } from '../users/users.service';
-import { UserRegistrationData } from './welcome.types';
+import { IUserRegistrationData } from './welcome.types';
 import { CountryService } from '../country/country.service';
 import { CityService } from '../city/city.service';
 
@@ -47,14 +47,14 @@ export class WelcomeService {
     return this.userRegistryService.isUserRegistered(userId);
   }
 
-  async findUser(userId: number): Promise<UserRegistrationData | null> {
+  async findUser(userId: number): Promise<IUserRegistrationData | null> {
     return this.userRegistryService
       .findUser(userId)
       .then((user) => user ?? null);
   }
 
   private userSteps = new Map<number, number | string>();
-  private userGroupMap = new Map<number, UserRegistrationData>();
+  private userGroupMap = new Map<number, IUserRegistrationData>();
 
   @Start()
   async startCommand(ctx: Context) {
