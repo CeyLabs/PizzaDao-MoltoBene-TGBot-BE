@@ -1,4 +1,5 @@
 import { Knex } from 'knex';
+import { ICountry } from 'src/modules/country/country.interface';
 
 const tableName = 'city';
 
@@ -7,9 +8,7 @@ export async function seed(knex: Knex): Promise<void> {
   if (Number(count) > 0) return;
 
   // Fetch country IDs
-  const countries = await knex('country').select<
-    { id: number; name: string }[]
-  >('id', 'name');
+  const countries = await knex<ICountry>('country').select('id', 'name');
 
   // Map country names to their IDs
   const countryMap = Object.fromEntries(
