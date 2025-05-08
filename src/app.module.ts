@@ -16,7 +16,7 @@ dotenv.config();
     TelegrafModule.forRoot({
       token: process.env.TELEGRAM_BOT_TOKEN || '',
       include: [BroadcastFlowModule, BroadcastFlowUpdate, BotCommandsService],
-      middlewares: [PrivateChatMiddleware],
+      middlewares: [new PrivateChatMiddleware().use()],
     }),
     BroadcastFlowModule,
     KnexModule,
