@@ -340,10 +340,6 @@ export class WelcomeService {
                   text: '✏️ Edit Name',
                   callback_data: 'edit_custom_full_name',
                 },
-                { text: '✏️ Edit Country', callback_data: 'edit_country' },
-              ],
-              [
-                { text: '✏️ Edit City', callback_data: 'edit_city' },
                 {
                   text: '✏️ Edit Mafia Movie',
                   callback_data: 'edit_mafia_movie',
