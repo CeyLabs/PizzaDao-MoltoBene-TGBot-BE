@@ -14,10 +14,16 @@ export async function up(knex: Knex): Promise<void> {
     table.string('custom_full_name');
     table
       .uuid('country_id')
+      .nullable()
       .references('id')
       .inTable('country')
       .onDelete('SET NULL');
-    table.uuid('city_id').references('id').inTable('city').onDelete('SET NULL');
+    table
+      .uuid('city_id')
+      .nullable()
+      .references('id')
+      .inTable('city')
+      .onDelete('SET NULL');
     table.string('role').defaultTo('user');
     table.string('mafia_movie');
     table.string('ninja_turtle_character');
