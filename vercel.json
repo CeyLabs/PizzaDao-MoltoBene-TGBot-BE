@@ -1,15 +1,21 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "src/main.ts",
-      "use": "@vercel/node"
+  "framework": null,
+  "outputDirectory": ".",
+  "buildCommand": "npm run build",
+  "functions": {
+    "api/*.ts": {
+      "memory": 1024,
+      "maxDuration": 10
     }
-  ],
-  "routes": [
+  },
+  "rewrites": [
     {
-      "src": "/webhook",
-      "dest": "src/main.ts",
-      "methods": ["POST"]    }
+      "source": "/api(.*)",
+      "destination": "/api/restful"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/public"
+    }
   ]
 }
