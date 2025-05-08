@@ -15,7 +15,7 @@ const MAIN_GROUP_ID = Number(process.env.MAIN_GROUP_ID);
 
 @Update()
 @Injectable()
-export class BroadcastFlowUpdate {
+export class BroadcastFlowController {
   private readonly userStates: Map<number, BroadcastState> = new Map();
 
   constructor(private readonly broadcastFlowService: BroadcastFlowService) {}

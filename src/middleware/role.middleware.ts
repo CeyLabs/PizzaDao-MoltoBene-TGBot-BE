@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { BroadcastFlowService } from 'src/broadcast-flow/broadcast-flow.service';
+import { BroadcastFlowService } from 'src/modules/broadcast-flow/broadcast-flow.service';
 import { Context, MiddlewareFn } from 'telegraf';
 
 @Injectable()

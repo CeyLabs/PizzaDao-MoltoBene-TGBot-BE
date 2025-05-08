@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { TelegrafModule } from 'nestjs-telegraf';
 import { AppService } from './app.service';
-import { BroadcastFlowModule } from './broadcast-flow/broadcast-flow.module';
+import { BroadcastFlowModule } from './modules/broadcast-flow/broadcast-flow.module';
 import { BotCommandsService } from './bot-commands';
 import { PrivateChatMiddleware } from './middleware/chat-type.middleware';
-import { BroadcastFlowUpdate } from './broadcast-flow/broadcast-flow.controller';
+import { BroadcastFlowController } from './modules/broadcast-flow/broadcast-flow.controller';
 import { KnexModule } from './modules/knex/knex.module';
 import { WelcomeModule } from './modules/welcome/welcome.module';
 import { UserModule } from './modules/user/user.module';
@@ -18,7 +18,7 @@ dotenv.config();
   imports: [
     TelegrafModule.forRoot({
       token: process.env.TELEGRAM_BOT_TOKEN || '',
-      include: [BroadcastFlowModule, BroadcastFlowUpdate, BotCommandsService],
+      include: [BroadcastFlowModule, BroadcastFlowController, BotCommandsService],
       middlewares: [new PrivateChatMiddleware().use()],
     }),
     BroadcastFlowModule,
