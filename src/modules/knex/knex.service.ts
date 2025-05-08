@@ -10,9 +10,9 @@ export class KnexService implements OnModuleInit, OnModuleDestroy {
     this.knex = knex(config.development);
   }
 
-  onModuleDestroy() {
+  async onModuleDestroy() {
     if (this.knex) {
-      this.knex.destroy();
+      await this.knex.destroy();
     }
   }
 }
