@@ -372,11 +372,6 @@ export class WelcomeService {
         ? await this.cityService.getCityById(user.city_id)
         : null;
 
-      console.log(
-        '🚀 ~ WelcomeService ~ handleCallbackQuery ~ country:',
-        user.pizza_topping,
-      );
-
       await ctx.editMessageText(
         `📋 *Your Profile*\n\n` +
           `👤 *Name*: ${user.custom_full_name || 'Not set'}\n` +
