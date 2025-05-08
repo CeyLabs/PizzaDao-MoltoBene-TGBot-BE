@@ -62,7 +62,7 @@ export class BroadcastFlowUpdate {
     ctx: Context,
     selectedCity: string,
   ): Promise<number | null> {
-    const userId = ctx.from?.id;
+    const userId: number | undefined = ctx.from?.id;
     if (!userId) return null;
 
     const state = this.getState(userId);
@@ -110,7 +110,7 @@ export class BroadcastFlowUpdate {
     await this.handleCitySelection(ctx, selectedCity);
   }
 
-  private async showMainKeyboardAfterInlineQuery(ctx: any) {
+  private async showMainKeyboardAfterInlineQuery(ctx: Context) {
     try {
       // For inline query responses, we need to ensure we're sending a new message
       await ctx.reply(
@@ -122,12 +122,26 @@ export class BroadcastFlowUpdate {
     }
   }
 
-  private async showCancelOption(ctx: any, message: string, options: any = {}) {
-    const inlineKeyboard = options.reply_markup?.inline_keyboard || [];
+  private showCancelOption(
+    ctx: Context,
+    message: string,
+    options: Record<string, any> = {},
+  ): Promise<unknown> {
+    const inlineKeyboard: InlineKeyboardButton[][] = Array.isArray(
+      (options.reply_markup as { inline_keyboard?: InlineKeyboardButton[][] })
+        ?.inline_keyboard,
+    )
+      ? (options.reply_markup as { inline_keyboard: InlineKeyboardButton[][] })
+          .inline_keyboard
+      : [];
 
     // Add a cancel button as the last row if it's not already there
     const hasCancelButton = inlineKeyboard.some((row) =>
-      row.some((button) => button.callback_data === 'cancel_broadcast'),
+      row.some(
+        (button: InlineKeyboardButton) =>
+          'callback_data' in button &&
+          button.callback_data === 'cancel_broadcast',
+      ),
     );
 
     if (!hasCancelButton) {
@@ -141,13 +155,13 @@ export class BroadcastFlowUpdate {
       reply_markup: {
         inline_keyboard: inlineKeyboard,
       },
-    });
+    }) as Promise<unknown>;
   }
 
   @Start()
   async onStartCommand(@Ctx() ctx: Context) {
     // Reset user state
-    const userId = ctx.from?.id;
+    const userId: number | undefined = ctx.from?.id;
     if (userId) {
       this.resetState(userId);
     }
@@ -177,7 +191,7 @@ ${welcomeMessage}
   @Hears(['🔊 Broadcast Message', 'Broadcast Message'])
   @Command('broadcast')
   async onBroadcast(@Ctx() ctx: Context) {
-    const userId = ctx.from?.id;
+    const userId: number | undefined = ctx.from?.id;
     if (!userId) return;
 
     const state = this.getState(userId);
@@ -203,8 +217,10 @@ ${welcomeMessage}
   }
 
   @Action('start_broadcast')
-  async onStartBroadcast(@Ctx() ctx: any) {
-    await ctx.answerCbQuery();
+  async onStartBroadcast(@Ctx() ctx: Context) {
+    if (ctx.answerCbQuery) {
+      await ctx.answerCbQuery();
+    }
     await ctx.deleteMessage();
     await this.onBroadcast(ctx);
   }
@@ -215,7 +231,9 @@ ${welcomeMessage}
     try {
       // Answer callback query if this came from a button
       if ('callback_query' in ctx.update) {
-        await ctx.answerCbQuery();
+        if ('answerCbQuery' in ctx && typeof ctx.answerCbQuery === 'function') {
+          await ctx.answerCbQuery();
+        }
       }
 
       const helpText = helpMessage;
@@ -245,9 +263,11 @@ ${welcomeMessage}
   }
 
   @Action('back_from_city')
-  async onBackFromCity(@Ctx() ctx: any) {
-    await ctx.answerCbQuery();
-    const userId = ctx.from?.id;
+  async onBackFromCity(@Ctx() ctx: Context) {
+    if (typeof ctx.answerCbQuery === 'function') {
+      await ctx.answerCbQuery();
+    }
+    const userId: number | undefined = ctx.from?.id;
     if (!userId) return;
 
     // Reset the user's state to 'select_scope'
@@ -259,7 +279,7 @@ ${welcomeMessage}
     buttons.push([Markup.button.callback('🏙️ City', 'scope_city')]);
     buttons.push([Markup.button.callback('❌ Cancel', 'cancel_broadcast')]);
 
-    await ctx.editMessageText(
+    await ctx.editMessageText?.(
       '📢 *Select broadcast target:*\n\nWhere would you like to send your message?',
       {
         parse_mode: 'Markdown',
@@ -269,8 +289,10 @@ ${welcomeMessage}
   }
 
   @Action('back_to_start')
-  async onBackToStart(@Ctx() ctx: any) {
-    await ctx.answerCbQuery();
+  async onBackToStart(@Ctx() ctx: Context) {
+    if (typeof ctx.answerCbQuery === 'function') {
+      await ctx.answerCbQuery();
+    }
     const firstName = ctx.from?.first_name || 'there';
 
     await ctx.editMessageText(
@@ -298,14 +320,20 @@ Ready to get started?
   }
 
   @Action(/^scope_(.+)$/)
-  async onScopeSelect(@Ctx() ctx: any) {
+  async onScopeSelect(@Ctx() ctx: Context) {
     const userId = ctx.from?.id;
     if (!userId) return;
 
     await ctx.answerCbQuery();
 
     const state = this.getState(userId);
-    const scopeMatch = ctx.match[1];
+    const scopeMatch = Array.isArray(
+      (ctx as Context & { match: RegExpExecArray }).match,
+    )
+      ? ((ctx as Context & { match: RegExpExecArray }).match[1] as
+          | string
+          | undefined)
+      : undefined;
 
     if (scopeMatch === 'all') {
       const role = await this.broadcastFlowService.getUserRole(
@@ -351,9 +379,15 @@ Ready to get started?
   }
 
   @On('inline_query')
-  async handleInlineQuery(@Ctx() ctx: any) {
-    const query = ctx.inlineQuery.query.trim().toLowerCase();
-    const offset = parseInt(ctx.inlineQuery.offset || '0');
+  async handleInlineQuery(@Ctx() ctx: Context) {
+    const query =
+      ctx.inlineQuery?.query && typeof ctx.inlineQuery.query === 'string'
+        ? ctx.inlineQuery.query.trim().toLowerCase()
+        : '';
+    const offset =
+      ctx.inlineQuery && typeof ctx.inlineQuery.offset === 'string'
+        ? parseInt(ctx.inlineQuery?.offset || '0')
+        : 0;
     const pageSize = 20;
 
     const allCities = this.broadcastFlowService.getAllCities();
@@ -363,7 +397,7 @@ Ready to get started?
 
     const results: InlineQueryResultArticle[] = filtered
       .slice(offset, offset + pageSize)
-      .map((city, index) => ({
+      .map((city) => ({
         type: 'article',
         id: nanoid(),
         title: city,
@@ -377,14 +411,14 @@ Ready to get started?
     const nextOffset =
       offset + pageSize < filtered.length ? `${offset + pageSize}` : '';
 
-    await ctx.answerInlineQuery(results, {
+    await ctx.answerInlineQuery?.(results, {
       cache_time: 0,
       is_personal: true,
       next_offset: nextOffset,
     });
   }
   @Action(/^city_(.+)$/)
-  async onCitySelect(@Ctx() ctx: any) {
+  async onCitySelect(@Ctx() ctx: Context & { match: RegExpExecArray }) {
     const userId = ctx.from?.id;
     if (!userId) return;
 
@@ -407,15 +441,20 @@ Ready to get started?
   }
 
   @On('text')
-  async onText(@Ctx() ctx: any) {
+  async onText(@Ctx() ctx: Context) {
     const userId = ctx.from?.id;
     if (!userId) return;
 
     const state = this.getState(userId);
-    const text = ctx.message.text;
+    const text =
+      ctx.message &&
+      'text' in ctx.message &&
+      typeof ctx.message.text === 'string'
+        ? ctx.message.text
+        : '';
 
     // Skip processing if the text is a command
-    if (text.startsWith('/')) {
+    if (typeof text === 'string' && text.startsWith('/')) {
       if (text === '/cancel') {
         await this.handleCancel(ctx);
       }
@@ -434,13 +473,19 @@ Ready to get started?
     // Process other text messages based on current step
     switch (state.step) {
       case 'collect_message':
-        state.message.content = text;
+        if (typeof text === 'string') {
+          state.message.content = text;
+        } else {
+          Logger.warn('Invalid message content type received.');
+          await ctx.reply('❌ Invalid message content. Please try again.');
+          return;
+        }
         state.step = 'collect_place';
         await this.promptForPlace(ctx);
         break;
 
       case 'collect_place':
-        if (text.toLowerCase() !== 'skip') {
+        if (typeof text === 'string' && text.toLowerCase() !== 'skip') {
           state.message.place = text;
         }
         state.step = 'collect_date';
@@ -448,7 +493,7 @@ Ready to get started?
         break;
 
       case 'collect_date':
-        if (text.toLowerCase() !== 'skip') {
+        if (typeof text === 'string' && text.toLowerCase() !== 'skip') {
           state.message.date = text;
         }
         state.step = 'collect_time';
@@ -456,7 +501,7 @@ Ready to get started?
         break;
 
       case 'collect_time':
-        if (text.toLowerCase() !== 'skip') {
+        if (typeof text === 'string' && text.toLowerCase() !== 'skip') {
           state.message.time = text;
         }
         state.step = 'collect_links';
@@ -464,7 +509,7 @@ Ready to get started?
         break;
 
       case 'collect_links':
-        if (text.toLowerCase() !== 'skip') {
+        if (typeof text === 'string' && text.toLowerCase() !== 'skip') {
           state.message.externalLinks = text;
         }
         state.step = 'ask_image';
@@ -490,7 +535,13 @@ Ready to get started?
         break;
 
       case 'collect_button_text':
-        state.message.buttonText = text;
+        if (typeof text === 'string') {
+          state.message.buttonText = text;
+        } else {
+          Logger.warn('Invalid button text type received.');
+          await ctx.reply('❌ Invalid button text. Please try again.');
+          return;
+        }
         state.step = 'collect_button_url';
         await this.showCancelOption(
           ctx,
@@ -501,7 +552,10 @@ Ready to get started?
 
       case 'collect_button_url':
         // Simple URL validation
-        if (!text.startsWith('http://') && !text.startsWith('https://')) {
+        if (
+          typeof text !== 'string' ||
+          (!text.startsWith('http://') && !text.startsWith('https://'))
+        ) {
           await ctx.reply(
             '⚠️ Please enter a valid URL starting with http:// or https://',
           );
@@ -522,7 +576,7 @@ Ready to get started?
     }
   }
 
-  private async promptForPlace(ctx: any) {
+  private async promptForPlace(ctx: Context) {
     await ctx.reply(
       '🏢 *Enter venue/place:* (optional)\n\nWhere is this event taking place?',
       {
@@ -535,7 +589,7 @@ Ready to get started?
     );
   }
 
-  private async promptForDate(ctx: any) {
+  private async promptForDate(ctx: Context) {
     await ctx.reply('📅 *Enter date:* (optional)\n\nWhen is this happening?', {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
@@ -545,7 +599,7 @@ Ready to get started?
     });
   }
 
-  private async promptForTime(ctx: any) {
+  private async promptForTime(ctx: Context) {
     await ctx.reply('⏰ *Enter time:* (optional)\n\nAt what time?', {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
@@ -555,7 +609,7 @@ Ready to get started?
     });
   }
 
-  private async promptForLinks(ctx: any) {
+  private async promptForLinks(ctx: Context) {
     await ctx.reply(
       '🔗 *Enter external links:* (optional)\n\nAny relevant links to include?',
       {
@@ -569,7 +623,7 @@ Ready to get started?
   }
 
   @Action('skip_place')
-  async onSkipPlace(@Ctx() ctx: any) {
+  async onSkipPlace(@Ctx() ctx: Context) {
     const userId = ctx.from?.id;
     if (!userId) return;
 
@@ -583,7 +637,7 @@ Ready to get started?
   }
 
   @Action('skip_date')
-  async onSkipDate(@Ctx() ctx: any) {
+  async onSkipDate(@Ctx() ctx: Context) {
     const userId = ctx.from?.id;
     if (!userId) return;
 
@@ -597,7 +651,7 @@ Ready to get started?
   }
 
   @Action('skip_time')
-  async onSkipTime(@Ctx() ctx: any) {
+  async onSkipTime(@Ctx() ctx: Context) {
     const userId = ctx.from?.id;
     if (!userId) return;
 
@@ -611,7 +665,7 @@ Ready to get started?
   }
 
   @Action('skip_links')
-  async onSkipLinks(@Ctx() ctx: any) {
+  async onSkipLinks(@Ctx() ctx: Context) {
     const userId = ctx.from?.id;
     if (!userId) return;
 
@@ -635,7 +689,7 @@ Ready to get started?
   }
 
   @On('photo')
-  async onPhoto(@Ctx() ctx: any) {
+  async onPhoto(@Ctx() ctx: Context) {
     const userId = ctx.from?.id;
     if (!userId) return;
 
@@ -644,7 +698,19 @@ Ready to get started?
     if (state.step === 'collect_image') {
       // Get the file ID of the highest resolution photo
       const photoFileId =
-        ctx.message.photo[ctx.message.photo.length - 1].file_id;
+        ctx.message &&
+        ctx.message &&
+        'photo' in ctx.message &&
+        Array.isArray(ctx.message.photo) &&
+        ctx.message.photo.length > 0 &&
+        'file_id' in ctx.message.photo[ctx.message.photo.length - 1]
+          ? ctx.message.photo[ctx.message.photo.length - 1].file_id
+          : null;
+
+      if (!photoFileId) {
+        await ctx.reply('❌ Unable to process the photo. Please try again.');
+        return;
+      }
       state.message.image = photoFileId;
       state.step = 'ask_button';
 
@@ -665,7 +731,7 @@ Ready to get started?
   }
 
   @Action('image_yes')
-  async onImageYes(@Ctx() ctx: any) {
+  async onImageYes(@Ctx() ctx: Context) {
     const userId = ctx.from?.id;
     if (!userId) return;
 
@@ -686,7 +752,7 @@ Ready to get started?
   }
 
   @Action('image_no')
-  async onImageNo(@Ctx() ctx: any) {
+  async onImageNo(@Ctx() ctx: Context) {
     const userId = ctx.from?.id;
     if (!userId) return;
 
@@ -708,7 +774,7 @@ Ready to get started?
   }
 
   @Action('button_yes')
-  async onButtonYes(@Ctx() ctx: any) {
+  async onButtonYes(@Ctx() ctx: Context) {
     const userId = ctx.from?.id;
     if (!userId) return;
 
@@ -729,7 +795,7 @@ Ready to get started?
   }
 
   @Action('button_no')
-  async onButtonNo(@Ctx() ctx: any) {
+  async onButtonNo(@Ctx() ctx: Context) {
     const userId = ctx.from?.id;
     if (!userId) return;
 
@@ -742,7 +808,7 @@ Ready to get started?
     await this.showConfirmation(ctx, state.message);
   }
 
-  private async showConfirmation(ctx: any, message: BroadcastMessage) {
+  private async showConfirmation(ctx: Context, message: BroadcastMessage) {
     // Build message preview
     let previewText = '📢 *Broadcast Preview:*\n\n';
 
@@ -779,7 +845,7 @@ Ready to get started?
     // Send the preview with confirmation buttons
     await ctx.reply(previewText, {
       parse_mode: 'Markdown',
-      disable_web_page_preview: true,
+      // disable_web_page_preview: true,
       ...Markup.inlineKeyboard([
         [
           Markup.button.callback('📢 Broadcast', 'confirm_broadcast'),
@@ -794,7 +860,7 @@ Ready to get started?
   }
 
   @Action('confirm_broadcast')
-  async onConfirmBroadcast(@Ctx() ctx: any) {
+  async onConfirmBroadcast(@Ctx() ctx: Context) {
     const userId = ctx.from?.id;
     if (!userId) return;
 
@@ -836,8 +902,14 @@ Ready to get started?
           parse_mode: 'Markdown',
         });
       }
-    } catch (error) {
-      console.error('Broadcast error:', error);
+    } catch (error: unknown) {
+      let errorMessage = 'Unknown error';
+      if (error instanceof Error && error.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      console.error('Broadcast error:', errorMessage);
       await ctx.reply(
         '❌ *Error*\n\nThere was a problem broadcasting your message. Please try again later.',
         {
@@ -853,7 +925,7 @@ Ready to get started?
   }
 
   @Action('confirm_broadcast_pin')
-  async onConfirmBroadcastPin(@Ctx() ctx: any) {
+  async onConfirmBroadcastPin(@Ctx() ctx: Context) {
     const userId = ctx.from?.id;
     if (!userId) return;
 
@@ -929,7 +1001,7 @@ Ready to get started?
   }
 
   @Action('cancel_broadcast')
-  async onCancelBroadcast(@Ctx() ctx: any) {
+  async onCancelBroadcast(@Ctx() ctx: Context) {
     const userId = ctx.from?.id;
     if (!userId) return;
 

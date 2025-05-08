@@ -19,6 +19,7 @@ export class BroadcastFlowService {
       const member = await this.bot.telegram.getChatMember(chatId, userId);
       return member.status;
     } catch (error) {
+      this.logger.error(`Error fetching user role: ${error}`);
       return 'none';
     }
   }
@@ -53,10 +54,10 @@ export class BroadcastFlowService {
 
   async broadcastMessage(
     message: BroadcastMessage,
-    ctx: any,
+    ctx: Context,
   ): Promise<BroadcastResult> {
     let targetGroups: TelegramGroup[] = [];
-    const userId = ctx.from?.id;
+    const userId = ctx.from?.id ?? null;
 
     this.logger.log(`Broadcasting message by user ID: ${userId}`);
 
@@ -110,14 +111,30 @@ export class BroadcastFlowService {
       const failedGroups: string[] = [];
       const errorDetails: Record<string, string> = {};
 
+      let sentMessage: { message_id: number } | undefined;
+
       for (const group of targetGroups) {
         try {
+          if (!group.chatId) {
+            this.logger.warn(
+              `Skipping group ${group.name} due to missing chatId.`,
+            );
+            failedGroups.push(group.name);
+            errorDetails[group.name] = 'Missing chatId';
+            continue;
+          }
+
           this.logger.log(
             `Broadcasting to group: ${group.name} (${group.chatId})`,
           );
 
           // Prepare message options
-          const messageOptions: any = {
+          const messageOptions: {
+            parse_mode: 'Markdown' | 'HTML';
+            reply_markup?: {
+              inline_keyboard: { text: string; url: string }[][];
+            };
+          } = {
             parse_mode: 'Markdown',
           };
 
@@ -131,8 +148,6 @@ export class BroadcastFlowService {
           }
 
           // Send message (with or without image)
-          let sentMessage;
-
           if (message.image) {
             this.logger.log(`Sending image message to ${group.name}`);
 
@@ -142,7 +157,8 @@ export class BroadcastFlowService {
                 message.image,
                 {
                   caption: messageText,
-                  ...messageOptions,
+                  parse_mode: messageOptions.parse_mode,
+                  reply_markup: messageOptions.reply_markup,
                 },
               );
               successfulGroups.push(group.name);
@@ -151,10 +167,11 @@ export class BroadcastFlowService {
               );
             } catch (error) {
               this.logger.error(
-                `Error sending photo to ${group.name}: ${error.message}`,
+                `Error sending photo to ${group.name}: ${(error as Error).message || 'Unknown error'}`,
               );
               failedGroups.push(group.name);
-              errorDetails[group.name] = error.message;
+              errorDetails[group.name] =
+                (error as Error).message || 'Unknown error';
               continue;
             }
           } else {
@@ -172,10 +189,11 @@ export class BroadcastFlowService {
               );
             } catch (error) {
               this.logger.error(
-                `Error sending message to ${group.name}: ${error.message}`,
+                `Error sending message to ${group.name}: ${(error as Error).message || 'Unknown error'}`,
               );
               failedGroups.push(group.name);
-              errorDetails[group.name] = error.message;
+              errorDetails[group.name] =
+                (error as Error).message || 'Unknown error';
               continue;
             }
           }
@@ -187,12 +205,12 @@ export class BroadcastFlowService {
             try {
               await ctx.telegram.pinChatMessage(
                 group.chatId,
-                sentMessage.message_id,
+                sentMessage?.message_id ?? 0,
               );
               this.logger.log(`Successfully pinned message in ${group.name}`);
             } catch (error) {
               this.logger.warn(
-                `Failed to pin message in ${group.name}: ${error.message}`,
+                `Failed to pin message in ${group.name}: ${(error as Error).message || 'Unknown error'}`,
               );
               // We don't consider pin failures as a broadcast failure
             }
@@ -203,7 +221,8 @@ export class BroadcastFlowService {
             error,
           );
           failedGroups.push(group.name);
-          errorDetails[group.name] = error.message || 'Unknown error';
+          errorDetails[group.name] =
+            (error as Error).message || 'Unknown error';
         }
       }
 
@@ -241,11 +260,13 @@ export class BroadcastFlowService {
           errorDetails,
         };
       }
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error('Broadcast error:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       return {
         success: false,
-        message: `An error occurred during broadcast: ${error.message || 'Unknown error'}`,
+        message: `An error occurred during broadcast: ${errorMessage}`,
         groupCount: 0,
       };
     }

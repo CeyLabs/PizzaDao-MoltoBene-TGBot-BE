@@ -28,6 +28,6 @@ export const dummyGroups: TelegramGroup[] = [
     name: `PizzaDAO Group - City${i + 4}`,
     chatId: `-1002${1000000000 + i}`,
     city: `City${i + 4}`,
-    type: 'subgroup' as 'subgroup',
+    type: 'subgroup' as const,
   })),
 ];
