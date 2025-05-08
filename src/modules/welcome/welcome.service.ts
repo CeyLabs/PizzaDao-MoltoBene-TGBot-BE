@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Update, On, Command, Start } from 'nestjs-telegraf';
 import { Context } from 'telegraf';
-import { UsersService } from '../users/users.service';
+import { UserService } from '../user/user.service';
 import { IUserRegistrationData } from './welcome.types';
 import { CountryService } from '../country/country.service';
 import { CityService } from '../city/city.service';
@@ -10,48 +10,10 @@ import { CityService } from '../city/city.service';
 @Injectable()
 export class WelcomeService {
   constructor(
-    private readonly userRegistryService: UsersService,
+    private readonly userService: UserService,
     private readonly countryService: CountryService,
     private readonly cityService: CityService,
   ) {}
-
-  addUser(
-    telegram_id: number,
-    username: string | null,
-    tg_first_name: string | null,
-    tg_last_name: string | null,
-    custom_full_name: string | null,
-    country_id: string | null,
-    city_id: string | null,
-    role: string,
-    mafia_movie: string | null,
-    ninja_turtle_character: string | null,
-    pizza_topping: string | null,
-  ): void {
-    void this.userRegistryService.addUser(
-      telegram_id,
-      username,
-      tg_first_name,
-      tg_last_name,
-      custom_full_name,
-      country_id,
-      city_id,
-      role,
-      mafia_movie,
-      ninja_turtle_character,
-      pizza_topping,
-    );
-  }
-
-  isUserRegistered(userId: number): Promise<boolean> {
-    return this.userRegistryService.isUserRegistered(userId);
-  }
-
-  async findUser(userId: number): Promise<IUserRegistrationData | null> {
-    return this.userRegistryService
-      .findUser(userId)
-      .then((user) => user ?? null);
-  }
 
   private userSteps = new Map<number, number | string>();
   private userGroupMap = new Map<number, IUserRegistrationData>();
@@ -61,9 +23,9 @@ export class WelcomeService {
     const userId = ctx.message?.from.id ?? ctx.from?.id ?? 0;
     const firstName = ctx.message?.from.first_name || 'there';
 
-    if (await this.isUserRegistered(userId)) {
+    if (await this.userService.isUserRegistered(userId)) {
       await ctx.replyWithMarkdownV2(
-        `👋 *Hello, ${(await this.findUser(userId))?.custom_full_name || 'there'}\\!* \n\n` +
+        `👋 *Hello, ${(await this.userService.findUser(userId))?.custom_full_name || 'there'}\\!* \n\n` +
           `Welcome to *PizzaDAO Molto Bene Bot* 🍕\\. I'm here to assist you\\. \n\n` +
           `Here are some things you can do:\n` +
           `1\\. Ask me for help anytime by typing /help\\.\n\n` +
@@ -97,7 +59,7 @@ export class WelcomeService {
     const userId = ctx.message?.from?.id ?? 0;
     if (!userId) return;
 
-    if (await this.isUserRegistered(userId)) {
+    if (await this.userService.isUserRegistered(userId)) {
       await ctx.reply('You are already verified and registered!');
       return;
     }
@@ -119,7 +81,7 @@ export class WelcomeService {
     });
 
     // Fetch regions from the database
-    const regions = await this.userRegistryService.getAllRegions();
+    const regions = await this.userService.getAllRegions();
 
     // Group regions into rows of 2 buttons
     const regionButtons: { text: string; callback_data: string }[][] = [];
@@ -285,7 +247,7 @@ export class WelcomeService {
       const targetUserId = parseInt(callbackData.split('_')[1], 10);
 
       if (userId === targetUserId) {
-        if (await this.isUserRegistered(userId)) {
+        if (await this.userService.isUserRegistered(userId)) {
           await ctx.answerCbQuery('You are already verified.');
           return;
         }
@@ -358,7 +320,7 @@ export class WelcomeService {
         });
       }
     } else if (callbackData === 'view_profile') {
-      const user = await this.findUser(userId);
+      const user = await this.userService.findUser(userId);
       if (!user) {
         await ctx.answerCbQuery('You are not registered yet.');
         return;
@@ -453,7 +415,7 @@ export class WelcomeService {
         return;
       }
 
-      await this.userRegistryService.updateUserField(userId, field, newValue);
+      await this.userService.updateUserField(userId, field, newValue);
 
       this.userSteps.delete(userId);
 
@@ -517,7 +479,7 @@ export class WelcomeService {
       }
 
       // Save user data to the database
-      this.addUser(
+      await this.userService.addUser(
         userData.telegram_id,
         userData.username,
         userData.tg_first_name,

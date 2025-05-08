@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { KnexService } from '../knex/knex.service';
 
-interface User {
+interface IUser {
   telegram_id: number;
   username: string | null;
   tg_first_name: string | null;
@@ -16,7 +16,7 @@ interface User {
 }
 
 @Injectable()
-export class UsersService {
+export class UserService {
   constructor(private readonly knexService: KnexService) {}
 
   private registeredUsers = new Set<number>();
@@ -48,12 +48,12 @@ export class UsersService {
       pizza_topping,
     });
 
-    await this.knexService.knex<User>('user').where({ telegram_id }).first();
+    await this.knexService.knex<IUser>('user').where({ telegram_id }).first();
   }
 
   async isUserRegistered(telegramId: number): Promise<boolean> {
-    const user: User | undefined = await this.knexService
-      .knex<User>('user')
+    const user: IUser | undefined = await this.knexService
+      .knex<IUser>('user')
       .where({ telegram_id: telegramId })
       .first();
     return !!user;
@@ -63,9 +63,9 @@ export class UsersService {
     return this.registeredUsers;
   }
 
-  async findUser(telegramId: number): Promise<User | undefined> {
+  async findUser(telegramId: number): Promise<IUser | undefined> {
     return this.knexService
-      .knex<User>('user')
+      .knex<IUser>('user')
       .where({ telegram_id: telegramId })
       .first();
   }
