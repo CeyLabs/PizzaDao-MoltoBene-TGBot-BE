@@ -15,14 +15,8 @@ export class RoleMiddleware {
       const userId = ctx.from.id;
       const chatId = ctx.chat.id;
 
-      const userMainRole = await this.telegramService.getUserRole(
-        mainGroupId,
-        userId,
-      );
-      const userCurrentRole = await this.telegramService.getUserRole(
-        chatId,
-        userId,
-      );
+      const userMainRole = await this.telegramService.getUserRole(mainGroupId, userId);
+      const userCurrentRole = await this.telegramService.getUserRole(chatId, userId);
 
       ctx.state.userMainRole = userMainRole;
       ctx.state.userCurrentRole = userCurrentRole;
