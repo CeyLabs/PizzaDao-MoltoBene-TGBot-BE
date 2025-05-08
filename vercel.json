@@ -8,8 +8,9 @@
   ],
   "routes": [
     {
-      "src": "/webhook",
-      "dest": "src/main.ts",
-      "methods": ["POST"]    }
+      "src": "src/main.ts",
+      "dest": "/webhook",
+      "methods": ["POST"]
+    }
   ]
 }
