@@ -1,25 +1,23 @@
 import { Injectable } from '@nestjs/common';
 import { KnexService } from '../knex/knex.service';
+import { ICity } from './city.interface';
 
 @Injectable()
 export class CityService {
   constructor(private readonly knexService: KnexService) {}
 
-  async getCitiesByCountry(
-    countryId: string,
-  ): Promise<{ id: string; name: string }[]> {
+  async getCitiesByCountry(countryId: string): Promise<ICity[]> {
     return this.knexService
       .knex('city')
       .where({ country_id: countryId })
       .select('id', 'name');
   }
 
-  async getCityById(
-    cityId: string,
-  ): Promise<{ id: string; name: string } | null> {
+  async getCityById(cityId: string): Promise<ICity | null> {
     const city = await this.knexService
-      .knex<{ id: string; name: string }>('city')
-      .where({ id: cityId })
+      .knex<ICity>('city')
+      .where('id', cityId)
+      .select('id', 'name')
       .first();
     return city || null;
   }
