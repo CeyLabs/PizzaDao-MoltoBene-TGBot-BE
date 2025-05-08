@@ -8,30 +8,17 @@ export async function seed(knex: Knex): Promise<void> {
 
   await knex(tableName).insert([
     {
-      telegram_id: '555555555',
-      username: 'italy_admin',
-      tg_first_name: 'Italy',
-      tg_last_name: 'Admin',
-      custom_full_name: 'Italy Admin',
-      country_id: 'Italy',
-      city_id: 'Rome',
+      telegram_id: '1180327057',
+      username: 'Nimsara',
+      tg_first_name: 'Nimsara',
+      tg_last_name: '',
+      custom_full_name: 'Udana Nimsara',
+      country_id: '496519a3-6444-4d0b-91cf-c9eb20817f9f',
+      city_id: 'de1f43db-6d72-48b6-b3e6-985f0531ecc9',
       role: 'admin',
       mafia_movie: 'The Godfather',
       ninja_turtle_character: 'Leonardo',
       pizza_topping: 'Pepperoni',
-    },
-    {
-      telegram_id: '123456789',
-      username: 'john_doe',
-      tg_first_name: 'John',
-      tg_last_name: 'Doe',
-      custom_full_name: 'John Doe',
-      country_id: 'USA',
-      city_id: 'New York',
-      role: 'user',
-      mafia_movie: 'Goodfellas',
-      ninja_turtle_character: 'Michelangelo',
-      pizza_topping: 'Mushrooms',
     },
   ]);
 }

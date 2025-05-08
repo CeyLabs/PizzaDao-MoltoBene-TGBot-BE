@@ -8,9 +8,9 @@ export async function seed(knex: Knex): Promise<void> {
 
   await knex(tableName).insert([
     {
-      telegram_id: '555555555',
+      telegram_id: '1180327057',
       role: 'admin',
-      cities: ['Rome', 'Milan', 'Florence', 'Venice'],
+      cities: ['Sri Lanka'],
     },
   ]);
 }
