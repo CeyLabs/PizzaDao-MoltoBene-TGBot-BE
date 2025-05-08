@@ -19,7 +19,7 @@ import {
 import { helpMessage, welcomeMessage } from 'src/bot-commands';
 import { nanoid } from 'nanoid';
 
-const MAIN_GROUP_ID = -1002418974575;
+const MAIN_GROUP_ID = Number(process.env.MAIN_GROUP_ID);
 
 @Update()
 @Injectable()
