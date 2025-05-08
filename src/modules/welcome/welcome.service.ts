@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Update, On, Command, Start } from 'nestjs-telegraf';
 import { Context } from 'telegraf';
 import { UserService } from '../user/user.service';
-import { IUserRegistrationData } from './welcome.types';
+import { IUserRegistrationData } from './welcome.interface';
 import { CountryService } from '../country/country.service';
 import { CityService } from '../city/city.service';
 import { IUser } from '../user/user.interface';
