@@ -1,8 +1,18 @@
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { Telegraf } from 'telegraf';
+import express from 'express';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  await app.listen(process.env.PORT ?? 3000);
-}
-void bootstrap();
+const bot = new Telegraf(process.env.BOT_TOKEN!);
+
+// Define your bot commands and handlers here
+bot.start((ctx) => ctx.reply('Welcome!'));
+bot.on('text', (ctx) => ctx.reply(`You said: ${ctx.message.text}`));
+
+// Set up webhook
+const app = express();
+app.use(bot.webhookCallback('/webhook'));
+
+// Start the server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Bot is running on port ${PORT}`);
+});
