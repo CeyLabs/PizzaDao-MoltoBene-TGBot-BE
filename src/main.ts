@@ -1,8 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { getBotToken } from 'nestjs-telegraf';
-//import { sessionMiddleware } from './middleware/session.middleware';
-import { config } from './config/config';
 import { session, Telegraf } from 'telegraf';
 import { Logger } from '@nestjs/common';
 
@@ -24,9 +22,9 @@ async function bootstrap() {
       return next();
     });
 
-    await app.listen(config.port);
+    await app.listen(process.env.PORT || 3000);
 
-    logger.log(`Application is running on port: ${config.port}`);
+    logger.log(`Application is running on port: ${process.env.PORT || 3000}`);
   } catch (error) {
     logger.error('Failed to start application:', error);
   }
