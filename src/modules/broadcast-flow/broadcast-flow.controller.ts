@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Controller, Logger } from '@nestjs/common';
 import { Action, Command, Ctx, Hears, On, Start, Update } from 'nestjs-telegraf';
 import { Context, Markup } from 'telegraf';
 import { BroadcastFlowService } from './broadcast-flow.service';
@@ -14,7 +14,7 @@ import { BroadcastMessage, BroadcastState } from './broadcast-flow.interface';
 const MAIN_GROUP_ID = Number(process.env.MAIN_GROUP_ID);
 
 @Update()
-@Injectable()
+@Controller()
 export class BroadcastFlowController {
   private readonly userStates: Map<number, BroadcastState> = new Map();
 
