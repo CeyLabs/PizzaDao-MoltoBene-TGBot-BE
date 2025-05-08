@@ -12,6 +12,9 @@ export async function up(knex: Knex): Promise<void> {
       .references('id')
       .inTable('country')
       .onDelete('CASCADE');
+    table
+      .specificType('admin_ids', 'uuid[]')
+      .defaultTo(knex.raw('ARRAY[]::uuid[]'));
     table.timestamps(true, true);
   });
 }

@@ -23,4 +23,19 @@ export class CityService {
       .first();
     return city || null;
   }
+
+  async updateCityAdmins(cityId: string, adminIds: string[]): Promise<void> {
+    // Validate that all adminIds belong to users with the role 'admin'
+    const validAdminIds = await this.knexService
+      .knex('user')
+      .whereIn('id', adminIds)
+      .andWhere({ role: 'admin' })
+      .pluck('id');
+
+    // Update the city with the validated admin IDs
+    await this.knexService
+      .knex('city')
+      .where({ id: cityId })
+      .update({ admin_ids: validAdminIds });
+  }
 }

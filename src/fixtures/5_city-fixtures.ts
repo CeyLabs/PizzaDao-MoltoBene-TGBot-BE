@@ -7,7 +7,9 @@ export async function seed(knex: Knex): Promise<void> {
   if (Number(count) > 0) return;
 
   // Fetch country IDs
-  const countries = await knex('country').select('id', 'name');
+  const countries = await knex('country').select<
+    { id: number; name: string }[]
+  >('id', 'name');
 
   // Map country names to their IDs
   const countryMap = Object.fromEntries(
