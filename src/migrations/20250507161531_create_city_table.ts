@@ -15,6 +15,7 @@ export async function up(knex: Knex): Promise<void> {
     table
       .specificType('admin_ids', 'uuid[]')
       .defaultTo(knex.raw('ARRAY[]::uuid[]'));
+    table.string('group_id');
     table.timestamps(true, true);
   });
 }

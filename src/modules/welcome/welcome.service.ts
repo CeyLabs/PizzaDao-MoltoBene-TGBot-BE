@@ -253,6 +253,10 @@ export class WelcomeService {
           return;
         }
 
+        const cityDetails = await this.cityService.getCityByGroupId(
+          ctx.callbackQuery.message?.chat.id || '',
+        );
+
         // Start private chat for verification
         await ctx.answerCbQuery();
         this.userSteps.set(userId, 4);
@@ -264,8 +268,8 @@ export class WelcomeService {
           group_id: ctx.callbackQuery.message?.chat.id,
           custom_full_name: null,
           region_id: null,
-          country_id: null,
-          city_id: null,
+          country_id: cityDetails?.country_id || null,
+          city_id: cityDetails?.id || null,
           role: 'user',
           mafia_movie: null,
           ninja_turtle_character: null,
@@ -332,7 +336,7 @@ export class WelcomeService {
         ? await this.countryService.getCountryById(user.country_id)
         : null;
       const city = user.city_id
-        ? await this.cityService.getCityById(user.city_id)
+        ? await this.cityService.getCityById(String(user.city_id))
         : null;
 
       await ctx.editMessageText(

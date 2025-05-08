@@ -17,7 +17,7 @@ export class CityService {
     const city = await this.knexService
       .knex<ICity>('city')
       .where('id', cityId)
-      .select('id', 'name')
+      .select('id', 'name', 'country_id')
       .first();
     return city || null;
   }
@@ -35,5 +35,14 @@ export class CityService {
       .knex('city')
       .where({ id: cityId })
       .update({ admin_ids: validAdminIds });
+  }
+
+  async getCityByGroupId(groupId: string | number): Promise<ICity | null> {
+    const city = (await this.knexService
+      .knex('city')
+      .where('group_id', groupId)
+      .select('id', 'name', 'country_id')
+      .first()) as ICity | undefined;
+    return city || null;
   }
 }
