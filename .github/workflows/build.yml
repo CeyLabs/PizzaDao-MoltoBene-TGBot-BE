@@ -1,0 +1,35 @@
+name: PizzaDao-Moltobene-TGBot-BE
+
+on:
+  push:
+    branches:
+      - main
+
+defaults:
+  run:
+    working-directory: .
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_VERSION: '22.x'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Build project
+        run: npx nest build
