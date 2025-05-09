@@ -1,32 +1,39 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { getBotToken } from 'nestjs-telegraf';
 import { session, Telegraf } from 'telegraf';
-import { Logger } from '@nestjs/common';
+import { ExpressAdapter } from '@nestjs/platform-express';
+import * as express from 'express';
 
 async function bootstrap() {
-  const logger = new Logger('Bootstrap');
+  const server = express();
+  const app = await NestFactory.create(AppModule, new ExpressAdapter(server));
 
-  try {
-    const app = await NestFactory.create(AppModule);
+  const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN!);
 
-    // Get the bot instance
-    const bot = app.get<Telegraf>(getBotToken());
+  // Use session middleware
+  bot.use(session());
 
-    // Use session middleware
-    bot.use(session());
+  await bot.launch({
+    webhook: {
+      domain: process.env.WEBHOOK_DOMAIN as string,
+      port: 443,
+      path: '/webhook',
+    },
+  });
 
-    // Log middleware for debugging
-    bot.use((ctx, next) => {
-      logger.debug(`Processing update ${ctx.updateType}`);
-      return next();
-    });
+  server.post('/customer', (req, res) => {
+    // Example logic: echo back JSON body
+    console.log('Received customer data:', req.body);
+    res.status(201).json({ message: 'Customer data received' });
+  });
 
-    await app.listen(process.env.PORT || 3000);
-
-    logger.log(`Application is running on port: ${process.env.PORT || 3000}`);
-  } catch (error) {
-    logger.error('Failed to start application:', error);
-  }
+  // Start the NestJS application
+  const PORT = process.env.PORT || 3000;
+  await app.listen(PORT, () => {
+    console.log(`Application is running on port ${PORT}`);
+  });
 }
-void bootstrap();
+
+bootstrap().catch((error) => {
+  console.error('Error during application bootstrap:', error);
+});
