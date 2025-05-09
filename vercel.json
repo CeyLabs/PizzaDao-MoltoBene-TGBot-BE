@@ -1,23 +1,15 @@
 {
-  "framework": null,
-  "outputDirectory": ".",
-  "buildCommand": "npm run build",
-  "rewrites": [
+  "version": 2,
+  "builds": [
     {
-      "src": "dist/main.js",
+      "src": "src/main.ts",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
-      "src": "/webhook",
-      "dest": "dist/main.js",
-      "methods": ["POST"]
+      "src": "/(.*)",
+      "dest": "src/main.ts"
     }
-  ],
-  "functions": {
-    "dist/main.js": {
-      "memory": 1024,
-      "maxDuration": 10
-    }
-  }
+  ]
+}
