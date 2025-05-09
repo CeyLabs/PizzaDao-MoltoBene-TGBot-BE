@@ -1,6 +1,8 @@
 {
-  "version": 2,
-  "builds": [
+  "framework": null,
+  "outputDirectory": ".",
+  "buildCommand": "npm run build",
+  "rewrites": [
     {
       "src": "dist/main.js",
       "use": "@vercel/node"
@@ -19,4 +21,3 @@
       "maxDuration": 10
     }
   }
-}

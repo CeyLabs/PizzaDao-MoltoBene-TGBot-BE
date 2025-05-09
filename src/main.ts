@@ -18,6 +18,7 @@ async function bootstrap() {
     console.log(`Application is running on port ${PORT}`);
   });
 }
+
 bootstrap().catch((error) => {
   console.error('Error during application bootstrap:', error);
 });

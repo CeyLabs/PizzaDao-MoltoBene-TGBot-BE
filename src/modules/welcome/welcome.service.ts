@@ -340,10 +340,6 @@ export class WelcomeService {
                   text: '✏️ Edit Name',
                   callback_data: 'edit_custom_full_name',
                 },
-                { text: '✏️ Edit Country', callback_data: 'edit_country' },
-              ],
-              [
-                { text: '✏️ Edit City', callback_data: 'edit_city' },
                 {
                   text: '✏️ Edit Mafia Movie',
                   callback_data: 'edit_mafia_movie',
@@ -366,7 +362,7 @@ export class WelcomeService {
       );
     } else if (callbackData?.startsWith('edit_')) {
       const field = callbackData.split('_').slice(1).join('_');
-      await ctx.editMessageText(`Please enter your new ${field.replace('_', ' ')}:`);
+      await ctx.editMessageText(`Please enter your new ${field.replaceAll('_', ' ')}:`);
       this.userSteps.set(userId, `edit_${field}`);
     } else if (callbackData === 'back_to_start') {
       await ctx.deleteMessage();
