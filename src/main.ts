@@ -10,8 +10,6 @@ async function bootstrap() {
   // Get the bot instance
   const bot = app.get<Telegraf>(getBotToken());
 
-  console.log('express', express.json());
-
   app.use(express.json());
 
   // Connect the webhook middleware
