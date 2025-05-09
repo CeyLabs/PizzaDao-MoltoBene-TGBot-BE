@@ -39,4 +39,30 @@ export class CityService {
       .first()) as ICity | undefined;
     return city || null;
   }
+
+  async getGroupsByCity(city: string): Promise<{ group_id: string; name: string }[]> {
+    // Query the database to fetch groups by city name
+    const groups = await this.knexService
+      .knex<{ group_id: string; name: string }>('city')
+      .where('name', city)
+      .select('group_id', 'name');
+
+    return groups.map((group) => ({
+      group_id: group.group_id,
+      name: group.name,
+    }));
+  }
+
+  async getAllCitiesWithGroups(): Promise<
+    {
+      id: string;
+      name: string;
+      group_id: string;
+    }[]
+  > {
+    return this.knexService
+      .knex('city')
+      .select('id', 'name', 'group_id')
+      .whereNotNull('group_id');
+  }
 }

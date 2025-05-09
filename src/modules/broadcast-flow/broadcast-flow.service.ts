@@ -1,52 +1,20 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { dummyGroups } from './data/group-data';
 import { InjectBot } from 'nestjs-telegraf';
 import { Context, Telegraf } from 'telegraf';
-import { BroadcastMessage, BroadcastResult, TelegramGroup } from './broadcast-flow.interface';
+import { BroadcastMessage, BroadcastResult } from './broadcast-flow.interface';
+import { CityService } from '../city/city.service';
 
 @Injectable()
 export class BroadcastFlowService {
   private readonly logger = new Logger(BroadcastFlowService.name);
-  private groups: TelegramGroup[] = dummyGroups;
 
-  constructor(@InjectBot() private bot: Telegraf<Context>) {}
-
-  async getUserRole(chatId: number, userId: number): Promise<string> {
-    try {
-      const member = await this.bot.telegram.getChatMember(chatId, userId);
-      return member.status;
-    } catch (error) {
-      this.logger.error(`Error fetching user role: ${error}`);
-      return 'none';
-    }
-  }
-
-  getGroups(): TelegramGroup[] {
-    return this.groups;
-  }
-
-  getGroupsByCity(city: string): TelegramGroup[] {
-    return this.groups.filter((group) => group.city === city);
-  }
-
-  getCityGroupId(city: string): string | null {
-    const group = dummyGroups.find(
-      (group) => group.type === 'subgroup' && group.city?.toLowerCase() === city.toLowerCase(),
-    );
-
-    return group && group.chatId ? group.chatId : null;
-  }
-
-  getAllCities(): string[] {
-    return [
-      ...new Set(
-        this.groups.map((group) => group.city).filter((city): city is string => city !== undefined),
-      ),
-    ];
-  }
+  constructor(
+    @InjectBot() private bot: Telegraf<Context>,
+    private readonly cityService: CityService,
+  ) {}
 
   async broadcastMessage(message: BroadcastMessage, ctx: Context): Promise<BroadcastResult> {
-    let targetGroups: TelegramGroup[] = [];
+    let targetGroups: { group_id: string; name: string }[] = [];
     const userId = ctx.from?.id ?? null;
 
     this.logger.log(`Broadcasting message by user ID: ${userId}`);
@@ -54,11 +22,10 @@ export class BroadcastFlowService {
     try {
       // Determine target groups based on scope and permissions
       if (message.scope === 'all') {
-        targetGroups = this.groups;
+        targetGroups = await this.cityService.getAllCitiesWithGroups();
       } else if (message.scope === 'city' && message.city) {
         // Check if user has admin rights for this city
-
-        targetGroups = this.getGroupsByCity(message.city);
+        targetGroups = await this.cityService.getGroupsByCity(message.city);
       }
 
       if (targetGroups.length === 0) {
@@ -105,14 +72,14 @@ export class BroadcastFlowService {
 
       for (const group of targetGroups) {
         try {
-          if (!group.chatId) {
+          if (!group.group_id) {
             this.logger.warn(`Skipping group ${group.name} due to missing chatId.`);
             failedGroups.push(group.name);
             errorDetails[group.name] = 'Missing chatId';
             continue;
           }
 
-          this.logger.log(`Broadcasting to group: ${group.name} (${group.chatId})`);
+          this.logger.log(`Broadcasting to group: ${group.name} (${group.group_id})`);
 
           // Prepare message options
           const messageOptions: {
@@ -136,7 +103,7 @@ export class BroadcastFlowService {
             this.logger.log(`Sending image message to ${group.name}`);
 
             try {
-              sentMessage = await ctx.telegram.sendPhoto(group.chatId, message.image, {
+              sentMessage = await ctx.telegram.sendPhoto(group.group_id, message.image, {
                 caption: messageText,
                 parse_mode: messageOptions.parse_mode,
                 reply_markup: messageOptions.reply_markup,
@@ -156,7 +123,7 @@ export class BroadcastFlowService {
 
             try {
               sentMessage = await ctx.telegram.sendMessage(
-                group.chatId,
+                group.group_id,
                 messageText,
                 messageOptions,
               );
@@ -177,7 +144,7 @@ export class BroadcastFlowService {
             this.logger.log(`Pinning message in ${group.name}`);
 
             try {
-              await ctx.telegram.pinChatMessage(group.chatId, sentMessage?.message_id ?? 0);
+              await ctx.telegram.pinChatMessage(group.group_id, sentMessage?.message_id ?? 0);
               this.logger.log(`Successfully pinned message in ${group.name}`);
             } catch (error) {
               this.logger.warn(
