@@ -4,8 +4,20 @@
   "buildCommand": "npm run build",
   "rewrites": [
     {
-      "source": "/api/webhook",
-      "destination": "/src/main.js"
+      "src": "dist/main.js",
+      "use": "@vercel/node"
     }
-  ]
-}
+  ],
+  "routes": [
+    {
+      "src": "/webhook",
+      "dest": "dist/main.js",
+      "methods": ["POST"]
+    }
+  ],
+  "functions": {
+    "dist/main.js": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  }
