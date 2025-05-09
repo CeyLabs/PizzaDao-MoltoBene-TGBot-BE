@@ -60,9 +60,20 @@ export class CityService {
       group_id: string;
     }[]
   > {
-    return this.knexService
+    return this.knexService.knex('city').select('id', 'name', 'group_id').whereNotNull('group_id');
+  }
+
+  async getCityAdminsByName(cityName: string): Promise<string[] | null> {
+    const city = await this.knexService
       .knex('city')
-      .select('id', 'name', 'group_id')
-      .whereNotNull('group_id');
+      .where('name', cityName)
+      .select('admin_ids')
+      .first();
+
+    if (!city || !city.admin_ids) {
+      return null;
+    }
+
+    return city.admin_ids;
   }
 }

@@ -55,17 +55,20 @@ export class BroadcastFlowController {
     if (!userId) return null;
 
     const state = this.getSession(userId);
-    const SUB_GROUP_ID = this.broadcastFlowService.getCityGroupId(selectedCity);
+    const cityGroups = await this.broadcastFlowService.getGroupsByCity(selectedCity);
 
-    if (!SUB_GROUP_ID) {
+    if (!cityGroups) {
       await ctx.reply('❌ Invalid city selected. Please try again.');
       return null;
     }
 
-    const role = await this.broadcastFlowService.getUserRole(Number(SUB_GROUP_ID), userId);
+    const group = cityGroups[0];
 
-    if (role !== 'creator' && role !== 'administrator') {
-      await ctx.reply(`❌ You are not authorized to send messages to the ${selectedCity} group`);
+    const isAdmin = await this.broadcastFlowService.validateCityAdmin(selectedCity, userId.toString());
+
+
+    if (!isAdmin) {
+      await ctx.reply(`❌ You are not authorized to send messages to the ${selectedCity} group.`);
       return null;
     }
 
@@ -82,7 +85,7 @@ export class BroadcastFlowController {
     );
 
     await this.promptForMessageContent(ctx);
-    return Number(SUB_GROUP_ID);
+    return Number(group.group_id);
   }
 
   @Command('cityselect')
@@ -306,11 +309,14 @@ Ready to get started?
       : undefined;
 
     if (scopeMatch === 'all') {
-      const role = await this.broadcastFlowService.getUserRole(MAIN_GROUP_ID, userId);
-      if (role !== 'creator' && role !== 'administrator') {
-        await ctx.reply('❌ You are not authorized to broadcast to all groups.');
-        return;
-      }
+      const isAdmin = await this.broadcastFlowService.validateCityAdmin('MAIN_CITY_NAME', userId.toString()); // Replace 'MAIN_CITY_NAME' with the actual city name
+
+
+    if (!isAdmin) {
+      await ctx.reply('❌ You are not authorized to broadcast to all groups.');
+      return;
+    }
+
       state.message.scope = 'all';
       state.step = 'collect_message';
       await ctx.editMessageText(
@@ -353,7 +359,7 @@ Ready to get started?
         : 0;
     const pageSize = 20;
 
-    const allCities = this.broadcastFlowService.getAllCities();
+  const allCities = await this.broadcastFlowService.getAllCities();
     const filtered = query
       ? allCities.filter((city) => city.toLowerCase().includes(query))
       : allCities;

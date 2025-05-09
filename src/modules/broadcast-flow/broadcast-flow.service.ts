@@ -13,6 +13,29 @@ export class BroadcastFlowService {
     private readonly cityService: CityService,
   ) {}
 
+  async getGroupsByCity(city: string): Promise<{ group_id: string; name: string }[]> {
+    return this.cityService.getGroupsByCity(city);
+  }
+
+  async validateCityAdmin(cityName: string, userId: string): Promise<boolean> {
+    // Fetch admin_ids for the city
+    const adminIds = await this.cityService.getCityAdminsByName(cityName);
+  
+    if (!adminIds) {
+      this.logger.warn(`No admin information found for the city: ${cityName}`);
+      return false;
+    }
+  
+    return adminIds.includes(userId);
+  }
+
+  async getAllCities(): Promise<string[]> {
+    const cities = await this.cityService.getAllCitiesWithGroups();
+
+    return cities.map((city) => city.name);
+  }
+  
+
   async broadcastMessage(message: BroadcastMessage, ctx: Context): Promise<BroadcastResult> {
     let targetGroups: { group_id: string; name: string }[] = [];
     const userId = ctx.from?.id ?? null;
