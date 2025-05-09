@@ -9,133 +9,17 @@ import {
 } from 'telegraf/typings/core/types/typegram';
 import { helpMessage, welcomeMessage } from 'src/bot-commands';
 import { nanoid } from 'nanoid';
-import { BroadcastMessage, BroadcastState } from './broadcast-flow.interface';
-
-const MAIN_GROUP_ID = Number(process.env.MAIN_GROUP_ID);
 
 @Update()
 @Controller()
 export class BroadcastFlowController {
-  private readonly userStates: Map<number, BroadcastState> = new Map();
-
   constructor(private readonly broadcastFlowService: BroadcastFlowService) {}
-
-  private getSession(userId: number): BroadcastState {
-    if (!this.userStates.has(userId)) {
-      this.userStates.set(userId, {
-        step: 'idle',
-        message: {
-          scope: 'all',
-          content: '',
-        },
-      });
-    }
-    return this.userStates.get(userId)!;
-  }
-
-  private resetState(userId: number): void {
-    this.userStates.set(userId, {
-      step: 'idle',
-      message: {
-        scope: 'all',
-        content: '',
-      },
-    });
-  }
-
-  private showMainKeyboard(ctx: Context) {
-    return ctx.reply(
-      '✨ What would you like to do today? ✨',
-      // Markup.keyboard([['🔊 Broadcast Message']]).resize(),
-    );
-  }
-
-  private async handleCitySelection(ctx: Context, selectedCity: string): Promise<number | null> {
-    const userId: number | undefined = ctx.from?.id;
-    if (!userId) return null;
-
-    const state = this.getSession(userId);
-    const cityGroups = await this.broadcastFlowService.getGroupsByCity(selectedCity);
-
-    if (!cityGroups) {
-      await ctx.reply('❌ Invalid city selected. Please try again.');
-      return null;
-    }
-
-    const group = cityGroups[0];
-
-    const isAdmin = await this.broadcastFlowService.validateCityAdmin(selectedCity, userId.toString());
-
-
-    if (!isAdmin) {
-      await ctx.reply(`❌ You are not authorized to send messages to the ${selectedCity} group.`);
-      return null;
-    }
-
-    state.message.city = selectedCity;
-    state.message.scope = 'city';
-    state.step = 'collect_message';
-
-    await ctx.reply(
-      `🏙️ *Selected city: ${selectedCity}*\n\nNow, let's collect your message details.`,
-      {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([[Markup.button.callback('❌ Cancel', 'cancel_broadcast')]]),
-      },
-    );
-
-    await this.promptForMessageContent(ctx);
-    return Number(group.group_id);
-  }
 
   @Command('cityselect')
   async handleCitySelectCommand(@Ctx() ctx: Context) {
     if (!ctx.from?.id || !ctx.message || !('text' in ctx.message)) return;
     const selectedCity = ctx.message.text.split(' ').slice(1).join(' ').trim();
-    await this.handleCitySelection(ctx, selectedCity);
-  }
-
-  private async showMainKeyboardAfterInlineQuery(ctx: Context) {
-    try {
-      // For inline query responses, we need to ensure we're sending a new message
-      await ctx.reply(
-        '✨ What would you like to do today? ✨',
-        Markup.keyboard([['🔊 Broadcast Message']]).resize(),
-      );
-    } catch (error) {
-      console.error('Error showing main keyboard:', error);
-    }
-  }
-
-  private showCancelOption(
-    ctx: Context,
-    message: string,
-    options: Record<string, any> = {},
-  ): Promise<unknown> {
-    const inlineKeyboard: InlineKeyboardButton[][] = Array.isArray(
-      (options.reply_markup as { inline_keyboard?: InlineKeyboardButton[][] })?.inline_keyboard,
-    )
-      ? (options.reply_markup as { inline_keyboard: InlineKeyboardButton[][] }).inline_keyboard
-      : [];
-
-    // Add a cancel button as the last row if it's not already there
-    const hasCancelButton = inlineKeyboard.some((row) =>
-      row.some(
-        (button: InlineKeyboardButton) =>
-          'callback_data' in button && button.callback_data === 'cancel_broadcast',
-      ),
-    );
-
-    if (!hasCancelButton) {
-      inlineKeyboard.push([Markup.button.callback('❌ Cancel', 'cancel_broadcast')]);
-    }
-
-    return ctx.reply(message, {
-      ...options,
-      reply_markup: {
-        inline_keyboard: inlineKeyboard,
-      },
-    }) as Promise<unknown>;
+    await this.broadcastFlowService.handleCitySelection(ctx, selectedCity);
   }
 
   @Start()
@@ -143,7 +27,7 @@ export class BroadcastFlowController {
     // Reset user state
     const userId: number | undefined = ctx.from?.id;
     if (userId) {
-      this.resetState(userId);
+      this.broadcastFlowService.resetState(userId);
     }
 
     const firstName = ctx.from?.first_name || 'there';
@@ -165,7 +49,7 @@ ${welcomeMessage}
     });
 
     // Also show the main keyboard
-    await this.showMainKeyboard(ctx);
+    await this.broadcastFlowService.showMainKeyboard(ctx);
   }
 
   @Hears(['🔊 Broadcast Message', 'Broadcast Message'])
@@ -174,7 +58,7 @@ ${welcomeMessage}
     const userId: number | undefined = ctx.from?.id;
     if (!userId) return;
 
-    const state = this.getSession(userId);
+    const state = this.broadcastFlowService.getSession(userId);
     state.step = 'select_scope';
 
     const buttons: InlineKeyboardButton[][] = [];
@@ -248,7 +132,7 @@ ${welcomeMessage}
     if (!userId) return;
 
     // Reset the user's state to 'select_scope'
-    const state = this.getSession(userId);
+    const state = this.broadcastFlowService.getSession(userId);
     state.step = 'select_scope';
 
     const buttons: InlineKeyboardButton[][] = [];
@@ -303,19 +187,21 @@ Ready to get started?
 
     await ctx.answerCbQuery();
 
-    const state = this.getSession(userId);
+    const state = this.broadcastFlowService.getSession(userId);
     const scopeMatch = Array.isArray((ctx as Context & { match: RegExpExecArray }).match)
       ? ((ctx as Context & { match: RegExpExecArray }).match[1] as string | undefined)
       : undefined;
 
     if (scopeMatch === 'all') {
-      const isAdmin = await this.broadcastFlowService.validateCityAdmin('MAIN_CITY_NAME', userId.toString()); // Replace 'MAIN_CITY_NAME' with the actual city name
+      const isAdmin = await this.broadcastFlowService.validateCityAdmin(
+        'MAIN_CITY_NAME',
+        userId.toString(),
+      ); // Replace 'MAIN_CITY_NAME' with the actual city name
 
-
-    if (!isAdmin) {
-      await ctx.reply('❌ You are not authorized to broadcast to all groups.');
-      return;
-    }
+      if (!isAdmin) {
+        await ctx.reply('❌ You are not authorized to broadcast to all groups.');
+        return;
+      }
 
       state.message.scope = 'all';
       state.step = 'collect_message';
@@ -326,7 +212,7 @@ Ready to get started?
           ...Markup.inlineKeyboard([[Markup.button.callback('❌ Cancel', 'cancel_broadcast')]]),
         },
       );
-      await this.promptForMessageContent(ctx);
+      await this.broadcastFlowService.promptForMessageContent(ctx);
     } else if (scopeMatch === 'city') {
       state.message.scope = 'city';
       state.step = 'select_city';
@@ -359,7 +245,7 @@ Ready to get started?
         : 0;
     const pageSize = 20;
 
-  const allCities = await this.broadcastFlowService.getAllCities();
+    const allCities = await this.broadcastFlowService.getAllCities();
     const filtered = query
       ? allCities.filter((city) => city.toLowerCase().includes(query))
       : allCities;
@@ -392,7 +278,7 @@ Ready to get started?
 
     await ctx.answerCbQuery();
     const selectedCity = ctx.match[1];
-    const SUB_GROUP_ID = await this.handleCitySelection(ctx, selectedCity);
+    const SUB_GROUP_ID = await this.broadcastFlowService.handleCitySelection(ctx, selectedCity);
 
     if (!SUB_GROUP_ID) {
       await ctx.reply('❌ Invalid city selected. Please try again.');
@@ -400,20 +286,20 @@ Ready to get started?
     }
   }
 
-  private async promptForMessageContent(ctx: any) {
-    await this.showCancelOption(
-      ctx,
-      '✏️ *Please enter your message content:* (required)\n\nType your announcement message below.',
-      { parse_mode: 'Markdown' },
-    );
-  }
+  // private async promptForMessageContent(ctx: any) {
+  //   await this.showCancelOption(
+  //     ctx,
+  //     '✏️ *Please enter your message content:* (required)\n\nType your announcement message below.',
+  //     { parse_mode: 'Markdown' },
+  //   );
+  // }
 
   @On('text')
   async onText(@Ctx() ctx: Context) {
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    const state = this.getSession(userId);
+    const state = this.broadcastFlowService.getSession(userId);
     const text =
       ctx.message && 'text' in ctx.message && typeof ctx.message.text === 'string'
         ? ctx.message.text
@@ -422,7 +308,7 @@ Ready to get started?
     // Skip processing if the text is a command
     if (typeof text === 'string' && text.startsWith('/')) {
       if (text === '/cancel') {
-        await this.handleCancel(ctx);
+        await this.broadcastFlowService.handleCancel(ctx);
       }
       return;
     }
@@ -447,7 +333,7 @@ Ready to get started?
           return;
         }
         state.step = 'collect_place';
-        await this.promptForPlace(ctx);
+        await this.broadcastFlowService.promptForPlace(ctx);
         break;
 
       case 'collect_place':
@@ -455,7 +341,7 @@ Ready to get started?
           state.message.place = text;
         }
         state.step = 'collect_date';
-        await this.promptForDate(ctx);
+        await this.broadcastFlowService.promptForDate(ctx);
         break;
 
       case 'collect_date':
@@ -463,7 +349,7 @@ Ready to get started?
           state.message.date = text;
         }
         state.step = 'collect_time';
-        await this.promptForTime(ctx);
+        await this.broadcastFlowService.promptForTime(ctx);
         break;
 
       case 'collect_time':
@@ -471,7 +357,7 @@ Ready to get started?
           state.message.time = text;
         }
         state.step = 'collect_links';
-        await this.promptForLinks(ctx);
+        await this.broadcastFlowService.promptForLinks(ctx);
         break;
 
       case 'collect_links':
@@ -501,7 +387,7 @@ Ready to get started?
           return;
         }
         state.step = 'collect_button_url';
-        await this.showCancelOption(
+        await this.broadcastFlowService.showCancelOption(
           ctx,
           '🔗 *Enter the URL for the button:*\n\nThis should be a valid URL starting with http:// or https://',
           { parse_mode: 'Markdown' },
@@ -520,56 +406,16 @@ Ready to get started?
 
         state.message.buttonUrl = text;
         state.step = 'confirmation';
-        await this.showConfirmation(ctx, state.message);
+        await this.broadcastFlowService.showConfirmation(ctx, state.message);
         break;
 
       default:
         // If not in a defined step, show the main keyboard
         if (text !== '🔊 Broadcast Message' && text !== 'Broadcast Message') {
-          await this.showMainKeyboard(ctx);
+          // await this.broadcastFlowService.showMainKeyboard(ctx);
         }
         break;
     }
-  }
-
-  private async promptForPlace(ctx: Context) {
-    await ctx.reply('🏢 *Enter venue/place:* (optional)\n\nWhere is this event taking place?', {
-      parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([
-        [Markup.button.callback('⏩ Skip', 'skip_place')],
-        [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
-      ]),
-    });
-  }
-
-  private async promptForDate(ctx: Context) {
-    await ctx.reply('📅 *Enter date:* (optional)\n\nWhen is this happening?', {
-      parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([
-        [Markup.button.callback('⏩ Skip', 'skip_date')],
-        [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
-      ]),
-    });
-  }
-
-  private async promptForTime(ctx: Context) {
-    await ctx.reply('⏰ *Enter time:* (optional)\n\nAt what time?', {
-      parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([
-        [Markup.button.callback('⏩ Skip', 'skip_time')],
-        [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
-      ]),
-    });
-  }
-
-  private async promptForLinks(ctx: Context) {
-    await ctx.reply('🔗 *Enter external links:* (optional)\n\nAny relevant links to include?', {
-      parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([
-        [Markup.button.callback('⏩ Skip', 'skip_links')],
-        [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
-      ]),
-    });
   }
 
   @Action('skip_place')
@@ -579,11 +425,11 @@ Ready to get started?
 
     await ctx.answerCbQuery('Skipped venue/place');
 
-    const state = this.getSession(userId);
+    const state = this.broadcastFlowService.getSession(userId);
     state.step = 'collect_date';
 
     await ctx.deleteMessage();
-    await this.promptForDate(ctx);
+    await this.broadcastFlowService.promptForDate(ctx);
   }
 
   @Action('skip_date')
@@ -593,11 +439,11 @@ Ready to get started?
 
     await ctx.answerCbQuery('Skipped date');
 
-    const state = this.getSession(userId);
+    const state = this.broadcastFlowService.getSession(userId);
     state.step = 'collect_time';
 
     await ctx.deleteMessage();
-    await this.promptForTime(ctx);
+    await this.broadcastFlowService.promptForTime(ctx);
   }
 
   @Action('skip_time')
@@ -607,11 +453,11 @@ Ready to get started?
 
     await ctx.answerCbQuery('Skipped time');
 
-    const state = this.getSession(userId);
+    const state = this.broadcastFlowService.getSession(userId);
     state.step = 'collect_links';
 
     await ctx.deleteMessage();
-    await this.promptForLinks(ctx);
+    await this.broadcastFlowService.promptForLinks(ctx);
   }
 
   @Action('skip_links')
@@ -621,7 +467,7 @@ Ready to get started?
 
     await ctx.answerCbQuery('Skipped external links');
 
-    const state = this.getSession(userId);
+    const state = this.broadcastFlowService.getSession(userId);
     state.step = 'ask_image';
 
     await ctx.deleteMessage();
@@ -643,7 +489,7 @@ Ready to get started?
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    const state = this.getSession(userId);
+    const state = this.broadcastFlowService.getSession(userId);
 
     if (state.step === 'collect_image') {
       // Get the file ID of the highest resolution photo
@@ -676,7 +522,7 @@ Ready to get started?
       });
     } else {
       // If user sends a photo when not asked for one, show the main keyboard
-      await this.showMainKeyboard(ctx);
+      await this.broadcastFlowService.showMainKeyboard(ctx);
     }
   }
 
@@ -687,7 +533,7 @@ Ready to get started?
 
     await ctx.answerCbQuery();
 
-    const state = this.getSession(userId);
+    const state = this.broadcastFlowService.getSession(userId);
     state.step = 'collect_image';
 
     await ctx.editMessageText(
@@ -706,7 +552,7 @@ Ready to get started?
 
     await ctx.answerCbQuery();
 
-    const state = this.getSession(userId);
+    const state = this.broadcastFlowService.getSession(userId);
     state.step = 'ask_button';
 
     await ctx.editMessageText('🔘 *Would you like to include a button?*', {
@@ -728,7 +574,7 @@ Ready to get started?
 
     await ctx.answerCbQuery();
 
-    const state = this.getSession(userId);
+    const state = this.broadcastFlowService.getSession(userId);
     state.step = 'collect_button_text';
 
     await ctx.editMessageText(
@@ -747,58 +593,11 @@ Ready to get started?
 
     await ctx.answerCbQuery();
 
-    const state = this.getSession(userId);
+    const state = this.broadcastFlowService.getSession(userId);
     state.step = 'confirmation';
 
     await ctx.deleteMessage();
-    await this.showConfirmation(ctx, state.message);
-  }
-
-  private async showConfirmation(ctx: Context, message: BroadcastMessage) {
-    // Build message preview
-    let previewText = '📢 *Broadcast Preview:*\n\n';
-
-    if (message.city) {
-      previewText += `📍 *${message.city}*\n`;
-    }
-
-    previewText += message.content;
-
-    if (message.place) {
-      previewText += `\n\n🏢 *Venue:* ${message.place}`;
-    }
-
-    if (message.date) {
-      previewText += `\n📅 *Date:* ${message.date}`;
-    }
-
-    if (message.time) {
-      previewText += `\n⏰ *Time:* ${message.time}`;
-    }
-
-    if (message.externalLinks) {
-      previewText += `\n🔗 *Links:* ${message.externalLinks}`;
-    }
-
-    if (message.buttonText && message.buttonUrl) {
-      previewText += `\n\n🔘 *Button:* [${message.buttonText}](${message.buttonUrl})`;
-    }
-
-    previewText += '\n\n*Target:* ';
-    previewText += message.scope === 'all' ? '🌎 All Groups' : `🏙️ City - ${message.city}`;
-
-    // Send the preview with confirmation buttons
-    await ctx.reply(previewText, {
-      parse_mode: 'Markdown',
-      // disable_web_page_preview: true,
-      ...Markup.inlineKeyboard([
-        [
-          Markup.button.callback('📢 Broadcast', 'confirm_broadcast'),
-          Markup.button.callback('📌 Broadcast with Pin', 'confirm_broadcast_pin'),
-        ],
-        [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
-      ]),
-    });
+    await this.broadcastFlowService.showConfirmation(ctx, state.message);
   }
 
   @Action('confirm_broadcast')
@@ -808,7 +607,7 @@ Ready to get started?
 
     await ctx.answerCbQuery();
 
-    const state = this.getSession(userId);
+    const state = this.broadcastFlowService.getSession(userId);
     state.message.pin = false;
 
     await ctx.editMessageText(
@@ -860,7 +659,7 @@ Ready to get started?
     state.step = 'completed';
 
     // Show the main keyboard again
-    // await this.showMainKeyboardAfterInlineQuery(ctx);
+    await this.broadcastFlowService.showMainKeyboardAfterInlineQuery(ctx);
   }
 
   @Action('confirm_broadcast_pin')
@@ -870,7 +669,7 @@ Ready to get started?
 
     await ctx.answerCbQuery();
 
-    const state = this.getSession(userId);
+    const state = this.broadcastFlowService.getSession(userId);
     state.message.pin = true;
 
     await ctx.editMessageText(
@@ -919,30 +718,13 @@ Ready to get started?
     // await this.showMainKeyboardAfterInlineQuery(ctx);
   }
 
-  private async handleCancel(ctx: Context) {
-    const userId = ctx.from?.id;
-    if (!userId) return;
-
-    this.resetState(userId);
-
-    await ctx.reply(
-      '❌ *Broadcast canceled*\n\nYour broadcast has been canceled. What would you like to do next?',
-      {
-        parse_mode: 'Markdown',
-      },
-    );
-
-    // Show the main keyboard again
-    await this.showMainKeyboard(ctx);
-  }
-
   @Action('cancel_broadcast')
   async onCancelBroadcast(@Ctx() ctx: Context) {
     const userId = ctx.from?.id;
     if (!userId) return;
 
     await ctx.answerCbQuery('Broadcast canceled');
-    this.resetState(userId);
+    this.broadcastFlowService.resetState(userId);
 
     await ctx.editMessageText('❌ *Broadcast canceled*\n\nYour broadcast has been canceled.', {
       parse_mode: 'Markdown',
@@ -961,7 +743,7 @@ Ready to get started?
 
   @Command('cancel')
   async onCancelCommand(@Ctx() ctx: Context) {
-    await this.handleCancel(ctx);
+    await this.broadcastFlowService.handleCancel(ctx);
   }
 
   @Command('help')
@@ -992,11 +774,11 @@ Ready to get started?
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    const state = this.getSession(userId);
+    const state = this.broadcastFlowService.getSession(userId);
 
     // Only show the keyboard if we're not in the middle of a flow
     if (state.step === 'idle' || state.step === 'completed') {
-      await this.showMainKeyboard(ctx);
+      await this.broadcastFlowService.showMainKeyboard(ctx);
     }
   }
 }

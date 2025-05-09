@@ -1,17 +1,240 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectBot } from 'nestjs-telegraf';
-import { Context, Telegraf } from 'telegraf';
-import { BroadcastMessage, BroadcastResult } from './broadcast-flow.interface';
+import { Context, Markup, Telegraf } from 'telegraf';
+import { BroadcastMessage, BroadcastResult, BroadcastState } from './broadcast-flow.interface';
 import { CityService } from '../city/city.service';
+import { InlineKeyboardButton } from 'telegraf/typings/core/types/typegram';
 
 @Injectable()
 export class BroadcastFlowService {
+  private readonly userStates: Map<number, BroadcastState> = new Map();
   private readonly logger = new Logger(BroadcastFlowService.name);
 
   constructor(
     @InjectBot() private bot: Telegraf<Context>,
     private readonly cityService: CityService,
   ) {}
+
+  getSession(userId: number): BroadcastState {
+    if (!this.userStates.has(userId)) {
+      this.userStates.set(userId, {
+        step: 'idle',
+        message: {
+          scope: 'all',
+          content: '',
+        },
+      });
+    }
+    return this.userStates.get(userId)!;
+  }
+
+  resetState(userId: number): void {
+    this.userStates.set(userId, {
+      step: 'idle',
+      message: {
+        scope: 'all',
+        content: '',
+      },
+    });
+  }
+  showMainKeyboard(ctx: Context) {
+    return ctx.reply(
+      '✨ What would you like to do today? ✨',
+      // Markup.keyboard([['🔊 Broadcast Message']]).resize(),
+    );
+  }
+
+  async showMainKeyboardAfterInlineQuery(ctx: Context) {
+    try {
+      // For inline query responses, we need to ensure we're sending a new message
+      await ctx.reply(
+        '✨ What would you like to do today? ✨',
+        Markup.keyboard([['🔊 Broadcast Message']]).resize(),
+      );
+    } catch (error) {
+      console.error('Error showing main keyboard:', error);
+    }
+  }
+
+  async showConfirmation(ctx: Context, message: BroadcastMessage) {
+    // Build message preview
+    let previewText = '📢 *Broadcast Preview:*\n\n';
+
+    if (message.city) {
+      previewText += `📍 *${message.city}*\n`;
+    }
+
+    previewText += message.content;
+
+    if (message.place) {
+      previewText += `\n\n🏢 *Venue:* ${message.place}`;
+    }
+
+    if (message.date) {
+      previewText += `\n📅 *Date:* ${message.date}`;
+    }
+
+    if (message.time) {
+      previewText += `\n⏰ *Time:* ${message.time}`;
+    }
+
+    if (message.externalLinks) {
+      previewText += `\n🔗 *Links:* ${message.externalLinks}`;
+    }
+
+    if (message.buttonText && message.buttonUrl) {
+      previewText += `\n\n🔘 *Button:* [${message.buttonText}](${message.buttonUrl})`;
+    }
+
+    previewText += '\n\n*Target:* ';
+    previewText += message.scope === 'all' ? '🌎 All Groups' : `🏙️ City - ${message.city}`;
+
+    // Send the preview with confirmation buttons
+    await ctx.reply(previewText, {
+      parse_mode: 'Markdown',
+      // disable_web_page_preview: true,
+      ...Markup.inlineKeyboard([
+        [
+          Markup.button.callback('📢 Broadcast', 'confirm_broadcast'),
+          Markup.button.callback('📌 Broadcast with Pin', 'confirm_broadcast_pin'),
+        ],
+        [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
+      ]),
+    });
+  }
+
+  showCancelOption(
+    ctx: Context,
+    message: string,
+    options: Record<string, any> = {},
+  ): Promise<unknown> {
+    const inlineKeyboard: InlineKeyboardButton[][] = Array.isArray(
+      (options.reply_markup as { inline_keyboard?: InlineKeyboardButton[][] })?.inline_keyboard,
+    )
+      ? (options.reply_markup as { inline_keyboard: InlineKeyboardButton[][] }).inline_keyboard
+      : [];
+
+    // Add a cancel button as the last row if it's not already there
+    const hasCancelButton = inlineKeyboard.some((row) =>
+      row.some(
+        (button: InlineKeyboardButton) =>
+          'callback_data' in button && button.callback_data === 'cancel_broadcast',
+      ),
+    );
+
+    if (!hasCancelButton) {
+      inlineKeyboard.push([Markup.button.callback('❌ Cancel', 'cancel_broadcast')]);
+    }
+
+    return ctx.reply(message, {
+      ...options,
+      reply_markup: {
+        inline_keyboard: inlineKeyboard,
+      },
+    }) as Promise<unknown>;
+  }
+
+  async promptForMessageContent(ctx: any) {
+    await this.showCancelOption(
+      ctx,
+      '✏️ *Please enter your message content:* (required)\n\nType your announcement message below.',
+      { parse_mode: 'Markdown' },
+    );
+  }
+
+  async promptForPlace(ctx: Context) {
+    await ctx.reply('🏢 *Enter venue/place:* (optional)\n\nWhere is this event taking place?', {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('⏩ Skip', 'skip_place')],
+        [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
+      ]),
+    });
+  }
+
+  async promptForDate(ctx: Context) {
+    await ctx.reply('📅 *Enter date:* (optional)\n\nWhen is this happening?', {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('⏩ Skip', 'skip_date')],
+        [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
+      ]),
+    });
+  }
+
+  async promptForTime(ctx: Context) {
+    await ctx.reply('⏰ *Enter time:* (optional)\n\nAt what time?', {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('⏩ Skip', 'skip_time')],
+        [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
+      ]),
+    });
+  }
+
+  async promptForLinks(ctx: Context) {
+    await ctx.reply('🔗 *Enter external links:* (optional)\n\nAny relevant links to include?', {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('⏩ Skip', 'skip_links')],
+        [Markup.button.callback('❌ Cancel', 'cancel_broadcast')],
+      ]),
+    });
+  }
+
+  async handleCitySelection(ctx: Context, selectedCity: string): Promise<number | null> {
+    const userId: number | undefined = ctx.from?.id;
+    if (!userId) return null;
+
+    const state = this.getSession(userId);
+    const cityGroups = await this.getGroupsByCity(selectedCity);
+
+    if (!cityGroups) {
+      await ctx.reply('❌ Invalid city selected. Please try again.');
+      return null;
+    }
+
+    const group = cityGroups[0];
+
+    const isAdmin = await this.validateCityAdmin(selectedCity, userId.toString());
+
+    if (!isAdmin) {
+      await ctx.reply(`❌ You are not authorized to send messages to the ${selectedCity} group.`);
+      return null;
+    }
+
+    state.message.city = selectedCity;
+    state.message.scope = 'city';
+    state.step = 'collect_message';
+
+    await ctx.reply(
+      `🏙️ *Selected city: ${selectedCity}*\n\nNow, let's collect your message details.`,
+      {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([[Markup.button.callback('❌ Cancel', 'cancel_broadcast')]]),
+      },
+    );
+
+    await this.promptForMessageContent(ctx);
+    return Number(group.group_id);
+  }
+
+  async handleCancel(ctx: Context) {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    this.resetState(userId);
+
+    await ctx.reply(
+      '❌ *Broadcast canceled*\n\nYour broadcast has been canceled. What would you like to do next?',
+      {
+        parse_mode: 'Markdown',
+      },
+    );
+
+    // Show the main keyboard again
+    await this.showMainKeyboard(ctx);
+  }
 
   async getGroupsByCity(city: string): Promise<{ group_id: string; name: string }[]> {
     return this.cityService.getGroupsByCity(city);
@@ -20,12 +243,12 @@ export class BroadcastFlowService {
   async validateCityAdmin(cityName: string, userId: string): Promise<boolean> {
     // Fetch admin_ids for the city
     const adminIds = await this.cityService.getCityAdminsByName(cityName);
-  
+
     if (!adminIds) {
       this.logger.warn(`No admin information found for the city: ${cityName}`);
       return false;
     }
-  
+
     return adminIds.includes(userId);
   }
 
@@ -34,7 +257,6 @@ export class BroadcastFlowService {
 
     return cities.map((city) => city.name);
   }
-  
 
   async broadcastMessage(message: BroadcastMessage, ctx: Context): Promise<BroadcastResult> {
     let targetGroups: { group_id: string; name: string }[] = [];
