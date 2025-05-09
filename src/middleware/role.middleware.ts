@@ -1,25 +1,29 @@
 import { Injectable } from '@nestjs/common';
-import { BroadcastFlowService } from 'src/modules/broadcast-flow/broadcast-flow.service';
+import { KnexService } from 'src/modules/knex/knex.service';
+import { IUser } from 'src/modules/user/user.interface';
 import { Context, MiddlewareFn } from 'telegraf';
 
 @Injectable()
 export class RoleMiddleware {
-  constructor(private telegramService: BroadcastFlowService) {}
+  constructor(private readonly knexService: KnexService) {}
 
-  roleValidationMiddleware(mainGroupId: number): MiddlewareFn<Context> {
+  roleValidationMiddleware(): MiddlewareFn<Context> {
     return async (ctx, next) => {
-      if (!ctx.from?.id || !ctx.chat?.id) {
+      if (!ctx.from?.id) {
         return ctx.reply('Invalid context or user information missing.');
       }
 
-      const userId = ctx.from.id;
-      const chatId = ctx.chat.id;
+      const user = await this.knexService
+        .knex<IUser>('user')
+        .where('telegram_id', ctx.from.id)
+        .select('role')
+        .first();
 
-      const userMainRole = await this.telegramService.getUserRole(mainGroupId, userId);
-      const userCurrentRole = await this.telegramService.getUserRole(chatId, userId);
+      if (!user) {
+        return ctx.reply('You are not registered in the system.');
+      }
 
-      ctx.state.userMainRole = userMainRole;
-      ctx.state.userCurrentRole = userCurrentRole;
+      ctx.state.userRole = user.role;
 
       return next();
     };
