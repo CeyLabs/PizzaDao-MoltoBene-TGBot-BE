@@ -24,6 +24,54 @@ export class WelcomeService {
     const userId = ctx.message?.from.id ?? ctx.from?.id ?? 0;
     const firstName = ctx.message?.from.first_name || 'there';
 
+    // Check if the user came through a deep link
+    const startPayload =
+      ctx.message && 'text' in ctx.message ? ctx.message.text.split(' ')[1] : null;
+    if (startPayload && startPayload.startsWith('register_')) {
+      const [, targetUserId, groupId] = startPayload.split('_');
+
+      if (userId.toString() !== targetUserId) {
+        await ctx.reply('❌ You cannot verify for another user.');
+        return;
+      }
+
+      // Check if the user is already registered
+      if (await this.userService.isUserRegistered(userId)) {
+        await ctx.reply('You are already verified and registered!');
+        return;
+      }
+
+      const cityDetails = await this.cityService.getCityByGroupId(groupId || '');
+
+      // Save the group ID and start the verification process
+      this.userGroupMap.set(userId, {
+        telegram_id: userId,
+        username: ctx.message?.from.username || null,
+        tg_first_name: ctx.message?.from.first_name || null,
+        tg_last_name: ctx.message?.from.last_name || null,
+        group_id: groupId,
+        custom_full_name: null,
+        region_id: null,
+        country_id: cityDetails?.country_id || null,
+        city_id: cityDetails?.id || null,
+        role: 'user',
+        mafia_movie: null,
+        ninja_turtle_character: null,
+        pizza_topping: null,
+      });
+
+      this.userSteps.set(userId, 4);
+
+      await ctx.reply('Let’s verify your details. Please provide the following information:');
+      await ctx.reply('What is your name?', {
+        reply_markup: {
+          force_reply: true,
+        },
+      });
+
+      return;
+    }
+
     if (await this.userService.isUserRegistered(userId)) {
       await ctx.replyWithMarkdownV2(
         `👋 *Hello, ${(await this.userService.findUser(userId))?.custom_full_name || 'there'}\\!* \n\n` +
@@ -119,6 +167,10 @@ export class WelcomeService {
 
     if (message?.new_chat_members) {
       for (const member of message.new_chat_members) {
+        if (await this.userService.isUserRegistered(member.id)) {
+          return;
+        }
+
         // Store the group_id in userGroupMap
         this.userGroupMap.set(member.id, {
           group_id: chatId,
@@ -142,11 +194,15 @@ export class WelcomeService {
             can_send_messages: false,
           },
         });
+
+        const botUsername = process.env.BOT_USERNAME;
+        const deepLink = `https://t.me/${botUsername}?start=register_${member.id}_${chatId}`;
+
         const verificationMessage = await ctx.replyWithMarkdownV2(
           `Welcome\\, ${`[${member.first_name}](tg://user?id=${member.id})`} \\! Please verify you are not a robot by clicking the button below\\. You have 30 seconds to verify\\.`,
           {
             reply_markup: {
-              inline_keyboard: [[{ text: 'Verify', callback_data: `verify_${member.id}` }]],
+              inline_keyboard: [[{ text: 'Verify', url: deepLink }]],
             },
           },
         );
@@ -234,82 +290,7 @@ export class WelcomeService {
       }
     }
 
-    if (callbackData?.startsWith('verify_')) {
-      const targetUserId = parseInt(callbackData.split('_')[1], 10);
-
-      if (userId === targetUserId) {
-        if (await this.userService.isUserRegistered(userId)) {
-          await ctx.answerCbQuery('You are already verified.');
-          return;
-        }
-
-        const cityDetails = await this.cityService.getCityByGroupId(
-          ctx.callbackQuery.message?.chat.id || '',
-        );
-
-        // Start private chat for verification
-        await ctx.answerCbQuery();
-        this.userSteps.set(userId, 4);
-        this.userGroupMap.set(userId, {
-          telegram_id: userId,
-          username: ctx.callbackQuery?.from.username || null,
-          tg_first_name: ctx.callbackQuery?.from.first_name || null,
-          tg_last_name: ctx.callbackQuery?.from.last_name || null,
-          group_id: ctx.callbackQuery.message?.chat.id,
-          custom_full_name: null,
-          region_id: null,
-          country_id: cityDetails?.country_id || null,
-          city_id: cityDetails?.id || null,
-          role: 'user',
-          mafia_movie: null,
-          ninja_turtle_character: null,
-          pizza_topping: null,
-        });
-
-        try {
-          await ctx.telegram.sendMessage(
-            userId,
-            'Let’s verify your details. Please provide the following information:',
-          );
-          await ctx.telegram.sendMessage(userId, 'What is your name?', {
-            reply_markup: {
-              force_reply: true,
-            },
-          });
-        } catch {
-          const botUsername = process.env.BOT_USERNAME;
-
-          const groupId = this.userGroupMap.get(userId)?.group_id;
-
-          if (groupId) {
-            const verificationMessage = await ctx.telegram.sendMessage(
-              groupId,
-              `It seems you haven't started the bot in a private chat. Please click [this link](https://t.me/${botUsername}) to start the bot and then click "Verify" again. You have 30 seconds to verify.`,
-              {
-                parse_mode: 'Markdown',
-                reply_markup: {
-                  inline_keyboard: [[{ text: 'Verify', callback_data: `verify_${userId}` }]],
-                },
-              },
-            );
-
-            setTimeout(() => {
-              void (async () => {
-                try {
-                  await ctx.telegram.deleteMessage(groupId, verificationMessage.message_id);
-                } catch (error) {
-                  console.error('Failed to delete message:', error);
-                }
-              })();
-            }, 30000);
-          }
-        }
-      } else {
-        await ctx.answerCbQuery('You cannot verify for another user.', {
-          show_alert: true,
-        });
-      }
-    } else if (callbackData === 'view_profile') {
+    if (callbackData === 'view_profile') {
       const user = await this.userService.findUser(userId);
       if (!user) {
         await ctx.answerCbQuery('You are not registered yet.');
