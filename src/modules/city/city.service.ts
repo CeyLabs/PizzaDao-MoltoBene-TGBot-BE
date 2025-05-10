@@ -31,6 +31,16 @@ export class CityService {
     await this.knexService.knex('city').where({ id: cityId }).update({ admin_ids: validAdminIds });
   }
 
+  async getTelegramLinkByCityId(cityId: string): Promise<ICity | null> {
+    const city = (await this.knexService
+      .knex<ICity>('city')
+      .where('id', cityId)
+      .select('telegram_link')
+      .first()) as ICity | undefined;
+
+    return city || null;
+  }
+
   async getCityByGroupId(groupId: string | number): Promise<ICity | null> {
     const city = (await this.knexService
       .knex('city')
