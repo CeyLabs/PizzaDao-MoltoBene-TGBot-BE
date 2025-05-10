@@ -14,7 +14,7 @@ export class CityService {
     const city = await this.knexService
       .knex<ICity>('city')
       .where('id', cityId)
-      .select('id', 'name', 'country_id')
+      .select('id', 'name', 'country_id', 'group_id')
       .first();
     return city || null;
   }
@@ -40,10 +40,10 @@ export class CityService {
     return city || null;
   }
 
-  async getGroupsByCity(city: string): Promise<{ group_id: string; name: string }[]> {
+  async getGroupsByCity(city: string): Promise<Pick<ICity, 'group_id' | 'name'>[]> {
     // Query the database to fetch groups by city name
     const groups = await this.knexService
-      .knex<{ group_id: string; name: string }>('city')
+      .knex<ICity>('city')
       .where('name', city)
       .select('group_id', 'name');
 
@@ -65,12 +65,12 @@ export class CityService {
 
   async getCityAdminsByName(cityName: string): Promise<string[] | null> {
     const city = await this.knexService
-      .knex('city')
+      .knex<{ admin_ids: string[] }>('city')
       .where('name', cityName)
       .select('admin_ids')
       .first();
 
-    if (!city || !city.admin_ids) {
+    if (!city || !Array.isArray(city.admin_ids)) {
       return null;
     }
 
