@@ -1,10 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { Help, Update } from 'nestjs-telegraf';
 import { Context } from 'telegraf';
-@Update()
+
 @Injectable()
 export class AppService {
-  @Help()
   async handleHelpCommand(ctx: Context) {
     await ctx.replyWithMarkdownV2(
       'ℹ️ *Help Menu*\n\n' +
