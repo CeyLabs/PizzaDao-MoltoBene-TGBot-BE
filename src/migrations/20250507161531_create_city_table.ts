@@ -9,6 +9,7 @@ export async function up(knex: Knex): Promise<void> {
     table.uuid('country_id').notNullable().references('id').inTable('country').onDelete('CASCADE');
     table.specificType('admin_ids', 'text[]').defaultTo(knex.raw('ARRAY[]::text[]'));
     table.string('group_id');
+    table.string('telegram_link');
     table.timestamps(true, true);
   });
 }
