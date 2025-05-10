@@ -237,7 +237,7 @@ export class BroadcastFlowService {
   }
 
   async getGroupsByCity(city: string): Promise<{ group_id: string; name: string }[]> {
-    return this.cityService.getGroupsByCity(city);
+    return this.cityService.getGroupsByCityId(city);
   }
 
   async validateCityAdmin(cityName: string, userId: string): Promise<boolean> {
@@ -270,7 +270,7 @@ export class BroadcastFlowService {
         targetGroups = await this.cityService.getAllCitiesWithGroups();
       } else if (message.scope === 'city' && message.city) {
         // Check if user has admin rights for this city
-        targetGroups = await this.cityService.getGroupsByCity(message.city);
+        targetGroups = await this.cityService.getGroupsByCityId(message.city);
       }
 
       if (targetGroups.length === 0) {

@@ -40,11 +40,26 @@ export class CityService {
     return city || null;
   }
 
-  async getGroupsByCity(city: string): Promise<Pick<ICity, 'group_id' | 'name'>[]> {
-    // Query the database to fetch groups by city name
+  private async getCityIdByName(cityName: string): Promise<string | null> {
+    const city = await this.knexService
+      .knex<ICity>('city')
+      .where('name', cityName)
+      .select('id')
+      .first();
+
+    return city?.id || null;
+  }
+
+  async getGroupsByCityId(id: string): Promise<Pick<ICity, 'group_id' | 'name'>[]> {
+    // Get the city ID by name and check if it exists
+    const cityId = await this.getCityIdByName(id);
+    if (!cityId) {
+      return [];
+    }
+
     const groups = await this.knexService
       .knex<ICity>('city')
-      .where('name', city)
+      .where('id', cityId)
       .select('group_id', 'name');
 
     return groups.map((group) => ({
