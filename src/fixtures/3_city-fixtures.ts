@@ -27,7 +27,7 @@ export async function seed(knex: Knex): Promise<void> {
       name: 'Kabul',
       country_id: countryMap['Afghanistan'],
       group_id: null,
-      telegram_link: 'WhatsApp',
+      telegram_link: null,
     },
     {
       name: 'Mazar-i-Sharif',
@@ -2732,7 +2732,7 @@ export async function seed(knex: Knex): Promise<void> {
       group_id: -1001861690209,
       telegram_link: 'https://t.me/+wh1VsLXGZSQ0ZGNh',
     },
-    { name: 'Lansing', country_id: countryMap['USA MI'], group_id: null, telegram_link: 'No' },
+    { name: 'Lansing', country_id: countryMap['USA MI'], group_id: null, telegram_link: null },
     // USA MN
     {
       name: 'Minneapolis',
