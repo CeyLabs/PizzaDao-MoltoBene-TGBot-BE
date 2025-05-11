@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TelegrafModule } from 'nestjs-telegraf';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AppService } from './app.service';
+import { AppController } from './app.controller';
 import { KnexModule } from './modules/knex/knex.module';
 import { WelcomeModule } from './modules/welcome/welcome.module';
 import { UserModule } from './modules/user/user.module';
@@ -39,6 +40,6 @@ dotenv.config();
     CountryModule,
     CityModule,
   ],
-  providers: [AppService],
+  providers: [AppService, AppController],
 })
 export class AppModule {}

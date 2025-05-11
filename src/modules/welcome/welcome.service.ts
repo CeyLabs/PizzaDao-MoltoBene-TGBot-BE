@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { Update, On, Command, Start } from 'nestjs-telegraf';
 import { Context } from 'telegraf';
 import { UserService } from '../user/user.service';
 import { IUserRegistrationData } from './welcome.interface';
@@ -7,7 +6,6 @@ import { CountryService } from '../country/country.service';
 import { CityService } from '../city/city.service';
 import { IUser } from '../user/user.interface';
 
-@Update()
 @Injectable()
 export class WelcomeService {
   constructor(
@@ -19,8 +17,7 @@ export class WelcomeService {
   private userSteps = new Map<number, number | string>();
   private userGroupMap = new Map<number, IUserRegistrationData>();
 
-  @Start()
-  async startCommand(ctx: Context) {
+  async handleStartCommand(ctx: Context) {
     const userId = ctx.message?.from.id ?? ctx.from?.id ?? 0;
     const firstName = ctx.message?.from.first_name || 'there';
 
@@ -110,7 +107,6 @@ export class WelcomeService {
     }
   }
 
-  @Command('profile')
   async handleProfileCommand(ctx: Context) {
     const userId = ctx.message?.from.id;
     if (!userId) return;
@@ -157,7 +153,6 @@ export class WelcomeService {
     );
   }
 
-  @Command('register')
   async handleUserRegistration(ctx: Context) {
     const userId = ctx.message?.from?.id ?? 0;
     if (!userId) return;
@@ -223,7 +218,6 @@ export class WelcomeService {
     );
   }
 
-  @On('new_chat_members')
   async handleNewMember(ctx: Context) {
     const { message } = ctx;
 
@@ -296,7 +290,6 @@ export class WelcomeService {
     }
   }
 
-  @On('callback_query')
   async handleCallbackQuery(ctx: Context) {
     const callbackData =
       ctx.callbackQuery && 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : undefined;
@@ -468,11 +461,10 @@ export class WelcomeService {
       this.userSteps.set(userId, `edit_${field}`);
     } else if (callbackData === 'back_to_start') {
       await ctx.deleteMessage();
-      await this.startCommand(ctx);
+      await this.handleStartCommand(ctx);
     }
   }
 
-  @On('left_chat_member')
   async handleLeftChatMember(ctx: Context) {
     const { message } = ctx;
     const chatId = ctx.chat?.id ?? 0;
@@ -482,7 +474,6 @@ export class WelcomeService {
     }
   }
 
-  @On('text')
   async handlePrivateChat(ctx: Context) {
     const userId = ctx.message?.from.id;
     if (!userId) return;
@@ -504,7 +495,7 @@ export class WelcomeService {
       this.userSteps.delete(userId);
 
       await ctx.reply(`Your ${field.replaceAll('_', ' ')} has been updated to "${newValue}".`);
-      await this.startCommand(ctx);
+      await this.handleStartCommand(ctx);
     }
 
     if (!userData) return;
