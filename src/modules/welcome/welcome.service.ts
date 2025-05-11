@@ -601,11 +601,9 @@ export class WelcomeService {
 
       if (userData.city_id) {
         try {
-          const telegramLink = await this.cityService
-            .getTelegramLinkByCityId(userData.city_id)
-            .then((city) => city?.telegram_link);
+          const city = await this.cityService.getCityById(userData.city_id);
 
-          if (telegramLink) {
+          if (city?.telegram_link) {
             await ctx.reply(
               '🎉 *Thank you for providing your details\\!*\n\n' +
                 '✅ You are now verified\\![­­­­­­­­­­](${telegramLink})\n\n' +
@@ -616,7 +614,7 @@ export class WelcomeService {
                     [
                       {
                         text: 'Join Telegram Group',
-                        url: telegramLink,
+                        url: city.telegram_link as string,
                       },
                     ],
                   ],
