@@ -7,7 +7,10 @@ export class CityService {
   constructor(private readonly knexService: KnexService) {}
 
   async getCitiesByCountry(countryId: string): Promise<ICity[]> {
-    return this.knexService.knex('city').where({ country_id: countryId }).select('id', 'name');
+    return this.knexService
+      .knex('city')
+      .where({ country_id: countryId })
+      .select('id', 'name', 'telegram_link');
   }
 
   async getCityById(cityId: string): Promise<ICity | null> {
