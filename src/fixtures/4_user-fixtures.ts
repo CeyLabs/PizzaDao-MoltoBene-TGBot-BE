@@ -39,13 +39,14 @@ export async function seed(knex: Knex): Promise<void> {
       username: 'Nimsara',
       tg_first_name: 'Nimsara',
       tg_last_name: '',
-      custom_full_name: 'Udana Nimsara',
+      pizza_name: 'Pineapple Damon ',
+      discord_name: 'mrcentimetre',
       country_id: country.id,
       city_id: city.id,
       role: 'admin',
-      mafia_movie: 'The Godfather',
-      ninja_turtle_character: 'Leonardo',
-      pizza_topping: 'Pepperoni',
+      mafia_movie: 'The Irish',
+      ninja_turtle_character: ['Leonardo', 'Donatello'],
+      pizza_topping: 'Pineapple',
     },
   ]);
 }

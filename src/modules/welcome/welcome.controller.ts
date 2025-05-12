@@ -13,7 +13,7 @@ export class WelcomeController {
 
   @Command('profile')
   async handleProfileCommand(ctx: Context) {
-    await this.welcomeService.handleProfileCommand(ctx);
+    await this.welcomeService.handleProfile(ctx);
   }
 
   @Command('register')
