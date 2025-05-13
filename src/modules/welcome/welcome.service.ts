@@ -535,6 +535,14 @@ export class WelcomeService {
         },
       ],
       [
+        {
+          text: userData.ninja_turtle_character.includes('footclan')
+            ? 'Foot Clan 🥷 ✅'
+            : 'Foot Clan 🥷',
+          callback_data: 'ninja_footclan',
+        },
+      ],
+      [
         { text: '✅ Confirm', callback_data: 'ninja_confirm' }, // Confirm button
       ],
     ];
@@ -549,7 +557,8 @@ export class WelcomeService {
           '🧙 *Splinter*: _Guru of Legal Systems and/or Accounting\\. Watch out for the team and keep them out of trouble\\!_\n\n' +
           '🤝 *Raphael*: _Business Development, Recruiting, and Sales\\. Build partnerships for the future of PizzaDAO\\._\n\n' +
           "🎨 *Michelangelo*: _Artist, Creative, or Meme Chef\\. Create art, music, and videos to spread pizza's glory\\!_\n\n" +
-          '📝 *April*: _Storytelling, Writing, and Marketing\\. Spread the word throughout the universe \\(and the metaverse\\)\\._',
+          '📝 *April*: _Storytelling, Writing, and Marketing\\. Spread the word throughout the universe \\(and the metaverse\\)\\._\n\n' +
+          "🥷 *Foot Clan*: _Fighter for all things Pizza\\. Choose this if you\\'re ready to help in any way possible, from the streets to the tweets\\._",
         reply_markup: {
           inline_keyboard: ninjaTurtleOptions,
         },
@@ -626,6 +635,14 @@ export class WelcomeService {
         },
       ],
       [
+        {
+          text: userData.ninja_turtle_character.includes('footclan')
+            ? 'Foot Clan 🥷 ✅'
+            : 'Foot Clan 🥷',
+          callback_data: 'ninja_footclan',
+        },
+      ],
+      [
         { text: '✅ Confirm', callback_data: 'ninja_confirm' }, // Confirm button
       ],
     ];
@@ -639,7 +656,9 @@ export class WelcomeService {
         '🧙 *Splinter*: _Guru of Legal Systems and/or Accounting\\. Watch out for the team and keep them out of trouble\\!_\n\n' +
         '🤝 *Raphael*: _Business Development, Recruiting, and Sales\\. Build partnerships for the future of PizzaDAO\\._\n\n' +
         "🎨 *Michelangelo*: _Artist, Creative, or Meme Chef\\. Create art, music, and videos to spread pizza's glory\\!_\n\n" +
-        '📝 *April*: _Storytelling, Writing, and Marketing\\. Spread the word throughout the universe \\(and the metaverse\\)\\._',
+        '📝 *April*: _Storytelling, Writing, and Marketing\\. Spread the word throughout the universe \\(and the metaverse\\)\\._\n\n' +
+        "🥷 *Foot Clan*: _Fighter for all things Pizza\\. Choose this if you\\'re ready to help in any way possible, from the streets to the tweets\\._",
+
       {
         reply_markup: {
           inline_keyboard: ninjaTurtleOptions,
