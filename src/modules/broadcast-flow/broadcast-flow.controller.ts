@@ -8,7 +8,6 @@ import {
   InlineQueryResultArticle,
 } from 'telegraf/typings/core/types/typegram';
 import { helpMessage, welcomeMessage } from 'src/bot-commands';
-import { nanoid } from 'nanoid';
 
 @Update()
 @Controller()
@@ -250,6 +249,9 @@ Ready to get started?
       ? allCities.filter((city) => city.toLowerCase().includes(query))
       : allCities;
 
+    // Import nanoid dynamically
+    const { nanoid } = await import('nanoid');
+      
     const results: InlineQueryResultArticle[] = filtered
       .slice(offset, offset + pageSize)
       .map((city) => ({
