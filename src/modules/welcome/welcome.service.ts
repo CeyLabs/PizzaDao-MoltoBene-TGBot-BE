@@ -4,6 +4,7 @@ import { UserService } from '../user/user.service';
 import { IUserRegistrationData } from './welcome.interface';
 import { CountryService } from '../country/country.service';
 import { CityService } from '../city/city.service';
+import { MembershipService } from '../membership/membership.service';
 import { IUser } from '../user/user.interface';
 import axios from 'axios';
 
@@ -15,6 +16,7 @@ export class WelcomeService {
     private readonly userService: UserService,
     private readonly countryService: CountryService,
     private readonly cityService: CityService,
+    private readonly membershipService: MembershipService,
   ) {}
 
   private userSteps = new Map<number, number | string>();
@@ -46,7 +48,10 @@ export class WelcomeService {
 
       if (isRegistered) {
         // Check if the user is already registered in the current city
-        const isInCity = await this.userService.isUserInCity(userId, cityDetails.id);
+        const isInCity = await this.membershipService.checkUserCityMembership(
+          userId,
+          cityDetails.id,
+        );
 
         if (isInCity) {
           await ctx.replyWithMarkdownV2(
@@ -356,7 +361,7 @@ export class WelcomeService {
       }
 
       // Add city participation for the user
-      await this.userService.addCityParticipation(userId, cityDetails.id);
+      await this.membershipService.addUserToCityMembership(userId, cityDetails.id);
 
       await ctx.deleteMessage();
       await ctx.replyWithMarkdownV2(
@@ -473,7 +478,10 @@ export class WelcomeService {
 
     const cityDetails = await this.cityService.getCityByGroupId(userData.group_id || '');
 
-    await this.userService.addCityParticipation(userData.telegram_id, cityDetails?.id || '');
+    await this.membershipService.addUserToCityMembership(
+      userData.telegram_id,
+      cityDetails?.id || '',
+    );
 
     this.userSteps.delete(userId);
     this.userGroupMap.delete(userId);

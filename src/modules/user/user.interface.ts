@@ -10,9 +10,3 @@ export interface IUser {
   ninja_turtle_character: string[] | null;
   pizza_topping: string | null;
 }
-
-export interface ICityUser {
-  user_id: string | number;
-  city_id: string;
-  city_name: string;
-}
