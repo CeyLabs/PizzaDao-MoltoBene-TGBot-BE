@@ -483,20 +483,59 @@ export class WelcomeService {
     const userId = ctx.message?.from.id || ctx.callbackQuery?.from.id;
     if (!userId) return;
 
+    // Retrieve user data
+    const userData = this.userGroupMap.get(userId) || (await this.populateUserData(userId));
+    if (!userData?.ninja_turtle_character) {
+      await ctx.reply('❌ User data not found. Please register first.');
+      return;
+    }
+
     this.userSteps.set(userId, 'ninja_turtle_character');
 
+    // Generate Ninja Turtle options with tick marks for already selected ones
     const ninjaTurtleOptions = [
       [
-        { text: 'Leonardo 🐢', callback_data: 'ninja_leonardo' },
-        { text: 'Donatello 🛠️', callback_data: 'ninja_donatello' },
+        {
+          text: userData.ninja_turtle_character.includes('leonardo')
+            ? 'Leonardo 🐢 ✅'
+            : 'Leonardo 🐢',
+          callback_data: 'ninja_leonardo',
+        },
+        {
+          text: userData.ninja_turtle_character.includes('donatello')
+            ? 'Donatello 🛠️ ✅'
+            : 'Donatello 🛠️',
+          callback_data: 'ninja_donatello',
+        },
       ],
       [
-        { text: 'Splinter 🧙', callback_data: 'ninja_splinter' },
-        { text: 'Raphael 🤝', callback_data: 'ninja_raphael' },
+        {
+          text: userData.ninja_turtle_character.includes('splinter')
+            ? 'Splinter 🧙 ✅'
+            : 'Splinter 🧙',
+          callback_data: 'ninja_splinter',
+        },
+        {
+          text: userData.ninja_turtle_character.includes('raphael')
+            ? 'Raphael 🤝 ✅'
+            : 'Raphael 🤝',
+          callback_data: 'ninja_raphael',
+        },
       ],
       [
-        { text: 'Michelangelo 🎨', callback_data: 'ninja_michelangelo' },
-        { text: 'April 📝', callback_data: 'ninja_april' },
+        {
+          text: userData.ninja_turtle_character.includes('michelangelo')
+            ? 'Michelangelo 🎨 ✅'
+            : 'Michelangelo 🎨',
+          callback_data: 'ninja_michelangelo',
+        },
+        {
+          text: userData.ninja_turtle_character.includes('april') ? 'April 📝 ✅' : 'April 📝',
+          callback_data: 'ninja_april',
+        },
+      ],
+      [
+        { text: '✅ Confirm', callback_data: 'ninja_confirm' }, // Confirm button
       ],
     ];
 
