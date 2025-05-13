@@ -1,14 +1,14 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { session, Telegraf } from 'telegraf';
-import { ExpressAdapter } from '@nestjs/platform-express';
+import { getBotToken } from 'nestjs-telegraf';
 import * as express from 'express';
 
 async function bootstrap() {
-  const server = express();
-  const app = await NestFactory.create(AppModule, new ExpressAdapter(server));
+  const app = await NestFactory.create(AppModule);
 
-  const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN!);
+  // Get the bot instance
+  const bot = app.get<Telegraf>(getBotToken());
 
   // Use session middleware
   bot.use(session());
@@ -21,11 +21,10 @@ async function bootstrap() {
     },
   });
 
-  server.post('/customer', (req, res) => {
-    // Example logic: echo back JSON body
-    console.log('Received customer data:', req.body);
-    res.status(201).json({ message: 'Customer data received' });
-  });
+  app.use(express.json());
+
+  // Connect the webhook middleware
+  app.use(bot.webhookCallback('/webhook'));
 
   // Start the NestJS application
   const PORT = process.env.PORT || 3000;
