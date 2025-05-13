@@ -24,12 +24,15 @@ dotenv.config();
         }
         return {
           token,
-          launchOptions: {
-            webhook: {
-              domain: configService.get<string>('WEBHOOK_DOMAIN') || '',
-              path: '/webhook',
-            },
-          },
+          launchOptions:
+            process.env.ENABLE_WEBHOOK === 'true'
+              ? {
+                  webhook: {
+                    domain: configService.get<string>('WEBHOOK_DOMAIN') || '',
+                    path: '/webhook',
+                  },
+                }
+              : {},
         };
       },
       inject: [ConfigService],

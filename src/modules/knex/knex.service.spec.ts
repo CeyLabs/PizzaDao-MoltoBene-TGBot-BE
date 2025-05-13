@@ -33,7 +33,7 @@ describe('KnexService', () => {
   describe('onModuleInit', () => {
     it('should initialize knex with configuration', () => {
       service.onModuleInit();
-      
+
       expect(mockKnex).toHaveBeenCalledTimes(1);
       expect(service.knex).toBeDefined();
     });
@@ -43,19 +43,19 @@ describe('KnexService', () => {
     it('should destroy knex connection if it exists', async () => {
       // Set up the knex property
       service.knex = mockKnexInstance as Knex;
-      
+
       await service.onModuleDestroy();
-      
+
       expect(mockKnexInstance.destroy).toHaveBeenCalledTimes(1);
     });
 
     it('should not try to destroy knex connection if it does not exist', async () => {
       // Set knex to undefined
       service.knex = undefined as unknown as Knex;
-      
+
       await service.onModuleDestroy();
-      
+
       expect(mockKnexInstance.destroy).not.toHaveBeenCalled();
     });
   });
-}); 
+});

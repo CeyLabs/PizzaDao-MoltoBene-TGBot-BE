@@ -24,7 +24,7 @@ describe('AppController', () => {
     controller = module.get<AppController>(AppController);
     appService = module.get<AppService>(AppService);
     mockContext = {
-      update: { update_id: 123 }
+      update: { update_id: 123 },
     } as Context;
   });
 
@@ -35,9 +35,9 @@ describe('AppController', () => {
   describe('helpCommand', () => {
     it('should call appService.handleHelpCommand', async () => {
       await controller.helpCommand(mockContext);
-      
+
       expect(appService.handleHelpCommand).toHaveBeenCalledTimes(1);
       expect(appService.handleHelpCommand).toHaveBeenCalledWith(mockContext);
     });
   });
-}); 
+});

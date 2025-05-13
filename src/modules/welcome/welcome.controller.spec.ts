@@ -30,7 +30,7 @@ describe('WelcomeController', () => {
     controller = module.get<WelcomeController>(WelcomeController);
     welcomeService = module.get<WelcomeService>(WelcomeService);
     mockContext = {
-      update: { update_id: 123 }
+      update: { update_id: 123 },
     } as Context;
   });
 
@@ -41,7 +41,7 @@ describe('WelcomeController', () => {
   describe('startCommand', () => {
     it('should call welcomeService.handleStartCommand', async () => {
       await controller.startCommand(mockContext);
-      
+
       expect(welcomeService.handleStartCommand).toHaveBeenCalledTimes(1);
       expect(welcomeService.handleStartCommand).toHaveBeenCalledWith(mockContext);
     });
@@ -50,7 +50,7 @@ describe('WelcomeController', () => {
   describe('handleProfileCommand', () => {
     it('should call welcomeService.handleProfile', async () => {
       await controller.handleProfileCommand(mockContext);
-      
+
       expect(welcomeService.handleProfile).toHaveBeenCalledTimes(1);
       expect(welcomeService.handleProfile).toHaveBeenCalledWith(mockContext);
     });
@@ -59,7 +59,7 @@ describe('WelcomeController', () => {
   describe('handleUserRegistration', () => {
     it('should call welcomeService.handleUserRegistration', async () => {
       await controller.handleUserRegistration(mockContext);
-      
+
       expect(welcomeService.handleUserRegistration).toHaveBeenCalledTimes(1);
       expect(welcomeService.handleUserRegistration).toHaveBeenCalledWith(mockContext);
     });
@@ -68,7 +68,7 @@ describe('WelcomeController', () => {
   describe('handleNewMember', () => {
     it('should call welcomeService.handleNewMember', async () => {
       await controller.handleNewMember(mockContext);
-      
+
       expect(welcomeService.handleNewMember).toHaveBeenCalledTimes(1);
       expect(welcomeService.handleNewMember).toHaveBeenCalledWith(mockContext);
     });
@@ -77,7 +77,7 @@ describe('WelcomeController', () => {
   describe('handleCallbackQuery', () => {
     it('should call welcomeService.handleCallbackQuery', async () => {
       await controller.handleCallbackQuery(mockContext);
-      
+
       expect(welcomeService.handleCallbackQuery).toHaveBeenCalledTimes(1);
       expect(welcomeService.handleCallbackQuery).toHaveBeenCalledWith(mockContext);
     });
@@ -86,7 +86,7 @@ describe('WelcomeController', () => {
   describe('handlePrivateChat', () => {
     it('should call welcomeService.handlePrivateChat', async () => {
       await controller.handlePrivateChat(mockContext);
-      
+
       expect(welcomeService.handlePrivateChat).toHaveBeenCalledTimes(1);
       expect(welcomeService.handlePrivateChat).toHaveBeenCalledWith(mockContext);
     });
@@ -95,9 +95,9 @@ describe('WelcomeController', () => {
   describe('handleLeftChatMember', () => {
     it('should call welcomeService.handleLeftChatMember', async () => {
       await controller.handleLeftChatMember(mockContext);
-      
+
       expect(welcomeService.handleLeftChatMember).toHaveBeenCalledTimes(1);
       expect(welcomeService.handleLeftChatMember).toHaveBeenCalledWith(mockContext);
     });
   });
-}); 
+});
