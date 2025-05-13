@@ -167,9 +167,7 @@ export class WelcomeService {
         reply_markup: {
           inline_keyboard: [
             [{ text: '✏️ Edit Discord Name', callback_data: 'edit_discord_name' }],
-            [{ text: '✏️ Edit Mafia Movie', callback_data: 'edit_mafia_movie' }],
             [{ text: '✏️ Edit Ninja Turtle', callback_data: 'edit_ninja_turtle_character' }],
-            [{ text: '✏️ Edit Pizza Topping', callback_data: 'edit_pizza_topping' }],
             [{ text: 'Explore Party Cities 🎉', callback_data: 'explore_cities' }],
             [{ text: 'Refresh Profile', callback_data: 'refresh_profile' }],
           ],
@@ -334,7 +332,12 @@ export class WelcomeService {
             reply_markup: {
               inline_keyboard: [
                 ...cityButtons,
-                [{ text: '🔙 Back', callback_data: 'back_to_country' }],
+                [
+                  {
+                    text: '🔙 Back',
+                    callback_data: 'back_to_country',
+                  },
+                ],
               ],
             },
             parse_mode: 'MarkdownV2',
