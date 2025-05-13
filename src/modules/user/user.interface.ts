@@ -5,10 +5,14 @@ export interface IUser {
   tg_last_name: string | null;
   pizza_name: string | null;
   discord_name: string | null;
-  country_id: string | null;
-  city_id: string | null;
   role: string;
   mafia_movie: string | null;
   ninja_turtle_character: string[] | null;
   pizza_topping: string | null;
+}
+
+export interface ICityUser {
+  user_id: string | number;
+  city_id: string;
+  city_name: string;
 }
