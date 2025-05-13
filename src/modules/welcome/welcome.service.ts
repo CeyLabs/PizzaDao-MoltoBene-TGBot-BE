@@ -724,12 +724,8 @@ export class WelcomeService {
   }
 
   // Method to call ChatGPT API
-  private async generatePizzaName(
-    firstName: string,
-    pizzaTopping: string,
-    mafiaCharacter: string,
-  ): Promise<string> {
-    const prompt = `Create a fun and creative pizza name using the the pizza topping "${pizzaTopping}", and the mafia character "${mafiaCharacter}.only send one name and remember that name should only contain 2 name like first name and last name. as an example "Charlie Margharita". don't ask me is it better or anyhting just send the name".`;
+  private async generatePizzaName(pizzaTopping: string, mafiaCharacter: string): Promise<string> {
+    const prompt = `Create a fun and creative pizza name using the the pizza topping "${pizzaTopping}", and this mafia movie "${mafiaCharacter}. you should select random (random means random. don't select same character in every response. you can choose any charaacter from that movie) character from that mafia movie and put topping as first name and that character as second name. only send one name and remember that name should contain 2 name like first name and last name. as an example "Charlie Margharita"(this is only just an example.). don't ask me is it better or anyhting just send the name".`;
 
     try {
       const response = await axios.post(
@@ -777,23 +773,28 @@ export class WelcomeService {
       return;
     }
 
-    // Select a random character from the mafia movie
-    const mafiaCharacters = mafia_movie.split(',').map((char) => char.trim());
-    const randomCharacter = mafiaCharacters[Math.floor(Math.random() * mafiaCharacters.length)];
-
     // Generate the pizza name
-    const pizzaName = await this.generatePizzaName(tg_first_name, pizza_topping, randomCharacter);
+    const pizzaName = await this.generatePizzaName(pizza_topping, mafia_movie);
 
     // Save the pizza name in the user data
     userData.pizza_name = pizzaName;
 
-    // Display the pizza name to the user
-    await ctx.reply(
+    // Send the pizza name message
+    const message = await ctx.reply(
       `🍕 Here's your AI-generated Pizza Name by Molto Benne:\n\n` + `Pizza Name: *${pizzaName}*`,
       {
         parse_mode: 'Markdown',
       },
     );
+
+    // Pin the message in the chat
+    try {
+      await ctx.telegram.pinChatMessage(ctx.chat?.id || 0, message.message_id, {
+        disable_notification: true, // Set to false if you want to notify users
+      });
+    } catch (error) {
+      console.error('Failed to pin the message:', error);
+    }
   }
 
   async handleRegionSelection(ctx: Context) {
@@ -933,7 +934,11 @@ export class WelcomeService {
       }
 
       await this.handlePizzaNameGeneration(ctx);
-      await this.handleNinjaTurtleMessage(ctx);
+
+      // Delay the call to handleNinjaTurtleMessage by 3 seconds
+      setTimeout(() => {
+        void this.handleNinjaTurtleMessage(ctx);
+      }, 3000);
     }
   }
 }
