@@ -3,6 +3,17 @@ import type { Knex } from 'knex';
 
 dotenv.config();
 
+// Default pool configuration to ensure connections remain active
+const defaultPoolConfig: Knex.PoolConfig = {
+  min: 2,
+  max: 50,
+  idleTimeoutMillis: 30000, // 30 seconds
+  acquireTimeoutMillis: 30000, // 30 seconds
+  createTimeoutMillis: 30000, // 30 seconds
+  reapIntervalMillis: 1000, // 1 second
+  createRetryIntervalMillis: 100, // 0.1 seconds
+};
+
 const config: { [key: string]: Knex.Config } = {
   development: {
     client: 'pg',
@@ -12,10 +23,14 @@ const config: { [key: string]: Knex.Config } = {
       database: process.env.PG_DB,
       user: process.env.PG_USER,
       password: process.env.PG_PW,
+      // Keep connections alive
+      ssl: false,
+      keepAlive: true,
+      // Connection validation timeout
+      statement_timeout: 60000, // 1 minute
     },
     pool: {
-      min: 2,
-      max: 50,
+      ...defaultPoolConfig,
     },
     migrations: {
       directory: './src/migrations',
@@ -34,10 +49,14 @@ const config: { [key: string]: Knex.Config } = {
       database: process.env.PG_DB,
       user: process.env.PG_USER,
       password: process.env.PG_PW,
+      // Enable SSL for production
+      ssl: { rejectUnauthorized: false },
+      keepAlive: true,
+      // Connection validation timeout
+      statement_timeout: 60000, // 1 minute
     },
     pool: {
-      min: 2,
-      max: 50,
+      ...defaultPoolConfig,
     },
     migrations: {
       directory: './src/migrations',
@@ -56,8 +75,14 @@ const config: { [key: string]: Knex.Config } = {
       database: 'pizzadao',
       user: 'pizzadao',
       password: 'pizzadao',
+      // Keep connections alive
+      ssl: false,
+      keepAlive: true,
+      // Connection validation timeout
+      statement_timeout: 60000, // 1 minute
     },
     pool: {
+      ...defaultPoolConfig,
       min: 2,
       max: 10,
     },
