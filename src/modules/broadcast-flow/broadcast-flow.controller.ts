@@ -251,7 +251,7 @@ Ready to get started?
 
     // Import nanoid dynamically
     const { nanoid } = await import('nanoid');
-      
+
     const results: InlineQueryResultArticle[] = filtered
       .slice(offset, offset + pageSize)
       .map((city) => ({
