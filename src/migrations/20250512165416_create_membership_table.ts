@@ -1,6 +1,6 @@
 import type { Knex } from 'knex';
 
-const tableName = 'city_user';
+const tableName = 'membership';
 
 export async function up(knex: Knex): Promise<void> {
   await knex.schema.createTable(tableName, (table) => {
@@ -12,7 +12,6 @@ export async function up(knex: Knex): Promise<void> {
       .inTable('user')
       .onDelete('CASCADE');
     table.uuid('city_id').notNullable().references('id').inTable('city').onDelete('CASCADE');
-    table.uuid('country_id').notNullable().references('id').inTable('country').onDelete('CASCADE');
     table.timestamp('joined_at').defaultTo(knex.fn.now());
   });
 }

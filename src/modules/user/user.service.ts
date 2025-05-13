@@ -28,31 +28,24 @@ export class UserService {
     return this.knexService.knex<IUser>('user').where({ telegram_id: telegramId }).first();
   }
 
-  async addCityParticipation(
-    userId: number,
-    cityId: string,
-    countryId: string,
-  ): Promise<ICityUser | undefined> {
+  async addCityParticipation(userId: number, cityId: string): Promise<ICityUser | undefined> {
     // Check if the user has already joined this city
     const existingParticipation = await this.knexService
-      .knex<ICityUser>('city_user')
+      .knex<ICityUser>('membership')
       .where('user_id', userId)
       .andWhere('city_id', cityId)
       .first();
 
     if (!existingParticipation) {
-      console.log('User joined city:', userId, cityId, countryId);
-
       // Insert a new record if the user hasn't joined this city before
-      await this.knexService.knex('city_user').insert({
+      await this.knexService.knex('membership').insert({
         user_id: userId,
         city_id: cityId,
-        country_id: countryId,
       });
 
       // Fetch and return the newly inserted record
       return this.knexService
-        .knex<ICityUser>('city_user')
+        .knex<ICityUser>('membership')
         .where('user_id', userId)
         .andWhere('city_id', cityId)
         .first();
@@ -63,15 +56,15 @@ export class UserService {
 
   async getCitiesByUser(userId: number): Promise<{ city_id: number; city_name: string }[]> {
     return this.knexService
-      .knex('city_user')
-      .join('city', 'city_user.city_id', 'city.id')
+      .knex('membership')
+      .join('city', 'membership.city_id', 'city.id')
       .select('city.id as city_id', 'city.name as city_name')
-      .where('city_user.user_id', userId);
+      .where('membership.user_id', userId);
   }
 
   async isUserInCity(userId: string | number, cityId: string): Promise<boolean> {
     const participation = await this.knexService
-      .knex<ICityUser>('city_user')
+      .knex<ICityUser>('membership')
       .where('user_id', userId)
       .andWhere('city_id', cityId)
       .first();

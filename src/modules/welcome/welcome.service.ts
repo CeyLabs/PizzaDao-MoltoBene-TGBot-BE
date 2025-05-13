@@ -356,7 +356,7 @@ export class WelcomeService {
       }
 
       // Add city participation for the user
-      await this.userService.addCityParticipation(userId, cityDetails.id, cityDetails?.country_id);
+      await this.userService.addCityParticipation(userId, cityDetails.id);
 
       await ctx.deleteMessage();
       await ctx.replyWithMarkdownV2(
@@ -473,11 +473,7 @@ export class WelcomeService {
 
     const cityDetails = await this.cityService.getCityByGroupId(userData.group_id || '');
 
-    await this.userService.addCityParticipation(
-      userData.telegram_id,
-      cityDetails?.id || '',
-      cityDetails?.country_id || '',
-    );
+    await this.userService.addCityParticipation(userData.telegram_id, cityDetails?.id || '');
 
     this.userSteps.delete(userId);
     this.userGroupMap.delete(userId);

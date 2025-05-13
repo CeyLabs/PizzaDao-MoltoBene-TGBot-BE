@@ -1,6 +1,6 @@
 import { Knex } from 'knex';
 
-const tableName = 'city_user';
+const tableName = 'membership';
 
 export async function seed(knex: Knex): Promise<void> {
   const [{ count }] = await knex(tableName).count();
@@ -23,20 +23,6 @@ export async function seed(knex: Knex): Promise<void> {
     name: string;
   }
 
-  interface Country {
-    id: string;
-    name: string;
-  }
-
-  // Fetch the country
-  const country: Country | undefined = await knex<Country>('country')
-    .where({ name: 'Sri Lanka' })
-    .first();
-
-  if (!country) {
-    throw new Error('Country data is missing. Please seed the country table first.');
-  }
-
   // Fetch the cities
   const cities: City[] = await knex<City>('city').whereIn('name', ['Colombo', 'Galle', 'Kandy']);
 
@@ -49,7 +35,6 @@ export async function seed(knex: Knex): Promise<void> {
   const cityUserRecords = cities.map((city) => ({
     user_id: user.telegram_id,
     city_id: city.id,
-    country_id: country.id,
     joined_at: knex.fn.now(),
   }));
 
