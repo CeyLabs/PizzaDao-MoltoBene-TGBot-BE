@@ -55,16 +55,16 @@ export class WelcomeService {
           return;
         } else {
           await ctx.replyWithMarkdownV2(
-            `❓ *You are not registered in the current city \\(${cityDetails.name}\\)\\.* Would you like to register?`,
+            `*You are not registered in the current city \\(${cityDetails.name}\\)\\.* Would you like to register?`,
             {
               reply_markup: {
                 inline_keyboard: [
                   [
                     {
-                      text: '✅ Yes, Register Me',
+                      text: '✅ Yes',
                       callback_data: `confirm_register_${groupId}`,
                     },
-                    { text: '❌ No, Cancel', callback_data: 'cancel_register' },
+                    { text: '❌ No', callback_data: 'cancel_register' },
                   ],
                 ],
               },
