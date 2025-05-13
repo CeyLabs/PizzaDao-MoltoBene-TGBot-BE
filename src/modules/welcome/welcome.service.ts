@@ -314,12 +314,12 @@ export class WelcomeService {
         const cities = await this.cityService.getCitiesByCountry(countryId);
 
         // Group cities into rows of 2 buttons
-        const cityButtons: { text: string; callback_data: string }[][] = [];
+        const cityButtons: { text: string; url: string }[][] = [];
         for (let i = 0; i < cities.length; i += 2) {
           cityButtons.push(
             cities.slice(i, i + 2).map((city) => ({
               text: city.name,
-              callback_data: `city_${city.id}`,
+              url: city.telegram_link || 'https://discord.gg/rwthAq3e?event=1366460552074756220',
             })),
           );
         }
