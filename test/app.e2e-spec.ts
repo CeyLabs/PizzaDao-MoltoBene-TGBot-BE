@@ -47,19 +47,19 @@ describe('AppController (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
-    
+
     // Set up express app with webhook handler
     const expressApp = express();
     expressApp.use(express.json());
     expressApp.post('/webhook', (req, res) => {
       res.status(200).send('OK');
     });
-    
+
     // Add a test health endpoint
     app.getHttpAdapter().get('/health', (req, res) => {
       res.status(200).send('OK');
     });
-    
+
     // Manually set up the webhook route
     app.use('/webhook', (req, res) => {
       if (req.method === 'POST') {
@@ -68,7 +68,7 @@ describe('AppController (e2e)', () => {
         res.status(405).send('Method Not Allowed');
       }
     });
-    
+
     await app.init();
   });
 
@@ -104,9 +104,6 @@ describe('AppController (e2e)', () => {
   });
 
   it('/health (GET) should return 200 OK', () => {
-    return request(app.getHttpServer())
-      .get('/health')
-      .expect(200)
-      .expect('OK');
+    return request(app.getHttpServer()).get('/health').expect(200).expect('OK');
   });
 });

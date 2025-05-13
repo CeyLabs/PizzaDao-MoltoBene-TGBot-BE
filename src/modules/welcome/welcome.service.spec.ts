@@ -13,7 +13,7 @@ describe('WelcomeService', () => {
   let userService: UserService;
   let countryService: CountryService;
   let cityService: CityService;
-  
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -149,18 +149,18 @@ describe('WelcomeService', () => {
         pizza_topping: 'Pepperoni',
       };
 
-      const mockCountry: ICountry = { 
-        id: 1, 
+      const mockCountry: ICountry = {
+        id: 1,
         name: 'United States',
         region_id: 1,
         created_at: new Date(),
-        updated_at: new Date()
+        updated_at: new Date(),
       };
-      
-      const mockCity: ICity = { 
-        id: '1', 
-        name: 'New York', 
-        country_id: '1'
+
+      const mockCity: ICity = {
+        id: '1',
+        name: 'New York',
+        country_id: '1',
       };
 
       // Use explicit mock implementations instead of asserting parameter types
@@ -181,4 +181,4 @@ describe('WelcomeService', () => {
       );
     });
   });
-}); 
+});

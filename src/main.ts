@@ -13,7 +13,9 @@ async function bootstrap() {
   app.use(express.json());
 
   // Connect the webhook middleware
-  app.use(bot.webhookCallback('/webhook'));
+  if (process.env.ENABLE_WEBHOOK === 'true') {
+    app.use(bot.webhookCallback('/webhook'));
+  }
 
   // Start the NestJS application
   const PORT = process.env.PORT || 3000;
