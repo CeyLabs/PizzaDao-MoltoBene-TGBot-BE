@@ -6,6 +6,7 @@ import { CityService } from '../city/city.service';
 import { MembershipService } from '../membership/membership.service';
 
 @Module({
-  providers: [WelcomeService, CommonController, CountryService, CityService, MembershipService],
+  providers: [WelcomeService, CountryService, CityService, MembershipService],
+  controllers: [CommonController],
 })
 export class CommonModule {}
