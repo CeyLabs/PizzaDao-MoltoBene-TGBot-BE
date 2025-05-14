@@ -8,6 +8,7 @@ import { MembershipService } from '../membership/membership.service';
 import { IUser } from '../user/user.interface';
 import { IUserRegistrationData } from './welcome.interface';
 import OpenAI from 'openai';
+import { randomBytes } from 'crypto';
 
 @Update()
 @Injectable()
@@ -798,8 +799,8 @@ export class WelcomeService {
   }
 
   // Method to call ChatGPT API
-  private async generatePizzaName(pizzaTopping: string, mafiaCharacter: string): Promise<string> {
-    const prompt = `Generate a creative pizza name that combines ${pizzaTopping} and ${mafiaCharacter} in a fun way. Keep it short and family-friendly.`;
+  private async generatePizzaName(pizzaTopping: string, mafiaMovie: string): Promise<string> {
+    const prompt = `Come up with a fun and creative pizza name by combining the topping "${pizzaTopping}" with a last name of a cast member from the mafia movie "${mafiaMovie}". Randomize the chosen character from this number ${new Date().getTime()}. Use the topping as the first name and the last name of a cast member from the movie as the surname. Make it sound like a quirky mafia-style name. Just output the name without quotes.`;
 
     try {
       const response = await this.openAi.chat.completions.create({
