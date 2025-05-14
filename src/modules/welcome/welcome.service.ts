@@ -8,7 +8,6 @@ import { MembershipService } from '../membership/membership.service';
 import { IUser } from '../user/user.interface';
 import { IUserRegistrationData } from './welcome.interface';
 import OpenAI from 'openai';
-import { randomBytes } from 'crypto';
 
 @Update()
 @Injectable()
