@@ -1,7 +1,9 @@
 import { On, Command, Start, Update } from 'nestjs-telegraf';
 import { Context } from 'telegraf';
 import { WelcomeService } from './welcome.service';
+import { Controller } from '@nestjs/common';
 
+@Controller()
 @Update()
 export class WelcomeController {
   constructor(private readonly welcomeService: WelcomeService) {}

@@ -1,23 +1,27 @@
 import { Injectable } from '@nestjs/common';
 import { Context } from 'telegraf';
 import { UserService } from '../user/user.service';
-import { IUserRegistrationData } from './welcome.interface';
 import { CountryService } from '../country/country.service';
 import { CityService } from '../city/city.service';
 import { MembershipService } from '../membership/membership.service';
 import { IUser } from '../user/user.interface';
-import axios from 'axios';
+import { IUserRegistrationData } from './welcome.interface';
+import OpenAI from 'openai';
 
 @Injectable()
 export class WelcomeService {
-  private readonly openAiApiKey = process.env.OPENAI_API_KEY;
+  private readonly openAi: OpenAI;
 
   constructor(
     private readonly userService: UserService,
     private readonly countryService: CountryService,
     private readonly cityService: CityService,
     private readonly membershipService: MembershipService,
-  ) {}
+  ) {
+    this.openAi = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  }
 
   private userSteps = new Map<number, number | string>();
   private userGroupMap = new Map<number, IUserRegistrationData>();
@@ -787,36 +791,20 @@ export class WelcomeService {
 
   // Method to call ChatGPT API
   private async generatePizzaName(pizzaTopping: string, mafiaCharacter: string): Promise<string> {
-    const prompt = `Create a fun and creative pizza name using the the pizza topping "${pizzaTopping}", and this mafia movie "${mafiaCharacter}. you should select random (random means random. don't select same character in every response. you can choose any charaacter from that movie) character from that mafia movie and put topping as first name and that character as second name. only send one name and remember that name should contain 2 name like first name and last name. as an example "Charlie Margharita"(this is only just an example.). don't ask me is it better or anyhting just send the name".`;
+    const prompt = `Generate a creative pizza name that combines ${pizzaTopping} and ${mafiaCharacter} in a fun way. Keep it short and family-friendly.`;
 
     try {
-      const response = await axios.post(
-        'https://api.openai.com/v1/chat/completions',
-        {
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'assistant', content: prompt }],
-          temperature: 0.3,
-          max_tokens: 50,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${this.openAiApiKey}`,
-            'Content-Type': 'application/json',
-          },
-        },
-      );
+      const response = await this.openAi.chat.completions.create({
+        model: 'gpt-4',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        max_tokens: 50,
+      });
 
-      if (!response) return 'Unknown Pizza Name';
-
-      const pizzaName: string = (
-        response.data as {
-          choices: { message: { content: string } }[];
-        }
-      ).choices[0].message.content.trim();
-      return pizzaName;
+      return response.choices[0]?.message?.content?.trim() || 'Unknown Pizza Name';
     } catch (error) {
       console.error('Error generating pizza name:', error);
-      throw new Error('Failed to generate pizza name.');
+      return 'Unknown Pizza Name';
     }
   }
 

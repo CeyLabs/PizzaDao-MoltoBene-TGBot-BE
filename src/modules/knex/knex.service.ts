@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import knex, { Knex } from 'knex';
+import { Knex, knex as createKnex } from 'knex';
 import config from '../../../knexfile';
 
 @Injectable()
@@ -40,7 +40,7 @@ export class KnexService implements OnModuleInit, OnModuleDestroy {
     };
 
     // Initialize knex with enhanced configuration
-    this.knex = knex({
+    this.knex = createKnex({
       ...configToUse,
       pool: {
         ...(configToUse.pool || {}),

@@ -1,12 +1,17 @@
 import { Module } from '@nestjs/common';
-import { WelcomeService } from '../welcome/welcome.service';
 import { CommonController } from './common.controller';
-import { CountryService } from '../country/country.service';
-import { CityService } from '../city/city.service';
-import { MembershipService } from '../membership/membership.service';
+import { WelcomeModule } from '../welcome/welcome.module';
+import { CountryModule } from '../country/country.module';
+import { CityModule } from '../city/city.module';
+import { MembershipModule } from '../membership/membership.module';
 
 @Module({
-  providers: [WelcomeService, CountryService, CityService, MembershipService],
+  imports: [
+    WelcomeModule,
+    CountryModule,
+    CityModule,
+    MembershipModule,
+  ],
   controllers: [CommonController],
 })
 export class CommonModule {}
