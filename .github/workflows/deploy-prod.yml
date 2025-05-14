@@ -102,6 +102,9 @@ jobs:
             export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
+            # Create environment file
+            echo "${{ secrets.ENV_PRODUCTION }}" > .env.production
+
             # Update service definition
             sudo bash -c 'cat > "/etc/systemd/system/${{ env.SERVICE_NAME }}" <<- EOM
             [Unit]
@@ -113,18 +116,11 @@ jobs:
             Restart=always
             RestartSec=5s
             WorkingDirectory=${{ env.DEPLOY_PATH }}${{ env.PROJECT_DIR }}
-            ExecStart=/bin/bash -c '\''source $HOME/.nvm/nvm.sh && exec node ${{ env.DEPLOY_PATH }}${{ env.PROJECT_DIR }}/dist/src/main.js'\''
+            ExecStart=/bin/bash -c '\''source $HOME/.nvm/nvm.sh && exec node -r dotenv/config ${{ env.DEPLOY_PATH }}${{ env.PROJECT_DIR }}/dist/src/main.js dotenv_config_path=.env.production'\''
             Environment=NODE_ENV=production
-            Environment=PORT=3000
-            Environment=NODE_VERSION=22.x
             Environment=HOME=/root
             Environment=NVM_DIR=/root/.nvm
-            Environment=TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
-            Environment=PG_HOST=${{ secrets.PG_HOST }}
-            Environment=PG_PORT=${{ secrets.PG_PORT }}
-            Environment=PG_DB=${{ secrets.PG_DB }}
-            Environment=PG_USER=${{ secrets.PG_USER }}
-            Environment=PG_PW=${{ secrets.PG_PW }}
+            Environment=NODE_VERSION=22.x
             
             [Install]
             WantedBy=multi-user.target
