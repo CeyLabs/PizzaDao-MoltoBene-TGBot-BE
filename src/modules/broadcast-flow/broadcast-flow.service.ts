@@ -209,10 +209,6 @@ export class BroadcastFlowService {
 
     await ctx.reply(
       `🏙️ *Selected city: ${selectedCity}*\n\nNow, let's collect your message details.`,
-      {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([[Markup.button.callback('❌ Cancel', 'cancel_broadcast')]]),
-      },
     );
 
     await this.promptForMessageContent(ctx);

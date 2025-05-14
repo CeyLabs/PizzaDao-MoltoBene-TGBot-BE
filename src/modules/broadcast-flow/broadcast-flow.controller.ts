@@ -249,10 +249,6 @@ Ready to get started?
       state.step = 'collect_message';
       await ctx.editMessageText(
         "🌎 *Broadcasting to all groups*\n\nNow, let's collect your message details.",
-        {
-          parse_mode: 'Markdown',
-          ...Markup.inlineKeyboard([[Markup.button.callback('❌ Cancel', 'cancel_broadcast')]]),
-        },
       );
       await this.broadcastFlowService.promptForMessageContent(ctx);
     } else if (scopeMatch === 'city') {
@@ -420,9 +416,15 @@ Ready to get started?
         break;
 
       case 'collect_links':
-        if (typeof text === 'string' && text.toLowerCase() !== 'skip') {
-          state.message.externalLinks = text;
+        if (
+          typeof text !== 'string' ||
+          (!text.startsWith('http://') && !text.startsWith('https://'))
+        ) {
+          await ctx.reply('⚠️ Please enter a valid URL starting with http:// or https://');
+          return;
         }
+
+        state.message.externalLinks = text;
         state.step = 'ask_image';
 
         await ctx.reply('🖼️ *Would you like to add an image to this message?*', {
