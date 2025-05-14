@@ -19,6 +19,38 @@ export class BroadcastFlowController {
     private readonly userService: UserService,
   ) {}
 
+  private isValidDate(dateStr: string): boolean {
+    // Expected format: DD/MM/YYYY
+    const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+    if (!dateRegex.test(dateStr)) return false;
+
+    const [, day, month, year] = dateRegex.exec(dateStr) || [];
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+
+    // Check if date is valid and not in the past
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return (
+      date.getDate() === parseInt(day) &&
+      date.getMonth() === parseInt(month) - 1 &&
+      date.getFullYear() === parseInt(year) &&
+      date >= today
+    );
+  }
+
+  private isValidTime(timeStr: string): boolean {
+    // Expected format: H:MM or HH:MM (24-hour format)
+    const timeRegex = /^([0-9]|0[0-9]|1[0-9]|2[0-3]):([0-5][0-9])$/;
+    if (!timeRegex.test(timeStr)) return false;
+
+    const [, hours, minutes] = timeRegex.exec(timeStr) || [];
+    const hour = parseInt(hours, 10);
+    const minute = parseInt(minutes, 10);
+
+    return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
+  }
+
   @Command('cityselect')
   async handleCitySelectCommand(@Ctx() ctx: Context) {
     if (!ctx.from?.id || !ctx.message || !('text' in ctx.message)) return;
@@ -296,14 +328,6 @@ Ready to get started?
     }
   }
 
-  // private async promptForMessageContent(ctx: any) {
-  //   await this.showCancelOption(
-  //     ctx,
-  //     '✏️ *Please enter your message content:* (required)\n\nType your announcement message below.',
-  //     { parse_mode: 'Markdown' },
-  //   );
-  // }
-
   @On('text')
   async onText(@Ctx() ctx: Context) {
     const userId = ctx.from?.id;
@@ -356,6 +380,19 @@ Ready to get started?
 
       case 'collect_date':
         if (typeof text === 'string' && text.toLowerCase() !== 'skip') {
+          if (!this.isValidDate(text)) {
+            await ctx.reply(
+              '❌ *Invalid date format*\n\n' +
+                'Please enter the date in DD/MM/YYYY format.\n' +
+                'For example: 25/12/2025\n\n' +
+                '• Date must be in the future\n' +
+                '• Month should be between 01-12\n' +
+                '• Day should be valid for the given month\n\n' +
+                'Or type "skip" to skip this step.',
+              { parse_mode: 'Markdown' },
+            );
+            return;
+          }
           state.message.date = text;
         }
         state.step = 'collect_time';
@@ -364,6 +401,18 @@ Ready to get started?
 
       case 'collect_time':
         if (typeof text === 'string' && text.toLowerCase() !== 'skip') {
+          if (!this.isValidTime(text)) {
+            await ctx.reply(
+              '❌ *Invalid time format*\n\n' +
+                'Please enter the time in 24-hour format (HH:MM).\n' +
+                'For example: 14:30 or 09:00\n\n' +
+                '• Hours should be between 00-23\n' +
+                '• Minutes should be between 00-59\n\n' +
+                'Or type "skip" to skip this step.',
+              { parse_mode: 'Markdown' },
+            );
+            return;
+          }
           state.message.time = text;
         }
         state.step = 'collect_links';
