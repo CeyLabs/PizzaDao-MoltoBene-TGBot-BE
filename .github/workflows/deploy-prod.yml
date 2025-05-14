@@ -119,6 +119,12 @@ jobs:
             Environment=NODE_VERSION=22.x
             Environment=HOME=/root
             Environment=NVM_DIR=/root/.nvm
+            Environment=TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+            Environment=PG_HOST=${{ secrets.PG_HOST }}
+            Environment=PG_PORT=${{ secrets.PG_PORT }}
+            Environment=PG_DB=${{ secrets.PG_DB }}
+            Environment=PG_USER=${{ secrets.PG_USER }}
+            Environment=PG_PW=${{ secrets.PG_PW }}
             
             [Install]
             WantedBy=multi-user.target
