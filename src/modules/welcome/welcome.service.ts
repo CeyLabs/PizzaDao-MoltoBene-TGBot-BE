@@ -4,6 +4,7 @@ import { UserService } from '../user/user.service';
 import { IUserRegistrationData } from './welcome.interface';
 import { CountryService } from '../country/country.service';
 import { CityService } from '../city/city.service';
+import { MembershipService } from '../membership/membership.service';
 import { IUser } from '../user/user.interface';
 import axios from 'axios';
 
@@ -15,6 +16,7 @@ export class WelcomeService {
     private readonly userService: UserService,
     private readonly countryService: CountryService,
     private readonly cityService: CityService,
+    private readonly membershipService: MembershipService,
   ) {}
 
   private userSteps = new Map<number, number | string>();
@@ -35,10 +37,46 @@ export class WelcomeService {
         return;
       }
 
-      // Check if the user is already registered
-      if (await this.userService.isUserRegistered(userId)) {
-        await ctx.reply('You are already verified and registered!');
+      const cityDetails = await this.cityService.getCityByGroupId(groupId || '');
+      if (!cityDetails) {
+        await ctx.reply('❌ City details not found for this group.');
         return;
+      }
+
+      // Check if the user is already registered
+      const isRegistered = await this.userService.isUserRegistered(userId);
+
+      if (isRegistered) {
+        // Check if the user is already registered in the current city
+        const isInCity = await this.membershipService.checkUserCityMembership(
+          userId,
+          cityDetails.id,
+        );
+
+        if (isInCity) {
+          await ctx.replyWithMarkdownV2(
+            `✅ You are already verified and registered in *${cityDetails.name}* city\\!`,
+          );
+          return;
+        } else {
+          await ctx.replyWithMarkdownV2(
+            `*You are not registered in the current city \\(${cityDetails.name}\\)\\.* Would you like to register?`,
+            {
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {
+                      text: '✅ Yes',
+                      callback_data: `confirm_register_${groupId}`,
+                    },
+                    { text: '❌ No', callback_data: 'cancel_register' },
+                  ],
+                ],
+              },
+            },
+          );
+          return;
+        }
       }
 
       await ctx.replyWithMarkdownV2(
@@ -46,8 +84,6 @@ export class WelcomeService {
           `It's been 15 years since May 22, 2010, when Laszlo Hanyecz bought two pizzas for 10,000 bitcoin\\. Today, 10,000 bitcoin buys a lot more than two pizzas\\! \n\n` +
           `We think that's a big deal\\. So we're throwing our 5th [Global Pizza Party](https://globalpizzaparty.xyz/) yet\\! We're expecting over 25,000 total attendees across more than 400 cities worldwide\\.\n\n`,
       );
-
-      const cityDetails = await this.cityService.getCityByGroupId(groupId || '');
 
       // Save the group ID and start the verification process
       this.userGroupMap.set(userId, {
@@ -59,8 +95,6 @@ export class WelcomeService {
         discord_name: null,
         group_id: groupId,
         region_id: null,
-        country_id: cityDetails?.country_id || null,
-        city_id: cityDetails?.id || null,
         role: 'user',
         mafia_movie: null,
         ninja_turtle_character: [],
@@ -117,22 +151,19 @@ export class WelcomeService {
     if (!user) {
       await ctx.replyWithMarkdownV2(
         '❌ *You are not registered yet\\!*\n\n' +
-          'Please use the /register command to start the registration process\\.',
+          'Please use the /register command to join PizzaDAO party group\\.',
       );
       return;
     }
 
-    // Fetch country and city names from the database
-    const country = user.country_id
-      ? await this.countryService.getCountryById(user.country_id)
-      : null;
-    const city = user.city_id ? await this.cityService.getCityById(String(user.city_id)) : null;
+    // Fetch cities the user has participated in
+    const cities = await this.membershipService.getCitiesByUser(userId);
+    const cityList = cities.map((city) => `• ${city.city_name}`).join('\n') || 'None';
 
     await ctx.replyWithMarkdownV2(
       `📋 *Your Profile*\n\n` +
-        `👤 *Name*: ${user.discord_name || 'Not set'}\n` +
-        `🌍 *Country*: ${country?.name || 'Not set'}\n` +
-        `🏙️ *City*: ${city?.name || 'Not set'}\n` +
+        `👤 *Discord Name*: \\#${user.discord_name || 'Not set'}\n` +
+        `🌍 *Participated Cities*: \n${cityList}\n` +
         `🎥 *Favorite Mafia Movie*: ${user.mafia_movie || 'Not set'}\n` +
         `🐢 *Favorite Ninja Turtle*: ${Array.isArray(user.ninja_turtle_character) ? user.ninja_turtle_character.join(', ') : 'Not set'}\n` +
         `🍕 *Favorite Pizza Topping*: ${user.pizza_topping || 'Not set'}\n\n` +
@@ -141,9 +172,7 @@ export class WelcomeService {
         reply_markup: {
           inline_keyboard: [
             [{ text: '✏️ Edit Discord Name', callback_data: 'edit_discord_name' }],
-            [{ text: '✏️ Edit Mafia Movie', callback_data: 'edit_mafia_movie' }],
             [{ text: '✏️ Edit Ninja Turtle', callback_data: 'edit_ninja_turtle_character' }],
-            [{ text: '✏️ Edit Pizza Topping', callback_data: 'edit_pizza_topping' }],
             [{ text: 'Explore Party Cities 🎉', callback_data: 'explore_cities' }],
             [{ text: 'Refresh Profile', callback_data: 'refresh_profile' }],
           ],
@@ -159,63 +188,12 @@ export class WelcomeService {
     if (await this.userService.isUserRegistered(userId)) {
       await ctx.replyWithMarkdownV2(
         '✅ *You are already verified and registered\\!*\n\n' +
-          '🎉 Welcome back\\! If you need assistance, feel free to type /help or explore the available options\\.',
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: '📋 View Profile', callback_data: 'view_profile' },
-                { text: 'ℹ️ Help', callback_data: 'help' },
-              ],
-            ],
-          },
-        },
+          '🎉 Welcome back\\! If you need assistance, feel free to type /help\\.',
       );
       return;
     }
 
-    this.userSteps.set(userId, 1);
-    this.userGroupMap.set(userId, {
-      telegram_id: userId,
-      username: ctx.message?.from.username || null,
-      tg_first_name: ctx.message?.from.first_name || null,
-      tg_last_name: ctx.message?.from.last_name || null,
-      pizza_name: null,
-      discord_name: null,
-      region_id: null,
-      country_id: null,
-      city_id: null,
-      role: 'user',
-      mafia_movie: null,
-      ninja_turtle_character: [],
-      pizza_topping: null,
-    });
-
-    // Fetch regions from the database
-    const regions = await this.userService.getAllRegions();
-
-    // Group regions into rows of 2 buttons
-    const regionButtons: { text: string; callback_data: string }[][] = [];
-    for (let i = 0; i < regions.length; i += 2) {
-      regionButtons.push(
-        regions.slice(i, i + 2).map((region) => ({
-          text: region.name,
-          callback_data: `region_${region.id}`,
-        })),
-      );
-    }
-
-    // Present regions as inline buttons
-    await ctx.reply(
-      '🌍 *Please select your region:*\n\n' +
-        'Tap on one of the buttons below to choose your region\\.',
-      {
-        reply_markup: {
-          inline_keyboard: regionButtons,
-        },
-        parse_mode: 'MarkdownV2',
-      },
-    );
+    await this.handleRegionSelection(ctx);
   }
 
   async handleNewMember(ctx: Context) {
@@ -249,8 +227,6 @@ export class WelcomeService {
           pizza_name: null,
           discord_name: null,
           region_id: null,
-          country_id: null,
-          city_id: null,
           role: 'user',
           mafia_movie: null,
           ninja_turtle_character: [],
@@ -309,37 +285,15 @@ export class WelcomeService {
         pizza_name: null,
         discord_name: null,
         region_id: null,
-        country_id: null,
-        city_id: null,
         role: 'user',
         mafia_movie: null,
         ninja_turtle_character: [],
         pizza_topping: null,
       });
 
-      // Fetch regions from the database
-      const regions = await this.userService.getAllRegions();
-
-      const regionButtons: { text: string; callback_data: string }[][] = [];
-      for (let i = 0; i < regions.length; i += 2) {
-        regionButtons.push(
-          regions.slice(i, i + 2).map((region) => ({
-            text: region.name,
-            callback_data: `region_${region.id}`,
-          })),
-        );
-      }
-
-      await ctx.reply(
-        '🌍 *Please select your region:*\n\n' +
-          'Tap on one of the buttons below to choose your region\\.',
-        {
-          reply_markup: {
-            inline_keyboard: regionButtons,
-          },
-          parse_mode: 'MarkdownV2',
-        },
-      );
+      await ctx.deleteMessage();
+      await this.handleRegionSelection(ctx);
+      return;
     }
 
     // CallBackQuery[Explore Parties]: Handle Region button
@@ -348,34 +302,10 @@ export class WelcomeService {
       const userData = this.userGroupMap.get(userId);
 
       if (userData) {
-        userData.region_id = regionId; // Save the selected region
+        userData.region_id = regionId;
         this.userSteps.set(userId, 2);
 
-        // Fetch countries for the selected region
-        const countries = await this.countryService.getCountriesByRegion(regionId);
-
-        // Group countries into rows of 2 buttons
-        const countryButtons: { text: string; callback_data: string }[][] = [];
-        for (let i = 0; i < countries.length; i += 2) {
-          countryButtons.push(
-            countries.slice(i, i + 2).map((country) => ({
-              text: country.name,
-              callback_data: `country_${country.id}`,
-            })),
-          );
-        }
-
-        // Present countries as inline buttons
-        await ctx.editMessageText(
-          '🌎 *Please select your country:*\n\n' +
-            'Tap on one of the buttons below to choose your country\\.',
-          {
-            reply_markup: {
-              inline_keyboard: countryButtons,
-            },
-            parse_mode: 'MarkdownV2',
-          },
-        );
+        await this.handleCountrySelection(ctx, regionId);
       }
     }
 
@@ -385,10 +315,19 @@ export class WelcomeService {
       const userData = this.userGroupMap.get(userId);
 
       if (userData) {
-        userData.country_id = countryId;
-
         // Fetch cities for the selected country
         const cities = await this.cityService.getCitiesByCountry(countryId);
+
+        // Group cities into rows of 2 buttons
+        const cityButtons: { text: string; url: string }[][] = [];
+        for (let i = 0; i < cities.length; i += 2) {
+          cityButtons.push(
+            cities.slice(i, i + 2).map((city) => ({
+              text: city.name,
+              url: city.telegram_link || 'https://discord.gg/rwthAq3e?event=1366460552074756220',
+            })),
+          );
+        }
 
         // Present cities as inline buttons
         await ctx.editMessageText(
@@ -396,17 +335,45 @@ export class WelcomeService {
             'Tap on one of the buttons below to choose your city\\.',
           {
             reply_markup: {
-              inline_keyboard: cities.map((city) => [
-                {
-                  text: city.name,
-                  url: city.telegram_link || 'https://t.me/globalpizzaparty',
-                },
-              ]),
+              inline_keyboard: [
+                ...cityButtons,
+                [
+                  {
+                    text: '🔙 Back',
+                    callback_data: 'back_to_country',
+                  },
+                ],
+              ],
             },
             parse_mode: 'MarkdownV2',
           },
         );
       }
+    }
+
+    // CallBakQuery[Register City]: Handle confirmation for city registration
+    if (callbackData?.startsWith('confirm_register_')) {
+      const [, groupId] = callbackData.split('_').slice(1);
+
+      const cityDetails = await this.cityService.getCityByGroupId(groupId || '');
+      if (!cityDetails) {
+        return;
+      }
+
+      // Add city participation for the user
+      await this.membershipService.addUserToCityMembership(userId, cityDetails.id);
+
+      await ctx.deleteMessage();
+      await ctx.replyWithMarkdownV2(
+        `✅ You have successfully registered in the *${cityDetails.name}* city\\!`,
+      );
+      return;
+    }
+
+    // CallBakQuery[Register City]: Handle cancellation of city registration
+    if (callbackData === 'cancel_register') {
+      await ctx.reply('❌ Registration canceled.');
+      return;
     }
 
     // CallBackQuery[Profile]: Handle 'Refresh Profile' button
@@ -417,12 +384,29 @@ export class WelcomeService {
 
     // CallBackQuery[Profile]: Handle 'Edit Profile' button
     if (callbackData?.startsWith('edit_')) {
-      const field = callbackData.split('_').slice(1).join('_');
-      await ctx.editMessageText(`Please enter your new ${field.replaceAll('_', ' ')}:`);
-      this.userSteps.set(userId, `edit_${field}`);
-    } else if (callbackData === 'back_to_start') {
+      if (callbackData === 'edit_ninja_turtle_character') {
+        await this.handleNinjaTurtleMessage(ctx);
+      } else {
+        const field = callbackData.split('_').slice(1).join('_');
+        await ctx.deleteMessage();
+        await ctx.reply(`Please enter your new ${field.replaceAll('_', ' ')}:`, {
+          reply_markup: {
+            force_reply: true,
+          },
+        });
+        this.userSteps.set(userId, `edit_${field}`);
+      }
+    } else if (callbackData === 'back_to_region') {
       await ctx.deleteMessage();
-      await this.handleStartCommand(ctx);
+      await this.handleRegionSelection(ctx);
+    } else if (callbackData === 'back_to_country') {
+      const userData = this.userGroupMap.get(userId);
+
+      if (userData?.region_id) {
+        await this.handleCountrySelection(ctx, userData.region_id);
+      } else {
+        await ctx.reply('❌ Unable to go back to the country selection. Please start again.');
+      }
     }
 
     // CallBackQuery[Register User]: Handle 'Yes, I have a Pizza Name' button
@@ -469,180 +453,8 @@ export class WelcomeService {
     }
   }
 
-  // Handle private chat messages
-  async handlePrivateChat(ctx: Context) {
-    const userId = ctx.message?.from.id;
-    if (!userId) return;
-
-    const step = this.userSteps.get(userId);
-    const userData = this.userGroupMap.get(userId);
-
-    if (!userData) return;
-
-    if (step && typeof step === 'string' && step.startsWith('edit_')) {
-      const field = step.split('_').slice(1).join('_');
-      const newValue = 'text' in ctx.message ? ctx.message.text : null;
-
-      if (!newValue) {
-        await ctx.reply('Invalid input. Please provide a valid value.');
-        return;
-      }
-
-      await this.userService.updateUserField(userId, field, newValue);
-
-      this.userSteps.delete(userId);
-
-      await ctx.reply(`Your ${field.replaceAll('_', ' ')} has been updated to "${newValue}".`);
-      await this.handleStartCommand(ctx);
-    } else if (step === 'discord_pizza_name') {
-      if ('text' in ctx.message) {
-        userData.pizza_name = ctx.message.text;
-      } else {
-        await ctx.reply('Invalid input. Please provide a valid pizza name.');
-        return;
-      }
-
-      this.userSteps.set(userId, 'discord_username');
-      await ctx.reply('What is your Discord Username?', {
-        reply_markup: {
-          force_reply: true,
-        },
-        parse_mode: 'MarkdownV2',
-      });
-    } else if (step === 'discord_username') {
-      if ('text' in ctx.message) {
-        userData.discord_name = ctx.message.text;
-      } else {
-        await ctx.reply('Invalid input. Please provide a valid Discord username.');
-        return;
-      }
-
-      await this.handleUserRegister(ctx);
-      await this.handleNinjaTurtleMessage(ctx);
-    } else if (step === 'pizza_topping') {
-      if ('text' in ctx.message) {
-        userData.pizza_topping = ctx.message.text;
-      } else {
-        await ctx.reply('Invalid input. Please provide a valid name.');
-        return;
-      }
-      this.userSteps.set(userId, 'enter_mafia_movie');
-      await ctx.reply('🎥 *What is your favorite Mafia movie?*', {
-        reply_markup: {
-          force_reply: true,
-        },
-        parse_mode: 'MarkdownV2',
-      });
-    } else if (step === 'enter_mafia_movie') {
-      if ('text' in ctx.message) {
-        userData.mafia_movie = ctx.message.text;
-      } else {
-        await ctx.reply('Invalid input. Please provide a valid topping name.');
-        return;
-      }
-
-      await this.handlePizzaNameGeneration(ctx);
-
-      const groupId = this.userGroupMap.get(userId)?.group_id;
-
-      await this.handleUserRegister(ctx);
-
-      await this.handleNinjaTurtleMessage(ctx);
-
-      // // Save user data to the database
-      // const newUser: IUser = {
-      //   telegram_id: userData.telegram_id,
-      //   username: userData.username,
-      //   tg_first_name: userData.tg_first_name,
-      //   tg_last_name: userData.tg_last_name,
-      //   custom_full_name: userData.custom_full_name,
-      //   pizza_name: userData.pizza_name,
-      //   discord_name: userData.discord_name,
-      //   country_id: userData.country_id ?? null,
-      //   city_id: userData.city_id ?? null,
-      //   role: userData.role,
-      //   mafia_movie: userData.mafia_movie,
-      //   ninja_turtle_character: userData.ninja_turtle_character,
-      //   pizza_topping: userData.pizza_topping,
-      // };
-
-      // await this.userService.addUser(newUser);
-
-      // this.userSteps.delete(userId);
-      // this.userGroupMap.delete(userId);
-
-      // await this.handleUserRegister(ctx);
-
-      // if (userData.city_id) {
-      //   try {
-      //     const city = await this.cityService.getCityById(userData.city_id);
-
-      //     if (city?.telegram_link) {
-      //       await ctx.reply(
-      //         '🎉 *Thank you for providing your details\\!*\n\n' +
-      //           '✅ You are now verified\\![­­­­­­­­­­](${telegramLink})\n\n' +
-      //           "🌐 *Join your city's Telegram group using the link below:*\n\n",
-      //         {
-      //           reply_markup: {
-      //             inline_keyboard: [
-      //               [
-      //                 {
-      //                   text: 'Join Telegram Group',
-      //                   url: city.telegram_link as string,
-      //                 },
-      //               ],
-      //             ],
-      //           },
-      //           parse_mode: 'MarkdownV2',
-      //         },
-      //       );
-      //     } else {
-      //       await ctx.reply('No Telegram group link is available for your city.');
-      //     }
-      //   } catch (error) {
-      //     console.error('Failed to fetch Telegram link:', error);
-      //     await ctx.reply('An error occurred while fetching the Telegram group link.');
-      //   }
-      // } else {
-      //   await ctx.reply('City ID is not available.');
-      // }
-
-      if (groupId) {
-        await ctx.telegram.restrictChatMember(groupId, userId, {
-          permissions: {
-            can_send_messages: true,
-            can_send_polls: true,
-            can_send_other_messages: true,
-            can_add_web_page_previews: true,
-            can_change_info: false,
-            can_invite_users: true,
-            can_pin_messages: false,
-          },
-        });
-
-        const welcomeMessage = await ctx.telegram.sendMessage(
-          groupId,
-          `User ${`[${ctx.message?.from.first_name}](tg://user?id=${ctx.message?.from.id})`} has been verified and unmuted\\. Welcome to the group\\!`,
-          {
-            parse_mode: 'MarkdownV2',
-          },
-        );
-
-        setTimeout(() => {
-          void (async () => {
-            try {
-              await ctx.telegram.deleteMessage(groupId, welcomeMessage.message_id);
-            } catch (error) {
-              console.error('Failed to delete message:', error);
-            }
-          })();
-        }, 10000);
-      }
-    }
-  }
-
   async handleUserRegister(ctx: Context) {
-    const userId = ctx.message?.from.id;
+    const userId = ctx.message?.from.id || ctx.callbackQuery?.from.id;
     if (!userId) return;
 
     const userData = this.userGroupMap.get(userId);
@@ -656,8 +468,6 @@ export class WelcomeService {
       tg_last_name: userData.tg_last_name,
       pizza_name: userData.pizza_name,
       discord_name: userData.discord_name,
-      country_id: userData.country_id ?? null,
-      city_id: userData.city_id ?? null,
       role: userData.role,
       mafia_movie: userData.mafia_movie,
       ninja_turtle_character: userData.ninja_turtle_character,
@@ -666,46 +476,105 @@ export class WelcomeService {
 
     await this.userService.addUser(newUser);
 
-    // this.userSteps.delete(userId);
-    // this.userGroupMap.delete(userId);
+    const cityDetails = await this.cityService.getCityByGroupId(userData.group_id || '');
+
+    await this.membershipService.addUserToCityMembership(
+      userData.telegram_id,
+      cityDetails?.id || '',
+    );
+
+    this.userSteps.delete(userId);
+    this.userGroupMap.delete(userId);
   }
 
   async handleNinjaTurtleMessage(ctx: Context) {
-    const userId = ctx.message?.from.id;
+    const userId = ctx.message?.from.id || ctx.callbackQuery?.from.id;
     if (!userId) return;
+
+    // Retrieve user data
+    const userData = this.userGroupMap.get(userId) || (await this.populateUserData(userId));
+    if (!userData?.ninja_turtle_character) {
+      await ctx.reply('❌ User data not found. Please register first.');
+      return;
+    }
 
     this.userSteps.set(userId, 'ninja_turtle_character');
 
+    // Generate Ninja Turtle options with tick marks for already selected ones
     const ninjaTurtleOptions = [
       [
-        { text: 'Leonardo 🐢', callback_data: 'ninja_leonardo' },
-        { text: 'Donatello 🛠️', callback_data: 'ninja_donatello' },
+        {
+          text: userData.ninja_turtle_character.includes('leonardo')
+            ? 'Leonardo 🐢 ✅'
+            : 'Leonardo 🐢',
+          callback_data: 'ninja_leonardo',
+        },
+        {
+          text: userData.ninja_turtle_character.includes('donatello')
+            ? 'Donatello 🛠️ ✅'
+            : 'Donatello 🛠️',
+          callback_data: 'ninja_donatello',
+        },
       ],
       [
-        { text: 'Splinter 🧙', callback_data: 'ninja_splinter' },
-        { text: 'Raphael 🤝', callback_data: 'ninja_raphael' },
+        {
+          text: userData.ninja_turtle_character.includes('splinter')
+            ? 'Splinter 🧙 ✅'
+            : 'Splinter 🧙',
+          callback_data: 'ninja_splinter',
+        },
+        {
+          text: userData.ninja_turtle_character.includes('raphael')
+            ? 'Raphael 🤝 ✅'
+            : 'Raphael 🤝',
+          callback_data: 'ninja_raphael',
+        },
       ],
       [
-        { text: 'Michelangelo 🎨', callback_data: 'ninja_michelangelo' },
-        { text: 'April 📝', callback_data: 'ninja_april' },
+        {
+          text: userData.ninja_turtle_character.includes('michelangelo')
+            ? 'Michelangelo 🎨 ✅'
+            : 'Michelangelo 🎨',
+          callback_data: 'ninja_michelangelo',
+        },
+        {
+          text: userData.ninja_turtle_character.includes('april') ? 'April 📝 ✅' : 'April 📝',
+          callback_data: 'ninja_april',
+        },
+      ],
+      [
+        {
+          text: userData.ninja_turtle_character.includes('footclan')
+            ? 'Foot Clan 🥷 ✅'
+            : 'Foot Clan 🥷',
+          callback_data: 'ninja_footclan',
+        },
+      ],
+      [
+        { text: '✅ Confirm', callback_data: 'ninja_confirm' }, // Confirm button
       ],
     ];
 
-    await ctx.telegram.sendPhoto(userId, 'https://i.imgur.com/sFG1Icj.png', {
-      caption:
-        ' 🫶 *What can you offer the famiglia?*\n\n' +
-        'Select a Ninja Turtle that best suits you:\n\n' +
-        '🐢 *Leonardo*: _Community Management, Organizing, and Project Management\\. Putting the O in DAO\\!_\n\n' +
-        '🛠️ *Donatello*: _Software Development and Technology Expert\\. Ready to build open source pizzeria tools\\. Pizza is tech too\\!_\n\n' +
-        '🧙 *Splinter*: _Guru of Legal Systems and/or Accounting\\. Watch out for the team and keep them out of trouble\\!_\n\n' +
-        '🤝 *Raphael*: _Business Development, Recruiting, and Sales\\. Build partnerships for the future of PizzaDAO\\._\n\n' +
-        "🎨 *Michelangelo*: _Artist, Creative, or Meme Chef\\. Create art, music, and videos to spread pizza's glory\\!_\n\n" +
-        '📝 *April*: _Storytelling, Writing, and Marketing\\. Spread the word throughout the universe \\(and the metaverse\\)\\._',
-      reply_markup: {
-        inline_keyboard: ninjaTurtleOptions,
-      },
-      parse_mode: 'MarkdownV2',
-    });
+    try {
+      await ctx.telegram.sendPhoto(userId, 'https://i.imgur.com/sFG1Icj.png', {
+        caption:
+          ' 🫶 *What can you offer the famiglia?*\n\n' +
+          'Select a Ninja Turtle that best suits you:\n\n' +
+          '🐢 *Leonardo*: _Community Management, Organizing, and Project Management\\. Putting the O in DAO\\!_\n\n' +
+          '🛠️ *Donatello*: _Software Development and Technology Expert\\. Ready to build open source pizzeria tools\\. Pizza is tech too\\!_\n\n' +
+          '🧙 *Splinter*: _Guru of Legal Systems and/or Accounting\\. Watch out for the team and keep them out of trouble\\!_\n\n' +
+          '🤝 *Raphael*: _Business Development, Recruiting, and Sales\\. Build partnerships for the future of PizzaDAO\\._\n\n' +
+          "🎨 *Michelangelo*: _Artist, Creative, or Meme Chef\\. Create art, music, and videos to spread pizza's glory\\!_\n\n" +
+          '📝 *April*: _Storytelling, Writing, and Marketing\\. Spread the word throughout the universe \\(and the metaverse\\)\\._\n\n' +
+          "🥷 *Foot Clan*: _Fighter for all things Pizza\\. Choose this if you\\'re ready to help in any way possible, from the streets to the tweets\\._",
+        reply_markup: {
+          inline_keyboard: ninjaTurtleOptions,
+        },
+        parse_mode: 'MarkdownV2',
+      });
+    } catch (error) {
+      console.error('Failed to send Ninja Turtle message:', error);
+    }
   }
 
   // Handle Ninja Turtle selection
@@ -713,8 +582,11 @@ export class WelcomeService {
     const userId = ctx.callbackQuery?.from.id;
     if (!userId) return;
 
-    const userData = this.userGroupMap.get(userId);
-    if (!userData) return;
+    const userData = await this.populateUserData(userId);
+    if (!userData) {
+      await ctx.reply('❌ User data not found. Please register again.');
+      return;
+    }
 
     const selectedCharacter = callbackData.split('_')[1];
 
@@ -771,6 +643,14 @@ export class WelcomeService {
         },
       ],
       [
+        {
+          text: userData.ninja_turtle_character.includes('footclan')
+            ? 'Foot Clan 🥷 ✅'
+            : 'Foot Clan 🥷',
+          callback_data: 'ninja_footclan',
+        },
+      ],
+      [
         { text: '✅ Confirm', callback_data: 'ninja_confirm' }, // Confirm button
       ],
     ];
@@ -784,7 +664,9 @@ export class WelcomeService {
         '🧙 *Splinter*: _Guru of Legal Systems and/or Accounting\\. Watch out for the team and keep them out of trouble\\!_\n\n' +
         '🤝 *Raphael*: _Business Development, Recruiting, and Sales\\. Build partnerships for the future of PizzaDAO\\._\n\n' +
         "🎨 *Michelangelo*: _Artist, Creative, or Meme Chef\\. Create art, music, and videos to spread pizza's glory\\!_\n\n" +
-        '📝 *April*: _Storytelling, Writing, and Marketing\\. Spread the word throughout the universe \\(and the metaverse\\)\\._',
+        '📝 *April*: _Storytelling, Writing, and Marketing\\. Spread the word throughout the universe \\(and the metaverse\\)\\._\n\n' +
+        "🥷 *Foot Clan*: _Fighter for all things Pizza\\. Choose this if you\\'re ready to help in any way possible, from the streets to the tweets\\._",
+
       {
         reply_markup: {
           inline_keyboard: ninjaTurtleOptions,
@@ -797,41 +679,115 @@ export class WelcomeService {
   // Handle Ninja Turtle confirmation
   async handleNinjaTurtleConfirm(ctx: Context) {
     const userId = ctx.callbackQuery?.from.id;
-    if (!userId) return;
+    if (!userId) return false;
 
-    const userData = this.userGroupMap.get(userId);
-    if (!userData) return;
+    const userData = await this.populateUserData(userId);
+    if (!userData) {
+      await ctx.reply('❌ User data not found. Please register first.');
+      return;
+    }
 
     const formattedArray = `{${userData.ninja_turtle_character?.join(',')}}`;
 
-    // Save the selected characters to the database
-    await this.userService.updateUserField(userId, 'ninja_turtle_character', formattedArray);
+    const isRegistered = await this.userService.isUserRegistered(userId);
 
-    // Acknowledge the confirmation
-    await ctx.answerCbQuery('Your selection has been confirmed!');
+    if (isRegistered) {
+      // Update only the Ninja Turtle selection for existing users
+      await this.userService.updateUserField(userId, 'ninja_turtle_character', formattedArray);
 
-    // Proceed to the next step
-    // await ctx.reply(
-    //   '🍕 *What is your favorite pizza topping?*\n\nPlease type the name of your favorite pizza topping below:',
-    //   {
-    //     reply_markup: {
-    //       force_reply: true,
-    //     },
-    //     parse_mode: 'MarkdownV2',
-    //   },
-    // );
+      // Acknowledge the confirmation
+      await ctx.answerCbQuery('Your Ninja Turtle selection has been updated!');
+      await ctx.deleteMessage();
 
-    await ctx.deleteMessage();
-    await this.handleProfile(ctx);
+      // Refresh the profile
+      await this.handleProfile(ctx);
+    } else {
+      // Complete the registration process for new users
+      userData.ninja_turtle_character = formattedArray
+        .slice(1, -1)
+        .split(',')
+        .map((char) => char.trim());
+
+      await this.handleUserRegister(ctx);
+
+      await ctx.answerCbQuery('Your selection has been confirmed!');
+      await ctx.deleteMessage();
+
+      // Enable group permissions
+      const groupId = userData.group_id;
+      if (groupId) {
+        await ctx.telegram.restrictChatMember(groupId, userId, {
+          permissions: {
+            can_send_messages: true,
+            can_send_polls: true,
+            can_send_other_messages: true,
+            can_add_web_page_previews: true,
+            can_change_info: false,
+            can_invite_users: true,
+            can_pin_messages: false,
+          },
+        });
+
+        const welcomeMessage = await ctx.telegram.sendMessage(
+          groupId,
+          `User ${`[${ctx.callbackQuery?.from.first_name}](tg://user?id=${userId})`} has been verified and unmuted\\. Welcome to the group\\!`,
+          {
+            parse_mode: 'MarkdownV2',
+          },
+        );
+
+        setTimeout(() => {
+          void (async () => {
+            try {
+              await ctx.telegram.deleteMessage(groupId, welcomeMessage.message_id);
+            } catch (error) {
+              console.error('Failed to delete message:', error);
+            }
+          })();
+        }, 10000);
+
+        await this.handleProfile(ctx);
+      }
+    }
+  }
+
+  private async populateUserData(userId: number): Promise<IUserRegistrationData | null> {
+    // Check if the user is already in userGroupMap
+    let userData = this.userGroupMap.get(userId);
+
+    if (!userData) {
+      // Fetch user data from the database
+      const user = await this.userService.findUser(userId);
+      if (!user) {
+        console.error(`User with ID ${userId} not found in the database.`);
+        return null;
+      }
+
+      // Populate userGroupMap with data from the database
+      userData = {
+        telegram_id: user.telegram_id,
+        username: user.username,
+        tg_first_name: user.tg_first_name,
+        tg_last_name: user.tg_last_name,
+        pizza_name: user.pizza_name,
+        discord_name: user.discord_name,
+        group_id: null, // Group ID is not relevant for updates
+        region_id: null,
+        role: user.role,
+        mafia_movie: user.mafia_movie,
+        ninja_turtle_character: user.ninja_turtle_character || [],
+        pizza_topping: user.pizza_topping,
+      };
+
+      this.userGroupMap.set(userId, userData);
+    }
+
+    return userData;
   }
 
   // Method to call ChatGPT API
-  private async generatePizzaName(
-    firstName: string,
-    pizzaTopping: string,
-    mafiaCharacter: string,
-  ): Promise<string> {
-    const prompt = `Create a fun and creative pizza name using the the pizza topping "${pizzaTopping}", and the mafia character "${mafiaCharacter}.only send one name and remember that name should only contain 2 name like first name and last name. as an example "Charlie Margharita". don't ask me is it better or anyhting just send the name".`;
+  private async generatePizzaName(pizzaTopping: string, mafiaCharacter: string): Promise<string> {
+    const prompt = `Create a fun and creative pizza name using the the pizza topping "${pizzaTopping}", and this mafia movie "${mafiaCharacter}. you should select random (random means random. don't select same character in every response. you can choose any charaacter from that movie) character from that mafia movie and put topping as first name and that character as second name. only send one name and remember that name should contain 2 name like first name and last name. as an example "Charlie Margharita"(this is only just an example.). don't ask me is it better or anyhting just send the name".`;
 
     try {
       const response = await axios.post(
@@ -879,25 +835,172 @@ export class WelcomeService {
       return;
     }
 
-    // Select a random character from the mafia movie
-    const mafiaCharacters = mafia_movie.split(',').map((char) => char.trim());
-    const randomCharacter = mafiaCharacters[Math.floor(Math.random() * mafiaCharacters.length)];
-
     // Generate the pizza name
-    const pizzaName = await this.generatePizzaName(tg_first_name, pizza_topping, randomCharacter);
+    const pizzaName = await this.generatePizzaName(pizza_topping, mafia_movie);
 
     // Save the pizza name in the user data
     userData.pizza_name = pizzaName;
 
-    // Update the database
-    await this.userService.updateUserField(userId, 'pizza_name', pizzaName);
-
-    // Display the pizza name to the user
-    await ctx.reply(
+    // Send the pizza name message
+    const message = await ctx.reply(
       `🍕 Here's your AI-generated Pizza Name by Molto Benne:\n\n` + `Pizza Name: *${pizzaName}*`,
       {
         parse_mode: 'Markdown',
       },
     );
+
+    // Pin the message in the chat
+    try {
+      await ctx.telegram.pinChatMessage(ctx.chat?.id || 0, message.message_id, {
+        disable_notification: true, // Set to false if you want to notify users
+      });
+    } catch (error) {
+      console.error('Failed to pin the message:', error);
+    }
+  }
+
+  async handleRegionSelection(ctx: Context) {
+    // Fetch regions from the database
+    const regions = await this.userService.getAllRegions();
+
+    // Group regions into rows of 2 buttons
+    const regionButtons: { text: string; callback_data: string }[][] = [];
+    for (let i = 0; i < regions.length; i += 2) {
+      regionButtons.push(
+        regions.slice(i, i + 2).map((region) => ({
+          text: region.name,
+          callback_data: `region_${region.id}`,
+        })),
+      );
+    }
+
+    // Present regions as inline buttons
+    await ctx.reply(
+      '🌍 *Please select your region:*\n\n' +
+        'Tap on one of the buttons below to choose your region\\.',
+      {
+        reply_markup: {
+          inline_keyboard: regionButtons,
+        },
+        parse_mode: 'MarkdownV2',
+      },
+    );
+  }
+
+  async handleCountrySelection(ctx: Context, regionId?: string) {
+    if (!regionId) {
+      return;
+    }
+    // Fetch countries for the selected region
+    const countries = await this.countryService.getCountriesByRegion(regionId);
+
+    // Group countries into rows of 2 buttons
+    const countryButtons: { text: string; callback_data: string }[][] = [];
+    for (let i = 0; i < countries.length; i += 2) {
+      countryButtons.push(
+        countries.slice(i, i + 2).map((country) => ({
+          text: country.name,
+          callback_data: `country_${country.id}`,
+        })),
+      );
+    }
+
+    // Present countries as inline buttons
+    await ctx.deleteMessage();
+    await ctx.sendMessage(
+      '🌎 *Please select your country:*\n\n' +
+        'Tap on one of the buttons below to choose your country\\.',
+      {
+        reply_markup: {
+          inline_keyboard: [
+            ...countryButtons,
+            [{ text: '🔙 Back', callback_data: 'back_to_region' }],
+          ],
+        },
+        parse_mode: 'MarkdownV2',
+      },
+    );
+  }
+
+  // Handle private chat messages
+  async handlePrivateChat(ctx: Context) {
+    const userId = ctx.message?.from.id;
+    if (!userId) return;
+
+    const step = this.userSteps.get(userId);
+    const userData = this.userGroupMap.get(userId);
+
+    if (step && typeof step === 'string' && step.startsWith('edit_')) {
+      const field = step.split('_').slice(1).join('_');
+      const newValue = 'text' in ctx.message ? ctx.message.text : null;
+
+      if (!newValue) {
+        await ctx.reply('Invalid input. Please provide a valid value.');
+        return;
+      }
+
+      await this.userService.updateUserField(userId, field, newValue);
+
+      this.userSteps.delete(userId);
+
+      await ctx.reply(`Your ${field.replaceAll('_', ' ')} has been updated to "${newValue}".`);
+      await this.handleStartCommand(ctx);
+    }
+
+    if (!userData) return;
+
+    if (step === 'discord_pizza_name') {
+      if ('text' in ctx.message) {
+        userData.pizza_name = ctx.message.text;
+      } else {
+        await ctx.reply('Invalid input. Please provide a valid pizza name.');
+        return;
+      }
+
+      this.userSteps.set(userId, 'discord_username');
+      await ctx.reply('What is your Discord Username?', {
+        reply_markup: {
+          force_reply: true,
+        },
+        parse_mode: 'MarkdownV2',
+      });
+    } else if (step === 'discord_username') {
+      if ('text' in ctx.message) {
+        userData.discord_name = ctx.message.text;
+      } else {
+        await ctx.reply('Invalid input. Please provide a valid Discord username.');
+        return;
+      }
+
+      await this.handleNinjaTurtleMessage(ctx);
+    } else if (step === 'pizza_topping') {
+      if ('text' in ctx.message) {
+        userData.pizza_topping = ctx.message.text;
+      } else {
+        await ctx.reply('Invalid input. Please provide a valid name.');
+        return;
+      }
+      this.userSteps.set(userId, 'enter_mafia_movie');
+      await ctx.reply('🎥 *What is your favorite Mafia movie?*', {
+        reply_markup: {
+          force_reply: true,
+        },
+        parse_mode: 'MarkdownV2',
+      });
+    } else if (step === 'enter_mafia_movie') {
+      if ('text' in ctx.message) {
+        userData.mafia_movie = ctx.message.text;
+      } else {
+        await ctx.reply('Invalid input. Please provide a valid topping name.');
+        return;
+      }
+
+      await this.handlePizzaNameGeneration(ctx);
+
+      // Delay the call to handleNinjaTurtleMessage by 3 seconds
+      setTimeout(() => {
+        void this.handleNinjaTurtleMessage(ctx);
+      }, 3000);
+    }
   }
 }

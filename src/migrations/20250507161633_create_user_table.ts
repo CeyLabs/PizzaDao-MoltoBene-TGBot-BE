@@ -11,8 +11,6 @@ export async function up(knex: Knex): Promise<void> {
     table.string('tg_last_name');
     table.string('pizza_name');
     table.string('discord_name');
-    table.uuid('country_id').nullable().references('id').inTable('country').onDelete('SET NULL');
-    table.uuid('city_id').nullable().references('id').inTable('city').onDelete('SET NULL');
     table.string('role').defaultTo('user');
     table.string('mafia_movie');
     table.specificType('ninja_turtle_character', 'text[]');
