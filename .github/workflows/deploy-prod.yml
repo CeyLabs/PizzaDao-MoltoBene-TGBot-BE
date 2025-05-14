@@ -14,10 +14,10 @@ jobs:
     runs-on: ubuntu-latest      
     env:
       NODE_VERSION: "22.x"
-      PROJECT_NAME: "🍕 PizzaDao Backend API - Prod"
+      PROJECT_NAME: "🍕 PizzaDao Bot Backend- Prod"
       DEPLOY_PATH: "/root/projects/pizzadao/backend/prod/"
       PROJECT_DIR: "bot"
-      SERVICE_NAME: "pizzadao_api_prod.service"
+      SERVICE_NAME: "pizzadao_bot_prod.service"
       RUN_FIXTURES: "true"
     
     steps:
