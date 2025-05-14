@@ -798,8 +798,14 @@ export class WelcomeService {
   }
 
   // Method to call ChatGPT API
-  private async generatePizzaName(pizzaTopping: string, mafiaMovie: string): Promise<string> {
-    const prompt = `Come up with a fun and creative pizza name by combining the topping "${pizzaTopping}" with a last name of a cast member from the mafia movie "${mafiaMovie}". Randomize the chosen character from this number ${new Date().getTime()}. Use the topping as the first name and the last name of a cast member from the movie as the surname. Make it sound like a quirky mafia-style name. Just output the name without quotes.`;
+  private async generatePizzaName(
+    pizzaTopping: string,
+    mafiaMovie: string,
+    existingPizzaName?: string,
+  ): Promise<string> {
+    const prompt = `Come up with a fun and creative pizza name by combining the topping "${pizzaTopping}" with a last name of a cast member from the mafia movie "${mafiaMovie}". Randomize the chosen character from this number ${new Date().getTime()}. Use the topping as the first name and the last name of a cast member from the movie as the surname. Make it sound like a quirky mafia-style name.${
+      existingPizzaName ? ` Avoid using the existing pizza name "${existingPizzaName}".` : ''
+    } Just output the name without quotes.`;
 
     try {
       const response = await this.openAi.chat.completions.create({
@@ -809,7 +815,16 @@ export class WelcomeService {
         max_tokens: 50,
       });
 
-      return response.choices[0]?.message?.content?.trim() || 'Unknown Pizza Name';
+      const generatedPizzaName =
+        response.choices[0]?.message?.content?.trim() || 'Unknown Pizza Name';
+
+      const isPizzaNameExists = await this.userService.isPizzaNameExists(generatedPizzaName);
+
+      if (isPizzaNameExists) {
+        return this.generatePizzaName(pizzaTopping, mafiaMovie, generatedPizzaName);
+      }
+
+      return generatedPizzaName;
     } catch (error) {
       console.error('Error generating pizza name:', error);
       return 'Unknown Pizza Name';
