@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Context } from 'telegraf';
+import { Command, On, Start, Update } from 'nestjs-telegraf';
 import { UserService } from '../user/user.service';
 import { CountryService } from '../country/country.service';
 import { CityService } from '../city/city.service';
@@ -8,6 +9,7 @@ import { IUser } from '../user/user.interface';
 import { IUserRegistrationData } from './welcome.interface';
 import OpenAI from 'openai';
 
+@Update()
 @Injectable()
 export class WelcomeService {
   private readonly openAi: OpenAI;
@@ -26,6 +28,7 @@ export class WelcomeService {
   private userSteps = new Map<number, number | string>();
   private userGroupMap = new Map<number, IUserRegistrationData>();
 
+  @Start()
   async handleStartCommand(ctx: Context) {
     const userId = ctx.message?.from.id ?? ctx.from?.id ?? 0;
 
@@ -147,6 +150,7 @@ export class WelcomeService {
     }
   }
 
+  @Command('profile')
   async handleProfile(ctx: Context) {
     const userId = ctx.message?.from.id || ctx.callbackQuery?.from.id;
     if (!userId) return;
@@ -185,6 +189,7 @@ export class WelcomeService {
     );
   }
 
+  @Command('register')
   async handleUserRegistration(ctx: Context) {
     const userId = ctx.message?.from?.id ?? 0;
     if (!userId) return;
@@ -200,6 +205,7 @@ export class WelcomeService {
     await this.handleRegionSelection(ctx);
   }
 
+  @On('new_chat_members')
   async handleNewMember(ctx: Context) {
     const { message } = ctx;
 
@@ -271,6 +277,7 @@ export class WelcomeService {
     }
   }
 
+  @On('callback_query')
   async handleCallbackQuery(ctx: Context) {
     const callbackData =
       ctx.callbackQuery && 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : undefined;
@@ -447,6 +454,7 @@ export class WelcomeService {
     }
   }
 
+  @On('left_chat_member')
   // Handle left chat member
   async handleLeftChatMember(ctx: Context) {
     const { message } = ctx;
