@@ -31,11 +31,6 @@ export class WelcomeController {
     await this.welcomeService.handleCallbackQuery(ctx);
   }
 
-  @On('text')
-  async handlePrivateChat(ctx: Context) {
-    await this.welcomeService.handlePrivateChat(ctx);
-  }
-
   @On('left_chat_member')
   async handleLeftChatMember(ctx: Context) {
     await this.welcomeService.handleLeftChatMember(ctx);
