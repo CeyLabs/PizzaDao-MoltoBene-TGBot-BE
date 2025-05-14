@@ -13,14 +13,6 @@ async function bootstrap() {
   // Use session middleware
   bot.use(session());
 
-  await bot.launch({
-    webhook: {
-      domain: process.env.WEBHOOK_DOMAIN as string,
-      port: 443,
-      path: '/webhook',
-    },
-  });
-
   app.use(express.json());
 
   // Connect the webhook middleware

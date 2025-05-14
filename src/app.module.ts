@@ -38,7 +38,6 @@ dotenv.config();
                 }
               : {},
           middlewares: [new PrivateChatMiddleware().use()],
-          include: [BroadcastFlowController],
         };
       },
       inject: [ConfigService],
