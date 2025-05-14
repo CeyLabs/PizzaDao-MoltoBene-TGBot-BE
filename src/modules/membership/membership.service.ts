@@ -11,13 +11,13 @@ export class MembershipService {
       .knex('membership')
       .join('city', 'membership.city_id', 'city.id')
       .select('city.id as city_id', 'city.name as city_name')
-      .where('membership.user_id', userId);
+      .where('membership.user_telegram_id', userId);
   }
 
   async checkUserCityMembership(userId: string | number, cityId: string): Promise<boolean> {
     const participation = await this.knexService
       .knex<IMembership>('membership')
-      .where('user_id', userId)
+      .where('user_telegram_id', userId)
       .andWhere('city_id', cityId)
       .first();
 
@@ -28,21 +28,21 @@ export class MembershipService {
     // Check if the user has already joined this city
     const existingParticipation = await this.knexService
       .knex<IMembership>('membership')
-      .where('user_id', userId)
+      .where('user_telegram_id', userId)
       .andWhere('city_id', cityId)
       .first();
 
     if (!existingParticipation) {
       // Insert a new record if the user hasn't joined this city before
       await this.knexService.knex('membership').insert({
-        user_id: userId,
+        user_telegram_id: userId,
         city_id: cityId,
       });
 
       // Fetch and return the newly inserted record
       return this.knexService
         .knex<IMembership>('membership')
-        .where('user_id', userId)
+        .where('user_telegram_id', userId)
         .andWhere('city_id', cityId)
         .first();
     }

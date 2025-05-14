@@ -6,7 +6,7 @@ export async function up(knex: Knex): Promise<void> {
   await knex.schema.createTable(tableName, (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('uuid_generate_v4()'));
     table
-      .string('user_id')
+      .string('user_telegram_id')
       .notNullable()
       .references('telegram_id')
       .inTable('user')

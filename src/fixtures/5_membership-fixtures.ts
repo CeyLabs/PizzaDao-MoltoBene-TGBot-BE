@@ -33,7 +33,7 @@ export async function seed(knex: Knex): Promise<void> {
   }
 
   const cityUserRecords = cities.map((city) => ({
-    user_id: user.telegram_id,
+    user_telegram_id: user.telegram_id,
     city_id: city.id,
     joined_at: knex.fn.now(),
   }));
