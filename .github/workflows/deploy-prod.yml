@@ -103,7 +103,7 @@ jobs:
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
             # Create environment file
-            echo "${{ secrets.ENV_PRODUCTION }}" > .env.production
+            echo "${{ vars.ENV_PRODUCTION }}" > .env.production
 
             # Update service definition
             sudo bash -c 'cat > "/etc/systemd/system/${{ env.SERVICE_NAME }}" <<- EOM
