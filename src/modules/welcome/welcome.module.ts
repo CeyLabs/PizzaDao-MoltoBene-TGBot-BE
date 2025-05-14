@@ -14,7 +14,7 @@ import { UserModule } from '../user/user.module';
     UserModule,
   ],
   controllers: [WelcomeController],
-  providers: [WelcomeService, WelcomeController],
+  providers: [WelcomeService],
   exports: [WelcomeService],
 })
 export class WelcomeModule {}
