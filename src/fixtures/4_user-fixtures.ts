@@ -58,5 +58,17 @@ export async function seed(knex: Knex): Promise<void> {
       ninja_turtle_character: ['Donatello'],
       pizza_topping: 'Pineapple',
     },
+    {
+      telegram_id: '1558627049',
+      username: 'kumuduwije',
+      tg_first_name: 'kumudu',
+      tg_last_name: '',
+      pizza_name: 'Pineapple ',
+      discord_name: 'kumuduwije',
+      role: 'admin',
+      mafia_movie: 'Peaky Blinders',
+      ninja_turtle_character: ['Donatello'],
+      pizza_topping: 'Mozeralla',
+    },
   ]);
 }

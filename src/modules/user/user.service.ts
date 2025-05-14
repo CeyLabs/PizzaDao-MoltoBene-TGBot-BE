@@ -38,4 +38,12 @@ export class UserService {
   async getAllRegions(): Promise<{ id: string; name: string }[]> {
     return this.knexService.knex('region').select('id', 'name');
   }
+
+  async isUserAdmin(telegramId: number): Promise<boolean> {
+    const user = await this.knexService
+      .knex<IUser>('user')
+      .where({ telegram_id: telegramId })
+      .first();
+    return user?.role === 'admin';
+  }
 }

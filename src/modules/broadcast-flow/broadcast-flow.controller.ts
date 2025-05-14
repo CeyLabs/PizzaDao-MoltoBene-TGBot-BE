@@ -9,11 +9,15 @@ import {
 } from 'telegraf/typings/core/types/typegram';
 import { helpMessage, welcomeMessage } from 'src/bot-commands';
 import { randomBytes } from 'crypto';
+import { UserService } from '../user/user.service';
 
 @Update()
 @Controller()
 export class BroadcastFlowController {
-  constructor(private readonly broadcastFlowService: BroadcastFlowService) {}
+  constructor(
+    private readonly broadcastFlowService: BroadcastFlowService,
+    private readonly userService: UserService,
+  ) {}
 
   @Command('cityselect')
   async handleCitySelectCommand(@Ctx() ctx: Context) {
@@ -57,6 +61,12 @@ ${welcomeMessage}
   async onBroadcast(@Ctx() ctx: Context) {
     const userId: number | undefined = ctx.from?.id;
     if (!userId) return;
+
+    const isAdmin = await this.userService.isUserAdmin(userId);
+    if (!isAdmin) {
+      await ctx.reply('❌ You are not authorized to broadcast messages.');
+      return;
+    }
 
     const state = this.broadcastFlowService.getSession(userId);
     state.step = 'select_scope';
