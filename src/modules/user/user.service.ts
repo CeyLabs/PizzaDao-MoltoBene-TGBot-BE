@@ -28,14 +28,6 @@ export class UserService {
     return this.knexService.knex<IUser>('user').where({ telegram_id: telegramId }).first();
   }
 
-  async getCitiesByUser(userId: number): Promise<{ city_id: number; city_name: string }[]> {
-    return this.knexService
-      .knex('membership')
-      .join('city', 'membership.city_id', 'city.id')
-      .select('city.id as city_id', 'city.name as city_name')
-      .where('membership.user_id', userId);
-  }
-
   async updateUserField(telegram_id: number, field: string, value: string): Promise<void> {
     await this.knexService
       .knex('user')

@@ -157,7 +157,7 @@ export class WelcomeService {
     }
 
     // Fetch cities the user has participated in
-    const cities = await this.userService.getCitiesByUser(userId);
+    const cities = await this.membershipService.getCitiesByUser(userId);
     const cityList = cities.map((city) => `• ${city.city_name}`).join('\n') || 'None';
 
     await ctx.replyWithMarkdownV2(

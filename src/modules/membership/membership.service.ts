@@ -6,6 +6,14 @@ import { KnexService } from '../knex/knex.service';
 export class MembershipService {
   constructor(private readonly knexService: KnexService) {}
 
+  async getCitiesByUser(userId: number): Promise<{ city_id: number; city_name: string }[]> {
+    return this.knexService
+      .knex('membership')
+      .join('city', 'membership.city_id', 'city.id')
+      .select('city.id as city_id', 'city.name as city_name')
+      .where('membership.user_id', userId);
+  }
+
   async checkUserCityMembership(userId: string | number, cityId: string): Promise<boolean> {
     const participation = await this.knexService
       .knex<IMembership>('membership')
