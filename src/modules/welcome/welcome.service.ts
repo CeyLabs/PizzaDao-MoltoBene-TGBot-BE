@@ -434,7 +434,7 @@ export class WelcomeService {
     if (callbackData === 'give_me_pizza_name') {
       await ctx.deleteMessage();
       this.userSteps.set(userId, 'pizza_topping');
-      await ctx.reply('🍕 What is your favorite pizza topping?', {
+      await ctx.reply('🍕 *What is your favorite pizza topping?*', {
         reply_markup: {
           force_reply: true,
         },
@@ -863,7 +863,7 @@ export class WelcomeService {
         '❌ Failed to generate a unique pizza name. Please try again with another topping or mafia movie.',
       );
       this.userSteps.set(userId, 'pizza_topping');
-      await ctx.reply('🍕 What is your favorite pizza topping?', {
+      await ctx.reply('🍕 *What is your favorite pizza topping?*', {
         reply_markup: {
           force_reply: true,
         },
@@ -901,6 +901,26 @@ export class WelcomeService {
 
   private async validateMafiaMovie(movieName: string): Promise<boolean> {
     const prompt = `is ${movieName} a mafia movie, output only 'yes' or 'no'`;
+
+    try {
+      const response = await this.openAi.chat.completions.create({
+        model: 'gpt-4',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0,
+        max_tokens: 5,
+      });
+
+      const result = response.choices[0]?.message?.content?.trim().toLowerCase();
+
+      return result === 'yes';
+    } catch (error) {
+      console.error('Error validating mafia movie:', error);
+      return false;
+    }
+  }
+
+  private async validatePizzaTopping(pizzaTopping: string): Promise<boolean> {
+    const prompt = `is ${pizzaTopping} a pizza topping, output only 'yes' or 'no'`;
 
     try {
       const response = await this.openAi.chat.completions.create({
@@ -1035,7 +1055,24 @@ export class WelcomeService {
       await this.handleNinjaTurtleMessage(ctx);
     } else if (step === 'pizza_topping') {
       if ('text' in ctx.message!) {
-        userData.pizza_topping = ctx.message.text;
+        const enteredPizzaTopping = ctx.message.text;
+
+        const isValidPizzaTopping = await this.validatePizzaTopping(enteredPizzaTopping);
+
+        if (!isValidPizzaTopping) {
+          await ctx.reply(
+            '❌ What you entered is not a pizza topping. Please choose something else.',
+          );
+          await ctx.reply('🍕 *What is your favorite pizza topping?*', {
+            reply_markup: {
+              force_reply: true,
+            },
+            parse_mode: 'MarkdownV2',
+          });
+          return;
+        }
+
+        userData.pizza_topping = enteredPizzaTopping;
       } else {
         await ctx.reply('Invalid input. Please provide a valid name.');
         return;
