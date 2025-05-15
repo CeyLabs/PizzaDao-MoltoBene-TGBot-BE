@@ -9,7 +9,7 @@ export async function up(knex: Knex): Promise<void> {
     table.string('username');
     table.string('tg_first_name').notNullable();
     table.string('tg_last_name');
-    table.string('pizza_name');
+    table.string('pizza_name').unique();
     table.string('discord_name');
     table.string('role').defaultTo('user');
     table.string('mafia_movie');

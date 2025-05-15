@@ -46,4 +46,13 @@ export class UserService {
       .first();
     return user?.role === 'admin';
   }
+
+  async isPizzaNameExists(pizzaName: string): Promise<boolean> {
+    const existingPizzaName: IUser | undefined = await this.knexService
+      .knex<IUser>('user')
+      .where('pizza_name', pizzaName)
+      .first();
+
+    return !!existingPizzaName;
+  }
 }

@@ -1,20 +1,21 @@
 import { Module } from '@nestjs/common';
 import { TelegrafModule } from 'nestjs-telegraf';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { config } from 'dotenv';
+
 import { AppService } from './app.service';
 import { BroadcastFlowModule } from './modules/broadcast-flow/broadcast-flow.module';
-import { BotCommandsService } from './bot-commands';
 import { PrivateChatMiddleware } from './middleware/chat-type.middleware';
-import { BroadcastFlowController } from './modules/broadcast-flow/broadcast-flow.controller';
 import { AppController } from './app.controller';
 import { KnexModule } from './modules/knex/knex.module';
 import { WelcomeModule } from './modules/welcome/welcome.module';
 import { UserModule } from './modules/user/user.module';
 import { CountryModule } from './modules/country/country.module';
 import { CityModule } from './modules/city/city.module';
-import * as dotenv from 'dotenv';
+import { CommonModule } from './modules/common/common.module';
 
-dotenv.config();
+// Load environment variables
+config();
 
 @Module({
   imports: [
@@ -48,8 +49,10 @@ dotenv.config();
     WelcomeModule,
     CountryModule,
     CityModule,
+    CommonModule,
   ],
 
-  providers: [AppService, AppController, BotCommandsService],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}

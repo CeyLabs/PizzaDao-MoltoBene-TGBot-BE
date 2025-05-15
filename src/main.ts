@@ -1,8 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { session, Telegraf } from 'telegraf';
 import { getBotToken } from 'nestjs-telegraf';
-import * as express from 'express';
+import { Telegraf } from 'telegraf';
+import { json } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -10,10 +10,7 @@ async function bootstrap() {
   // Get the bot instance
   const bot = app.get<Telegraf>(getBotToken());
 
-  // Use session middleware
-  bot.use(session());
-
-  app.use(express.json());
+  app.use(json());
 
   // Connect the webhook middleware
   if (process.env.ENABLE_WEBHOOK === 'true') {

@@ -1,27 +1,34 @@
 import { Injectable } from '@nestjs/common';
 import { Context } from 'telegraf';
+import { Command, On, Start, Update } from 'nestjs-telegraf';
 import { UserService } from '../user/user.service';
-import { IUserRegistrationData } from './welcome.interface';
 import { CountryService } from '../country/country.service';
 import { CityService } from '../city/city.service';
 import { MembershipService } from '../membership/membership.service';
 import { IUser } from '../user/user.interface';
-import axios from 'axios';
+import { IUserRegistrationData } from './welcome.interface';
+import OpenAI from 'openai';
 
+@Update()
 @Injectable()
 export class WelcomeService {
-  private readonly openAiApiKey = process.env.OPENAI_API_KEY;
+  private readonly openAi: OpenAI;
 
   constructor(
     private readonly userService: UserService,
     private readonly countryService: CountryService,
     private readonly cityService: CityService,
     private readonly membershipService: MembershipService,
-  ) {}
+  ) {
+    this.openAi = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  }
 
   private userSteps = new Map<number, number | string>();
   private userGroupMap = new Map<number, IUserRegistrationData>();
 
+  @Start()
   async handleStartCommand(ctx: Context) {
     const userId = ctx.message?.from.id ?? ctx.from?.id ?? 0;
 
@@ -143,6 +150,7 @@ export class WelcomeService {
     }
   }
 
+  @Command('profile')
   async handleProfile(ctx: Context) {
     const userId = ctx.message?.from.id || ctx.callbackQuery?.from.id;
     if (!userId) return;
@@ -181,6 +189,7 @@ export class WelcomeService {
     );
   }
 
+  @Command('register')
   async handleUserRegistration(ctx: Context) {
     const userId = ctx.message?.from?.id ?? 0;
     if (!userId) return;
@@ -196,6 +205,7 @@ export class WelcomeService {
     await this.handleRegionSelection(ctx);
   }
 
+  @On('new_chat_members')
   async handleNewMember(ctx: Context) {
     const { message } = ctx;
 
@@ -267,6 +277,7 @@ export class WelcomeService {
     }
   }
 
+  @On('callback_query')
   async handleCallbackQuery(ctx: Context) {
     const callbackData =
       ctx.callbackQuery && 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : undefined;
@@ -443,6 +454,7 @@ export class WelcomeService {
     }
   }
 
+  @On('left_chat_member')
   // Handle left chat member
   async handleLeftChatMember(ctx: Context) {
     const { message } = ctx;
@@ -786,37 +798,40 @@ export class WelcomeService {
   }
 
   // Method to call ChatGPT API
-  private async generatePizzaName(pizzaTopping: string, mafiaCharacter: string): Promise<string> {
-    const prompt = `Create a fun and creative pizza name using the the pizza topping "${pizzaTopping}", and this mafia movie "${mafiaCharacter}. you should select random (random means random. don't select same character in every response. you can choose any charaacter from that movie) character from that mafia movie and put topping as first name and that character as second name. only send one name and remember that name should contain 2 name like first name and last name. as an example "Charlie Margharita"(this is only just an example.). don't ask me is it better or anyhting just send the name".`;
+  private async generatePizzaName(
+    pizzaTopping: string,
+    mafiaMovie: string,
+    existingPizzaName?: string,
+  ): Promise<string | null> {
+    const prompt = `Come up with a fun and creative pizza name by combining the topping "${pizzaTopping}" with a last name of a cast member from the mafia movie "${mafiaMovie}". Randomize the chosen character from this number ${new Date().getTime()}. Use the topping as the first name and the last name of a cast member from the movie as the surname. Make it sound like a quirky mafia-style name.${
+      existingPizzaName ? ` Avoid using the existing pizza name "${existingPizzaName}".` : ''
+    } Just output the name without quotes.`;
 
     try {
-      const response = await axios.post(
-        'https://api.openai.com/v1/chat/completions',
-        {
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'assistant', content: prompt }],
-          temperature: 0.3,
-          max_tokens: 50,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${this.openAiApiKey}`,
-            'Content-Type': 'application/json',
-          },
-        },
-      );
+      const response = await this.openAi.chat.completions.create({
+        model: 'gpt-4',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        max_tokens: 50,
+      });
 
-      if (!response) return 'Unknown Pizza Name';
+      const generatedPizzaName =
+        response.choices[0]?.message?.content?.trim() || 'Unknown Pizza Name';
 
-      const pizzaName: string = (
-        response.data as {
-          choices: { message: { content: string } }[];
-        }
-      ).choices[0].message.content.trim();
-      return pizzaName;
+      const isPizzaNameExists = await this.userService.isPizzaNameExists(generatedPizzaName);
+
+      if (isPizzaNameExists && existingPizzaName === generatedPizzaName) {
+        return null;
+      }
+
+      if (isPizzaNameExists) {
+        return this.generatePizzaName(pizzaTopping, mafiaMovie, generatedPizzaName);
+      }
+
+      return generatedPizzaName;
     } catch (error) {
       console.error('Error generating pizza name:', error);
-      throw new Error('Failed to generate pizza name.');
+      return 'Unknown Pizza Name';
     }
   }
 
@@ -838,6 +853,20 @@ export class WelcomeService {
     // Generate the pizza name
     const pizzaName = await this.generatePizzaName(pizza_topping, mafia_movie);
 
+    if (!pizzaName) {
+      await ctx.reply(
+        '❌ Failed to generate a unique pizza name. Please try again with another topping or mafia movie.',
+      );
+      this.userSteps.set(userId, 'pizza_topping');
+      await ctx.reply('🍕 What is your favorite pizza topping?', {
+        reply_markup: {
+          force_reply: true,
+        },
+        parse_mode: 'MarkdownV2',
+      });
+      return;
+    }
+
     // Save the pizza name in the user data
     userData.pizza_name = pizzaName;
 
@@ -857,6 +886,11 @@ export class WelcomeService {
     } catch (error) {
       console.error('Failed to pin the message:', error);
     }
+
+    // Delay the call to handleNinjaTurtleMessage by 3 seconds
+    setTimeout(() => {
+      void this.handleNinjaTurtleMessage(ctx);
+    }, 3000);
   }
 
   async handleRegionSelection(ctx: Context) {
@@ -996,11 +1030,6 @@ export class WelcomeService {
       }
 
       await this.handlePizzaNameGeneration(ctx);
-
-      // Delay the call to handleNinjaTurtleMessage by 3 seconds
-      setTimeout(() => {
-        void this.handleNinjaTurtleMessage(ctx);
-      }, 3000);
     }
   }
 }
