@@ -13,11 +13,11 @@ export async function up(knex: Knex): Promise<void> {
       .onDelete('CASCADE');
     table.uuid('city_id').notNullable().references('id').inTable('city').onDelete('CASCADE');
     table
-    .enu('role', ['admin', 'host', 'underboss'], {
-      useNative: true,
-      enumName: 'user_access_role',
-    })
-    .notNullable();
+      .enu('role', ['admin', 'host', 'underboss'], {
+        useNative: true,
+        enumName: 'user_access_role',
+      })
+      .notNullable();
     table.timestamp('created_at').defaultTo(knex.fn.now());
   });
 }

@@ -41,7 +41,6 @@ export async function seed(knex: Knex): Promise<void> {
       tg_last_name: '',
       pizza_name: 'Pineapple Damon ',
       discord_name: 'mrcentimetre',
-      role: 'admin',
       mafia_movie: 'The Irish',
       ninja_turtle_character: ['Leonardo', 'Donatello'],
       pizza_topping: 'Pineapple',
