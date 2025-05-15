@@ -41,18 +41,43 @@ export class CommonService {
 
   @Command(['help', 'h'])
   async handleHelpCommand(ctx: Context) {
+    if (ctx.from?.id) {
+      const userId = ctx.from.id;
+      const state = this.broadcastFlowService.getSession(userId);
+      if (state && state.step !== 'idle' && state.step !== 'completed') {
+        this.logger.log(`Cancelling broadcast flow for user ${userId}`);
+        await this.broadcastFlowService.handleCancel(ctx);
+      }
+    }
     this.logger.log('Help command received');
     await this.broadcastFlowService.showHelp(ctx);
   }
 
   @Command('profile')
   async handleProfileCommand(ctx: Context) {
+    if (ctx.from?.id) {
+      const userId = ctx.from.id;
+      const state = this.broadcastFlowService.getSession(userId);
+      if (state && state.step !== 'idle' && state.step !== 'completed') {
+        this.logger.log(`Cancelling broadcast flow for user ${userId}`);
+        await this.broadcastFlowService.handleCancel(ctx);
+      }
+    }
+
     this.logger.log('Profile command received');
     await this.welcomeService.handleProfile(ctx);
   }
 
   @Command('register')
   async handleRegisterCommand(ctx: Context) {
+    if (ctx.from?.id) {
+      const userId = ctx.from.id;
+      const state = this.broadcastFlowService.getSession(userId);
+      if (state && state.step !== 'idle' && state.step !== 'completed') {
+        this.logger.log(`Cancelling broadcast flow for user ${userId}`);
+        await this.broadcastFlowService.handleCancel(ctx);
+      }
+    }
     this.logger.log('Register command received');
     await this.welcomeService.handleUserRegistration(ctx);
   }

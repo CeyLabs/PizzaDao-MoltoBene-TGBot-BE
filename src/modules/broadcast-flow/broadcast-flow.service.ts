@@ -197,7 +197,7 @@ export class BroadcastFlowService {
     state.step = 'select_city';
     state.message.scope = 'city';
 
-    const cityGroups = await this.getGroupsByCity(selectedCity);
+    const cityGroups = await this.cityService.getGroupsByCityId(selectedCity);
 
     if (!cityGroups || cityGroups.length === 0) {
       this.logger.error(`No groups found for city: ${selectedCity}`);
@@ -248,10 +248,6 @@ export class BroadcastFlowService {
         parse_mode: 'Markdown',
       },
     );
-  }
-
-  async getGroupsByCity(city: string): Promise<{ group_id: string; name: string }[]> {
-    return this.cityService.getGroupsByCityId(city);
   }
 
   async validateCityAdmin(cityName: string, userId: string): Promise<boolean> {
