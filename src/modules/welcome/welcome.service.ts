@@ -31,7 +31,7 @@ export class WelcomeService {
 
   @Start()
   async handleStartCommand(ctx: Context) {
-    const userId = ctx.message?.from?.id ? getContextTelegramUserId(ctx) : null;
+    const userId = getContextTelegramUserId(ctx);
 
     // Check if the user came through a deep link
     const startPayload =
