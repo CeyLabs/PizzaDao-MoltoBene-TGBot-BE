@@ -2,7 +2,7 @@ import { Context } from 'telegraf';
 
 // add a function that return context telegram user id as a string
 export const getContextTelegramUserId = (ctx: Context): string | null => {
-  if(ctx.message && ctx.message.from) {
+  if (ctx.message && ctx.message.from) {
     return ctx.message.from.id.toString();
   }
 

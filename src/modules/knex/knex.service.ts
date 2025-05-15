@@ -2,24 +2,33 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { Knex, knex as createKnex } from 'knex';
 import config from '../../../knexfile';
 
+type KnexConfig = Record<string, Knex.Config>;
+
+interface DbConnection {
+  query: (sql: string, callback: (err: Error | null, result?: unknown) => void) => void;
+}
+
 @Injectable()
 export class KnexService implements OnModuleInit, OnModuleDestroy {
-  public knex: Knex;
+  public knex!: Knex;
   private readonly logger = new Logger(KnexService.name);
   private readonly NODE_ENV = process.env.NODE_ENV || 'development';
 
-  onModuleInit() {
+  onModuleInit(): void {
     // Use the appropriate environment configuration
-    const configToUse = config[this.NODE_ENV] || config.development;
-    
+    const configToUse = (config as KnexConfig)[this.NODE_ENV] || (config as KnexConfig).development;
+
     // Ensure pool settings are properly configured
     const poolConfig: Knex.PoolConfig = {
       min: 2,
       max: 50,
       // Add a connection validator
-      afterCreate: (conn: any, done: Function) => {
+      afterCreate: (
+        conn: DbConnection,
+        done: (err: Error | null, connection?: DbConnection) => void,
+      ) => {
         // Setup connection
-        conn.query('SELECT 1', (err: any) => {
+        conn.query('SELECT 1', (err: Error | null) => {
           if (err) {
             this.logger.error('Error during connection validation', err);
             done(err, conn);
@@ -49,7 +58,7 @@ export class KnexService implements OnModuleInit, OnModuleDestroy {
     });
 
     // Log when connections open or close for debugging
-    this.knex.on('query-error', (error, query) => {
+    this.knex.on('query-error', (error: Error, query: { sql: string }) => {
       this.logger.error(`Query error: ${error.message}`, {
         error,
         query: query.sql,
@@ -57,7 +66,7 @@ export class KnexService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  async onModuleDestroy() {
+  async onModuleDestroy(): Promise<void> {
     if (this.knex) {
       try {
         await this.knex.destroy();

@@ -3,9 +3,9 @@ import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { AppModule } from './../src/app.module';
 import { getBotToken } from 'nestjs-telegraf';
-import { Telegraf } from 'telegraf';
 import { ConfigModule } from '@nestjs/config';
 import * as express from 'express';
+import { Response } from 'express';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication;
@@ -24,7 +24,7 @@ describe('AppController (e2e)', () => {
         setWebhook: jest.fn(),
       },
       webhookCallback: jest.fn().mockImplementation(() => {
-        return (req, res) => {
+        return (_req: express.Request, res: Response) => {
           res.status(200).send('OK');
         };
       }),
@@ -51,17 +51,17 @@ describe('AppController (e2e)', () => {
     // Set up express app with webhook handler
     const expressApp = express();
     expressApp.use(express.json());
-    expressApp.post('/webhook', (req, res) => {
+    expressApp.post('/webhook', (_req: express.Request, res: Response) => {
       res.status(200).send('OK');
     });
 
     // Add a test health endpoint
-    app.getHttpAdapter().get('/health', (req, res) => {
+    app.getHttpAdapter().get('/health', (_req: express.Request, res: Response) => {
       res.status(200).send('OK');
     });
 
     // Manually set up the webhook route
-    app.use('/webhook', (req, res) => {
+    app.use('/webhook', (req: express.Request, res: Response) => {
       if (req.method === 'POST') {
         res.status(200).send('OK');
       } else {
@@ -78,6 +78,7 @@ describe('AppController (e2e)', () => {
   });
 
   it('/webhook (POST) should handle Telegram webhook requests', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     return request(app.getHttpServer())
       .post('/webhook')
       .send({
@@ -104,6 +105,7 @@ describe('AppController (e2e)', () => {
   });
 
   it('/health (GET) should return 200 OK', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     return request(app.getHttpServer()).get('/health').expect(200).expect('OK');
   });
 });

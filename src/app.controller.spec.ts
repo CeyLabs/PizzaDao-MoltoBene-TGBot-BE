@@ -5,8 +5,8 @@ import { Context } from 'telegraf';
 
 describe('AppController', () => {
   let controller: AppController;
-  let appService: AppService;
-  let mockContext: Context;
+  let appService: jest.Mocked<AppService>;
+  let mockContext: Partial<Context>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -22,10 +22,26 @@ describe('AppController', () => {
     }).compile();
 
     controller = module.get<AppController>(AppController);
-    appService = module.get<AppService>(AppService);
+    appService = module.get<AppService>(AppService) as jest.Mocked<AppService>;
     mockContext = {
-      update: { update_id: 123 },
-    } as Context;
+      message: {
+        from: {
+          id: 123456,
+          is_bot: false,
+          first_name: 'Test',
+        },
+        text: '/help',
+        message_id: 1,
+        date: Math.floor(Date.now() / 1000),
+        chat: {
+          id: 1,
+          type: 'private',
+          first_name: 'Test',
+        },
+      },
+      reply: jest.fn().mockResolvedValue(undefined),
+      replyWithMarkdownV2: jest.fn().mockResolvedValue(undefined),
+    } as Partial<Context>;
   });
 
   it('should be defined', () => {
@@ -34,10 +50,11 @@ describe('AppController', () => {
 
   describe('helpCommand', () => {
     it('should call appService.handleHelpCommand', async () => {
-      await controller.helpCommand(mockContext);
+      const handleHelpCommand = jest.spyOn(appService, 'handleHelpCommand');
+      await controller.helpCommand(mockContext as Context);
 
-      expect(appService.handleHelpCommand).toHaveBeenCalledTimes(1);
-      expect(appService.handleHelpCommand).toHaveBeenCalledWith(mockContext);
+      expect(handleHelpCommand).toHaveBeenCalledTimes(1);
+      expect(handleHelpCommand).toHaveBeenCalledWith(mockContext);
     });
   });
 });

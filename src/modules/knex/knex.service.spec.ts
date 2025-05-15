@@ -14,10 +14,18 @@ describe('KnexService', () => {
     // Set up mocks
     mockKnexInstance = {
       destroy: jest.fn().mockResolvedValue(undefined),
+      client: {
+        pool: {
+          numFree: jest.fn().mockReturnValue(0),
+          numUsed: jest.fn().mockReturnValue(0),
+          numPendingAcquires: jest.fn().mockReturnValue(0),
+        },
+      },
     };
 
     mockKnex = knex as jest.MockedFunction<typeof knex>;
-    mockKnex.mockReturnValue(mockKnexInstance as Knex);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    mockKnex.mockReturnValue(mockKnexInstance as unknown as Knex);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [KnexService],
@@ -42,7 +50,7 @@ describe('KnexService', () => {
   describe('onModuleDestroy', () => {
     it('should destroy knex connection if it exists', async () => {
       // Set up the knex property
-      service.knex = mockKnexInstance as Knex;
+      service.knex = mockKnexInstance as unknown as Knex;
 
       await service.onModuleDestroy();
 

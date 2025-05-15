@@ -1,6 +1,15 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { Knex } from 'knex';
 import { KnexService } from './knex.service';
+
+interface KnexPool {
+  numFree: () => number;
+  numUsed: () => number;
+  numPendingAcquires: () => number;
+}
+
+interface KnexClient {
+  pool: KnexPool;
+}
 
 @Injectable()
 export class KnexConnectionManager implements OnModuleInit, OnModuleDestroy {
@@ -10,52 +19,64 @@ export class KnexConnectionManager implements OnModuleInit, OnModuleDestroy {
 
   constructor(private readonly knexService: KnexService) {}
 
-  onModuleInit() {
+  onModuleInit(): void {
     // Start the connection keep-alive mechanism
     this.startKeepAlive();
   }
 
-  private startKeepAlive() {
+  private startKeepAlive(): void {
     this.logger.log('Starting database connection keep-alive monitor');
-    
+
     // Clear any existing interval
     if (this.keepAliveInterval) {
       clearInterval(this.keepAliveInterval);
     }
-    
+
     // Set up a new interval to ping the database
-    this.keepAliveInterval = setInterval(async () => {
-      try {
-        // Simple query to keep the connection alive
-        await this.pingDatabase();
-        this.logger.debug('Database ping successful');
-      } catch (error) {
-        this.logger.error('Database ping failed', error);
-        // If ping fails, try to restart the connection
-        this.handleConnectionFailure();
-      }
+    this.keepAliveInterval = setInterval(() => {
+      void this.pingAndHandle();
     }, this.PING_INTERVAL);
+  }
+
+  private async pingAndHandle(): Promise<void> {
+    try {
+      // Simple query to keep the connection alive
+      await this.pingDatabase();
+      this.logger.debug('Database ping successful');
+    } catch (error) {
+      this.logger.error('Database ping failed', error);
+      // If ping fails, try to restart the connection
+      await this.handleConnectionFailure();
+    }
   }
 
   private async pingDatabase(): Promise<void> {
     await this.knexService.knex.raw('SELECT 1');
   }
 
-  private async handleConnectionFailure() {
+  private async handleConnectionFailure(): Promise<void> {
     this.logger.warn('Attempting to recover database connection');
-    
+
     try {
       // Get the current knex instance
       const knexInstance = this.knexService.knex;
-      
+
       // Check the pool status
-      const pool = knexInstance.client.pool;
-      
+      const client = knexInstance.client as unknown as KnexClient;
+      const pool = client.pool;
+
       if (pool) {
-        // Log pool statistics
-        this.logger.log(`Pool stats - Available: ${pool.numFree()}, Used: ${pool.numUsed()}, Pending: ${pool.numPendingAcquires()}`);
+        // Log pool statistics with type-safe operations
+        const numFree = typeof pool.numFree === 'function' ? pool.numFree() : 0;
+        const numUsed = typeof pool.numUsed === 'function' ? pool.numUsed() : 0;
+        const numPending =
+          typeof pool.numPendingAcquires === 'function' ? pool.numPendingAcquires() : 0;
+
+        this.logger.log(
+          `Pool stats - Available: ${numFree}, Used: ${numUsed}, Pending: ${numPending}`,
+        );
       }
-      
+
       // Force a new connection test
       await this.pingDatabase();
       this.logger.log('Connection recovery successful');
@@ -64,7 +85,7 @@ export class KnexConnectionManager implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async onModuleDestroy() {
+  onModuleDestroy(): void {
     // Clean up the keep-alive interval
     if (this.keepAliveInterval) {
       clearInterval(this.keepAliveInterval);
@@ -72,4 +93,4 @@ export class KnexConnectionManager implements OnModuleInit, OnModuleDestroy {
       this.logger.log('Database keep-alive monitor stopped');
     }
   }
-} 
+}

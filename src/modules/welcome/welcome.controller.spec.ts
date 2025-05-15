@@ -5,8 +5,8 @@ import { Context } from 'telegraf';
 
 describe('WelcomeController', () => {
   let controller: WelcomeController;
-  let welcomeService: WelcomeService;
-  let mockContext: Context;
+  let welcomeService: jest.Mocked<WelcomeService>;
+  let mockContext: Partial<Context>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -28,10 +28,26 @@ describe('WelcomeController', () => {
     }).compile();
 
     controller = module.get<WelcomeController>(WelcomeController);
-    welcomeService = module.get<WelcomeService>(WelcomeService);
+    welcomeService = module.get<WelcomeService>(WelcomeService) as jest.Mocked<WelcomeService>;
     mockContext = {
-      update: { update_id: 123 },
-    } as Context;
+      message: {
+        from: {
+          id: 123456,
+          is_bot: false,
+          first_name: 'Test',
+        },
+        text: '/start',
+        message_id: 1,
+        date: Math.floor(Date.now() / 1000),
+        chat: {
+          id: 1,
+          type: 'private',
+          first_name: 'Test',
+        },
+      },
+      reply: jest.fn().mockResolvedValue(undefined),
+      replyWithMarkdownV2: jest.fn().mockResolvedValue(undefined),
+    } as Partial<Context>;
   });
 
   it('should be defined', () => {
@@ -40,64 +56,71 @@ describe('WelcomeController', () => {
 
   describe('startCommand', () => {
     it('should call welcomeService.handleStartCommand', async () => {
-      await controller.startCommand(mockContext);
+      const handleStartCommand = jest.spyOn(welcomeService, 'handleStartCommand');
+      await controller.startCommand(mockContext as Context);
 
-      expect(welcomeService.handleStartCommand).toHaveBeenCalledTimes(1);
-      expect(welcomeService.handleStartCommand).toHaveBeenCalledWith(mockContext);
+      expect(handleStartCommand).toHaveBeenCalledTimes(1);
+      expect(handleStartCommand).toHaveBeenCalledWith(mockContext);
     });
   });
 
   describe('handleProfileCommand', () => {
     it('should call welcomeService.handleProfile', async () => {
-      await controller.handleProfileCommand(mockContext);
+      const handleProfile = jest.spyOn(welcomeService, 'handleProfile');
+      await controller.handleProfileCommand(mockContext as Context);
 
-      expect(welcomeService.handleProfile).toHaveBeenCalledTimes(1);
-      expect(welcomeService.handleProfile).toHaveBeenCalledWith(mockContext);
+      expect(handleProfile).toHaveBeenCalledTimes(1);
+      expect(handleProfile).toHaveBeenCalledWith(mockContext);
     });
   });
 
   describe('handleUserRegistration', () => {
     it('should call welcomeService.handleUserRegistration', async () => {
-      await controller.handleUserRegistration(mockContext);
+      const handleUserRegistration = jest.spyOn(welcomeService, 'handleUserRegistration');
+      await controller.handleUserRegistration(mockContext as Context);
 
-      expect(welcomeService.handleUserRegistration).toHaveBeenCalledTimes(1);
-      expect(welcomeService.handleUserRegistration).toHaveBeenCalledWith(mockContext);
+      expect(handleUserRegistration).toHaveBeenCalledTimes(1);
+      expect(handleUserRegistration).toHaveBeenCalledWith(mockContext);
     });
   });
 
   describe('handleNewMember', () => {
     it('should call welcomeService.handleNewMember', async () => {
-      await controller.handleNewMember(mockContext);
+      const handleNewMember = jest.spyOn(welcomeService, 'handleNewMember');
+      await controller.handleNewMember(mockContext as Context);
 
-      expect(welcomeService.handleNewMember).toHaveBeenCalledTimes(1);
-      expect(welcomeService.handleNewMember).toHaveBeenCalledWith(mockContext);
+      expect(handleNewMember).toHaveBeenCalledTimes(1);
+      expect(handleNewMember).toHaveBeenCalledWith(mockContext);
     });
   });
 
   describe('handleCallbackQuery', () => {
     it('should call welcomeService.handleCallbackQuery', async () => {
-      await controller.handleCallbackQuery(mockContext);
+      const handleCallbackQuery = jest.spyOn(welcomeService, 'handleCallbackQuery');
+      await controller.handleCallbackQuery(mockContext as Context);
 
-      expect(welcomeService.handleCallbackQuery).toHaveBeenCalledTimes(1);
-      expect(welcomeService.handleCallbackQuery).toHaveBeenCalledWith(mockContext);
+      expect(handleCallbackQuery).toHaveBeenCalledTimes(1);
+      expect(handleCallbackQuery).toHaveBeenCalledWith(mockContext);
     });
   });
 
   describe('handlePrivateChat', () => {
     it('should call welcomeService.handlePrivateChat', async () => {
-      await controller.handlePrivateChat(mockContext);
+      const handlePrivateChat = jest.spyOn(welcomeService, 'handlePrivateChat');
+      await controller.handlePrivateChat(mockContext as Context);
 
-      expect(welcomeService.handlePrivateChat).toHaveBeenCalledTimes(1);
-      expect(welcomeService.handlePrivateChat).toHaveBeenCalledWith(mockContext);
+      expect(handlePrivateChat).toHaveBeenCalledTimes(1);
+      expect(handlePrivateChat).toHaveBeenCalledWith(mockContext);
     });
   });
 
   describe('handleLeftChatMember', () => {
     it('should call welcomeService.handleLeftChatMember', async () => {
-      await controller.handleLeftChatMember(mockContext);
+      const handleLeftChatMember = jest.spyOn(welcomeService, 'handleLeftChatMember');
+      await controller.handleLeftChatMember(mockContext as Context);
 
-      expect(welcomeService.handleLeftChatMember).toHaveBeenCalledTimes(1);
-      expect(welcomeService.handleLeftChatMember).toHaveBeenCalledWith(mockContext);
+      expect(handleLeftChatMember).toHaveBeenCalledTimes(1);
+      expect(handleLeftChatMember).toHaveBeenCalledWith(mockContext);
     });
   });
 });
