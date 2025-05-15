@@ -798,7 +798,13 @@ export class WelcomeService {
     pizzaTopping: string,
     mafiaMovie: string,
     existingPizzaName?: string,
+    attempt: number = 1,
   ): Promise<string | null> {
+    if (attempt > 5) {
+      console.warn('Exceeded maximum attempts to generate a unique pizza name.');
+      return null; // Return null if the recursion limit is reached
+    }
+
     const prompt = `Come up with a fun and creative pizza name by combining the topping "${pizzaTopping}" with a last name of a cast member from the mafia movie "${mafiaMovie}". Randomize the chosen character from this number ${new Date().getTime()}. Use the topping as the first name and the last name of a cast member from the movie as the surname. Make it sound like a quirky mafia-style name.${
       existingPizzaName ? ` Avoid using the existing pizza name "${existingPizzaName}".` : ''
     } Just output the name without quotes.`;
@@ -821,7 +827,7 @@ export class WelcomeService {
       }
 
       if (isPizzaNameExists) {
-        return this.generatePizzaName(pizzaTopping, mafiaMovie, generatedPizzaName);
+        return this.generatePizzaName(pizzaTopping, mafiaMovie, generatedPizzaName, attempt + 1);
       }
 
       return generatedPizzaName;
@@ -846,10 +852,13 @@ export class WelcomeService {
       return;
     }
 
+    const generatingMessage = await ctx.reply('🤖 Generating your pizza name...');
+
     // Generate the pizza name
     const pizzaName = await this.generatePizzaName(pizza_topping, mafia_movie);
 
     if (!pizzaName) {
+      await ctx.telegram.deleteMessage(ctx.chat?.id || 0, generatingMessage.message_id);
       await ctx.reply(
         '❌ Failed to generate a unique pizza name. Please try again with another topping or mafia movie.',
       );
@@ -867,6 +876,7 @@ export class WelcomeService {
     userData.pizza_name = pizzaName;
 
     // Send the pizza name message
+    await ctx.telegram.deleteMessage(ctx.chat?.id || 0, generatingMessage.message_id);
     const message = await ctx.reply(
       `🍕 Here's your AI-generated Pizza Name by Molto Benne:\n\n` + `Pizza Name: *${pizzaName}*`,
       {
