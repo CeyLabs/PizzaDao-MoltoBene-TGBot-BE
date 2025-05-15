@@ -38,4 +38,13 @@ export class UserService {
   async getAllRegions(): Promise<{ id: string; name: string }[]> {
     return this.knexService.knex('region').select('id', 'name');
   }
+
+  async isPizzaNameExists(pizzaName: string): Promise<boolean> {
+    const existingPizzaName: IUser | undefined = await this.knexService
+      .knex<IUser>('user')
+      .where('pizza_name', pizzaName)
+      .first();
+
+    return !!existingPizzaName;
+  }
 }

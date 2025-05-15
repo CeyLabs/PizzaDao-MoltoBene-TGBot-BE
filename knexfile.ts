@@ -50,7 +50,7 @@ const config: { [key: string]: Knex.Config } = {
       user: process.env.PG_USER,
       password: process.env.PG_PW,
       // Enable SSL for production
-      ssl: { rejectUnauthorized: false },
+      ssl: false,
       keepAlive: true,
       // Connection validation timeout
       statement_timeout: 60000, // 1 minute

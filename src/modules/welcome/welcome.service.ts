@@ -8,7 +8,6 @@ import { MembershipService } from '../membership/membership.service';
 import { IUser } from '../user/user.interface';
 import { IUserRegistrationData } from './welcome.interface';
 import OpenAI from 'openai';
-import { randomBytes } from 'crypto';
 
 @Update()
 @Injectable()
@@ -799,8 +798,14 @@ export class WelcomeService {
   }
 
   // Method to call ChatGPT API
-  private async generatePizzaName(pizzaTopping: string, mafiaMovie: string): Promise<string> {
-    const prompt = `Come up with a fun and creative pizza name by combining the topping "${pizzaTopping}" with a last name of a cast member from the mafia movie "${mafiaMovie}". Randomize the chosen character from this number ${new Date().getTime()}. Use the topping as the first name and the last name of a cast member from the movie as the surname. Make it sound like a quirky mafia-style name. Just output the name without quotes.`;
+  private async generatePizzaName(
+    pizzaTopping: string,
+    mafiaMovie: string,
+    existingPizzaName?: string,
+  ): Promise<string | null> {
+    const prompt = `Come up with a fun and creative pizza name by combining the topping "${pizzaTopping}" with a last name of a cast member from the mafia movie "${mafiaMovie}". Randomize the chosen character from this number ${new Date().getTime()}. Use the topping as the first name and the last name of a cast member from the movie as the surname. Make it sound like a quirky mafia-style name.${
+      existingPizzaName ? ` Avoid using the existing pizza name "${existingPizzaName}".` : ''
+    } Just output the name without quotes.`;
 
     try {
       const response = await this.openAi.chat.completions.create({
@@ -810,7 +815,20 @@ export class WelcomeService {
         max_tokens: 50,
       });
 
-      return response.choices[0]?.message?.content?.trim() || 'Unknown Pizza Name';
+      const generatedPizzaName =
+        response.choices[0]?.message?.content?.trim() || 'Unknown Pizza Name';
+
+      const isPizzaNameExists = await this.userService.isPizzaNameExists(generatedPizzaName);
+
+      if (isPizzaNameExists && existingPizzaName === generatedPizzaName) {
+        return null;
+      }
+
+      if (isPizzaNameExists) {
+        return this.generatePizzaName(pizzaTopping, mafiaMovie, generatedPizzaName);
+      }
+
+      return generatedPizzaName;
     } catch (error) {
       console.error('Error generating pizza name:', error);
       return 'Unknown Pizza Name';
@@ -835,6 +853,20 @@ export class WelcomeService {
     // Generate the pizza name
     const pizzaName = await this.generatePizzaName(pizza_topping, mafia_movie);
 
+    if (!pizzaName) {
+      await ctx.reply(
+        '❌ Failed to generate a unique pizza name. Please try again with another topping or mafia movie.',
+      );
+      this.userSteps.set(userId, 'pizza_topping');
+      await ctx.reply('🍕 What is your favorite pizza topping?', {
+        reply_markup: {
+          force_reply: true,
+        },
+        parse_mode: 'MarkdownV2',
+      });
+      return;
+    }
+
     // Save the pizza name in the user data
     userData.pizza_name = pizzaName;
 
@@ -854,6 +886,11 @@ export class WelcomeService {
     } catch (error) {
       console.error('Failed to pin the message:', error);
     }
+
+    // Delay the call to handleNinjaTurtleMessage by 3 seconds
+    setTimeout(() => {
+      void this.handleNinjaTurtleMessage(ctx);
+    }, 3000);
   }
 
   async handleRegionSelection(ctx: Context) {
@@ -993,11 +1030,6 @@ export class WelcomeService {
       }
 
       await this.handlePizzaNameGeneration(ctx);
-
-      // Delay the call to handleNinjaTurtleMessage by 3 seconds
-      setTimeout(() => {
-        void this.handleNinjaTurtleMessage(ctx);
-      }, 3000);
     }
   }
 }
