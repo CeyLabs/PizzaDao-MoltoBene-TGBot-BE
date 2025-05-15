@@ -6,7 +6,7 @@ import { KnexService } from '../knex/knex.service';
 export class MembershipService {
   constructor(private readonly knexService: KnexService) {}
 
-  async getCitiesByUser(userId: number): Promise<{ city_id: number; city_name: string }[]> {
+  async getCitiesByUser(userId: string): Promise<{ city_id: number; city_name: string }[]> {
     return this.knexService
       .knex('membership')
       .join('city', 'membership.city_id', 'city.id')
@@ -14,7 +14,7 @@ export class MembershipService {
       .where('membership.user_telegram_id', userId);
   }
 
-  async checkUserCityMembership(userId: string | number, cityId: string): Promise<boolean> {
+  async checkUserCityMembership(userId: string, cityId: string): Promise<boolean> {
     const participation = await this.knexService
       .knex<IMembership>('membership')
       .where('user_telegram_id', userId)
@@ -24,7 +24,10 @@ export class MembershipService {
     return !!participation;
   }
 
-  async addUserToCityMembership(userId: number, cityId: string): Promise<IMembership | undefined> {
+  async addUserToCityMembership(
+    userId: string | null,
+    cityId: string,
+  ): Promise<IMembership | undefined> {
     // Check if the user has already joined this city
     const existingParticipation = await this.knexService
       .knex<IMembership>('membership')

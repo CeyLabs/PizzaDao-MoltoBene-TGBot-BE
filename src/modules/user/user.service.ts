@@ -12,10 +12,14 @@ export class UserService {
     await this.knexService.knex<IUser>('user').insert(user);
   }
 
-  async isUserRegistered(telegramId: number): Promise<boolean> {
+  async isUserRegistered(userId: string | null): Promise<boolean> {
+    if (!userId) {
+      return false;
+    }
+
     const user: IUser | undefined = await this.knexService
       .knex<IUser>('user')
-      .where({ telegram_id: telegramId })
+      .where({ telegram_id: userId })
       .first();
     return !!user;
   }
@@ -24,11 +28,11 @@ export class UserService {
     return this.registeredUsers;
   }
 
-  async findUser(telegramId: number): Promise<IUser | undefined> {
-    return this.knexService.knex<IUser>('user').where({ telegram_id: telegramId }).first();
+  async findUser(userId: string): Promise<IUser | undefined> {
+    return this.knexService.knex<IUser>('user').where({ telegram_id: userId }).first();
   }
 
-  async updateUserField(telegram_id: number, field: string, value: string): Promise<void> {
+  async updateUserField(telegram_id: string, field: string, value: string): Promise<void> {
     await this.knexService
       .knex('user')
       .where({ telegram_id })

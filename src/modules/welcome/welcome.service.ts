@@ -8,6 +8,7 @@ import { MembershipService } from '../membership/membership.service';
 import { IUser } from '../user/user.interface';
 import { IUserRegistrationData } from './welcome.interface';
 import OpenAI from 'openai';
+import { getContextTelegramUserId } from 'src/utils/context';
 
 @Update()
 @Injectable()
@@ -25,12 +26,12 @@ export class WelcomeService {
     });
   }
 
-  private userSteps = new Map<number, number | string>();
-  private userGroupMap = new Map<number, IUserRegistrationData>();
+  private userSteps = new Map<string, number | string>();
+  private userGroupMap = new Map<string, IUserRegistrationData>();
 
   @Start()
   async handleStartCommand(ctx: Context) {
-    const userId = ctx.message?.from.id ?? ctx.from?.id ?? 0;
+    const userId = getContextTelegramUserId(ctx);
 
     // Check if the user came through a deep link
     const startPayload =
@@ -39,7 +40,7 @@ export class WelcomeService {
     if (startPayload && startPayload.startsWith('register_')) {
       const [, targetUserId, groupId] = startPayload.split('_');
 
-      if (userId.toString() !== targetUserId) {
+      if (userId !== targetUserId) {
         await ctx.reply('❌ You cannot verify for another user.');
         return;
       }
@@ -102,7 +103,6 @@ export class WelcomeService {
         discord_name: null,
         group_id: groupId,
         region_id: null,
-        role: 'user',
         mafia_movie: null,
         ninja_turtle_character: [],
         pizza_topping: null,
@@ -152,7 +152,7 @@ export class WelcomeService {
 
   @Command('profile')
   async handleProfile(ctx: Context) {
-    const userId = ctx.message?.from.id || ctx.callbackQuery?.from.id;
+    const userId = getContextTelegramUserId(ctx);
     if (!userId) return;
 
     const user = await this.userService.findUser(userId);
@@ -191,7 +191,7 @@ export class WelcomeService {
 
   @Command('register')
   async handleUserRegistration(ctx: Context) {
-    const userId = ctx.message?.from?.id ?? 0;
+    const userId = ctx.message?.from?.id.toString() ?? 0;
     if (!userId) return;
 
     if (await this.userService.isUserRegistered(userId)) {
@@ -223,21 +223,20 @@ export class WelcomeService {
 
     if (message?.new_chat_members) {
       for (const member of message.new_chat_members) {
-        if (await this.userService.isUserRegistered(member.id)) {
+        if (await this.userService.isUserRegistered(String(member.id))) {
           return;
         }
 
         // Store the group_id in userGroupMap
-        this.userGroupMap.set(member.id, {
+        this.userGroupMap.set(String(member.id), {
           group_id: chatId,
-          telegram_id: member.id,
+          telegram_id: String(member.id),
           username: member.username || null,
           tg_first_name: member.first_name || null,
           tg_last_name: member.last_name || null,
           pizza_name: null,
           discord_name: null,
           region_id: null,
-          role: 'user',
           mafia_movie: null,
           ninja_turtle_character: [],
           pizza_topping: null,
@@ -281,7 +280,7 @@ export class WelcomeService {
   async handleCallbackQuery(ctx: Context) {
     const callbackData =
       ctx.callbackQuery && 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : undefined;
-    const userId = ctx.callbackQuery?.from.id;
+    const userId = getContextTelegramUserId(ctx);
 
     if (!userId) return;
 
@@ -296,7 +295,6 @@ export class WelcomeService {
         pizza_name: null,
         discord_name: null,
         region_id: null,
-        role: 'user',
         mafia_movie: null,
         ninja_turtle_character: [],
         pizza_topping: null,
@@ -466,7 +464,7 @@ export class WelcomeService {
   }
 
   async handleUserRegister(ctx: Context) {
-    const userId = ctx.message?.from.id || ctx.callbackQuery?.from.id;
+    const userId = getContextTelegramUserId(ctx);
     if (!userId) return;
 
     const userData = this.userGroupMap.get(userId);
@@ -480,7 +478,6 @@ export class WelcomeService {
       tg_last_name: userData.tg_last_name,
       pizza_name: userData.pizza_name,
       discord_name: userData.discord_name,
-      role: userData.role,
       mafia_movie: userData.mafia_movie,
       ninja_turtle_character: userData.ninja_turtle_character,
       pizza_topping: userData.pizza_topping,
@@ -500,7 +497,7 @@ export class WelcomeService {
   }
 
   async handleNinjaTurtleMessage(ctx: Context) {
-    const userId = ctx.message?.from.id || ctx.callbackQuery?.from.id;
+    const userId = getContextTelegramUserId(ctx);
     if (!userId) return;
 
     // Retrieve user data
@@ -591,7 +588,7 @@ export class WelcomeService {
 
   // Handle Ninja Turtle selection
   async handleNinjaTurtleSelection(ctx: Context, callbackData: string) {
-    const userId = ctx.callbackQuery?.from.id;
+    const userId = getContextTelegramUserId(ctx);
     if (!userId) return;
 
     const userData = await this.populateUserData(userId);
@@ -690,7 +687,7 @@ export class WelcomeService {
 
   // Handle Ninja Turtle confirmation
   async handleNinjaTurtleConfirm(ctx: Context) {
-    const userId = ctx.callbackQuery?.from.id;
+    const userId = getContextTelegramUserId(ctx);
     if (!userId) return false;
 
     const userData = await this.populateUserData(userId);
@@ -728,7 +725,7 @@ export class WelcomeService {
       // Enable group permissions
       const groupId = userData.group_id;
       if (groupId) {
-        await ctx.telegram.restrictChatMember(groupId, userId, {
+        await ctx.telegram.restrictChatMember(groupId, Number(userId), {
           permissions: {
             can_send_messages: true,
             can_send_polls: true,
@@ -763,7 +760,7 @@ export class WelcomeService {
     }
   }
 
-  private async populateUserData(userId: number): Promise<IUserRegistrationData | null> {
+  private async populateUserData(userId: string): Promise<IUserRegistrationData | null> {
     // Check if the user is already in userGroupMap
     let userData = this.userGroupMap.get(userId);
 
@@ -785,7 +782,6 @@ export class WelcomeService {
         discord_name: user.discord_name,
         group_id: null, // Group ID is not relevant for updates
         region_id: null,
-        role: user.role,
         mafia_movie: user.mafia_movie,
         ninja_turtle_character: user.ninja_turtle_character || [],
         pizza_topping: user.pizza_topping,
@@ -802,7 +798,13 @@ export class WelcomeService {
     pizzaTopping: string,
     mafiaMovie: string,
     existingPizzaName?: string,
+    attempt: number = 1,
   ): Promise<string | null> {
+    if (attempt > 5) {
+      console.warn('Exceeded maximum attempts to generate a unique pizza name.');
+      return null; // Return null if the recursion limit is reached
+    }
+
     const prompt = `Come up with a fun and creative pizza name by combining the topping "${pizzaTopping}" with a last name of a cast member from the mafia movie "${mafiaMovie}". Randomize the chosen character from this number ${new Date().getTime()}. Use the topping as the first name and the last name of a cast member from the movie as the surname. Make it sound like a quirky mafia-style name.${
       existingPizzaName ? ` Avoid using the existing pizza name "${existingPizzaName}".` : ''
     } Just output the name without quotes.`;
@@ -825,7 +827,7 @@ export class WelcomeService {
       }
 
       if (isPizzaNameExists) {
-        return this.generatePizzaName(pizzaTopping, mafiaMovie, generatedPizzaName);
+        return this.generatePizzaName(pizzaTopping, mafiaMovie, generatedPizzaName, attempt + 1);
       }
 
       return generatedPizzaName;
@@ -837,7 +839,7 @@ export class WelcomeService {
 
   // Method to handle pizza name generation and save it
   async handlePizzaNameGeneration(ctx: Context) {
-    const userId = ctx.message?.from.id;
+    const userId = getContextTelegramUserId(ctx);
     if (!userId) return;
 
     const userData = this.userGroupMap.get(userId);
@@ -850,10 +852,13 @@ export class WelcomeService {
       return;
     }
 
+    const generatingMessage = await ctx.reply('🤖 Generating your pizza name...');
+
     // Generate the pizza name
     const pizzaName = await this.generatePizzaName(pizza_topping, mafia_movie);
 
     if (!pizzaName) {
+      await ctx.telegram.deleteMessage(ctx.chat?.id || 0, generatingMessage.message_id);
       await ctx.reply(
         '❌ Failed to generate a unique pizza name. Please try again with another topping or mafia movie.',
       );
@@ -871,6 +876,7 @@ export class WelcomeService {
     userData.pizza_name = pizzaName;
 
     // Send the pizza name message
+    await ctx.telegram.deleteMessage(ctx.chat?.id || 0, generatingMessage.message_id);
     const message = await ctx.reply(
       `🍕 Here's your AI-generated Pizza Name by Molto Benne:\n\n` + `Pizza Name: *${pizzaName}*`,
       {
@@ -958,7 +964,7 @@ export class WelcomeService {
 
   // Handle private chat messages
   async handlePrivateChat(ctx: Context) {
-    const userId = ctx.message?.from.id;
+    const userId = getContextTelegramUserId(ctx);
     if (!userId) return;
 
     const step = this.userSteps.get(userId);
@@ -966,7 +972,7 @@ export class WelcomeService {
 
     if (step && typeof step === 'string' && step.startsWith('edit_')) {
       const field = step.split('_').slice(1).join('_');
-      const newValue = 'text' in ctx.message ? ctx.message.text : null;
+      const newValue = 'text' in ctx.message! ? ctx.message.text : null;
 
       if (!newValue) {
         await ctx.reply('Invalid input. Please provide a valid value.');
@@ -984,7 +990,7 @@ export class WelcomeService {
     if (!userData) return;
 
     if (step === 'discord_pizza_name') {
-      if ('text' in ctx.message) {
+      if ('text' in ctx.message!) {
         userData.pizza_name = ctx.message.text;
       } else {
         await ctx.reply('Invalid input. Please provide a valid pizza name.');
@@ -999,7 +1005,7 @@ export class WelcomeService {
         parse_mode: 'MarkdownV2',
       });
     } else if (step === 'discord_username') {
-      if ('text' in ctx.message) {
+      if ('text' in ctx.message!) {
         userData.discord_name = ctx.message.text;
       } else {
         await ctx.reply('Invalid input. Please provide a valid Discord username.');
@@ -1008,7 +1014,7 @@ export class WelcomeService {
 
       await this.handleNinjaTurtleMessage(ctx);
     } else if (step === 'pizza_topping') {
-      if ('text' in ctx.message) {
+      if ('text' in ctx.message!) {
         userData.pizza_topping = ctx.message.text;
       } else {
         await ctx.reply('Invalid input. Please provide a valid name.');
@@ -1022,7 +1028,7 @@ export class WelcomeService {
         parse_mode: 'MarkdownV2',
       });
     } else if (step === 'enter_mafia_movie') {
-      if ('text' in ctx.message) {
+      if ('text' in ctx.message!) {
         userData.mafia_movie = ctx.message.text;
       } else {
         await ctx.reply('Invalid input. Please provide a valid topping name.');
