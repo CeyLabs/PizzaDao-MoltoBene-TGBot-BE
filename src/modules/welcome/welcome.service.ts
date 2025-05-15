@@ -899,6 +899,26 @@ export class WelcomeService {
     }, 3000);
   }
 
+  private async validateMafiaMovie(movieName: string): Promise<boolean> {
+    const prompt = `is ${movieName} a mafia movie, output only 'yes' or 'no'`;
+
+    try {
+      const response = await this.openAi.chat.completions.create({
+        model: 'gpt-4',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0,
+        max_tokens: 5,
+      });
+
+      const result = response.choices[0]?.message?.content?.trim().toLowerCase();
+
+      return result === 'yes';
+    } catch (error) {
+      console.error('Error validating mafia movie:', error);
+      return false;
+    }
+  }
+
   async handleRegionSelection(ctx: Context) {
     // Fetch regions from the database
     const regions = await this.userService.getAllRegions();
@@ -1029,13 +1049,31 @@ export class WelcomeService {
       });
     } else if (step === 'enter_mafia_movie') {
       if ('text' in ctx.message!) {
-        userData.mafia_movie = ctx.message.text;
+        const enteredMovie = ctx.message.text;
+
+        const isValidMafiaMovie = await this.validateMafiaMovie(enteredMovie);
+
+        if (!isValidMafiaMovie) {
+          await ctx.reply(
+            '❌ What you entered is not a mafia movie. Please choose something else.',
+          );
+          await ctx.reply('🎥 *What is your favorite Mafia movie?*', {
+            reply_markup: {
+              force_reply: true,
+            },
+            parse_mode: 'MarkdownV2',
+          });
+          return;
+        }
+
+        // If valid, save the movie and proceed
+        userData.mafia_movie = enteredMovie;
+
+        await this.handlePizzaNameGeneration(ctx);
       } else {
         await ctx.reply('Invalid input. Please provide a valid topping name.');
         return;
       }
-
-      await this.handlePizzaNameGeneration(ctx);
     }
   }
 }
