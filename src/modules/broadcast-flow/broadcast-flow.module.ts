@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { BroadcastFlowService } from './broadcast-flow.service';
-import { CityService } from '../city/city.service';
-import { UserService } from '../user/user.service';
+import { UserModule } from '../user/user.module';
+import { CityModule } from '../city/city.module';
 
 @Module({
-  providers: [BroadcastFlowService, CityService, UserService],
+  imports: [CityModule, UserModule],
+  providers: [BroadcastFlowService],
   exports: [BroadcastFlowService],
 })
 export class BroadcastFlowModule {}

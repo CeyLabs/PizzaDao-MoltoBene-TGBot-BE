@@ -10,10 +10,9 @@ import {
 import { helpMessage, welcomeMessage } from 'src/bot-commands';
 import { randomBytes } from 'crypto';
 import { UserService } from '../user/user.service';
-import { Action, Command, Ctx, Hears, On, Start, Update } from 'nestjs-telegraf';
+import { Action, Command, Ctx, Hears, On, Start } from 'nestjs-telegraf';
 
 @Injectable()
-@Update()
 export class BroadcastFlowService {
   private readonly userStates: Map<number, BroadcastState> = new Map();
   private readonly logger = new Logger(BroadcastFlowService.name);
@@ -45,18 +44,6 @@ export class BroadcastFlowService {
         content: '',
       },
     });
-  }
-
-  async showMainKeyboardAfterInlineQuery(ctx: Context) {
-    try {
-      // For inline query responses, we need to ensure we're sending a new message
-      await ctx.reply(
-        '✨ What would you like to do today? ✨',
-        Markup.keyboard([['🔊 Broadcast Message']]).resize(),
-      );
-    } catch (error) {
-      console.error('Error showing main keyboard:', error);
-    }
   }
 
   async showConfirmation(ctx: Context, message: BroadcastMessage) {
@@ -189,33 +176,63 @@ export class BroadcastFlowService {
     const userId: number | undefined = ctx.from?.id;
     if (!userId) return null;
 
+    this.logger.log(`City selection handler activated for user ${userId}, city: ${selectedCity}`);
+
+    // Check if user state exists and create it if not
+    if (!this.userStates.has(userId)) {
+      this.logger.log(`Creating new state for user ${userId}`);
+      this.userStates.set(userId, {
+        step: 'select_city',
+        message: {
+          scope: 'city',
+          content: '',
+        },
+      });
+    }
+
     const state = this.getSession(userId);
+    this.logger.log(`User ${userId} current state: ${JSON.stringify(state)}`);
+
+    // Ensure we're in the right flow state
+    state.step = 'select_city';
+    state.message.scope = 'city';
+
     const cityGroups = await this.getGroupsByCity(selectedCity);
 
-    if (!cityGroups) {
+    if (!cityGroups || cityGroups.length === 0) {
+      this.logger.error(`No groups found for city: ${selectedCity}`);
       await ctx.reply('❌ Invalid city selected. Please try again.');
       return null;
     }
 
+    this.logger.log(`Found ${cityGroups.length} groups for city: ${selectedCity}`);
     const group = cityGroups[0];
+    this.logger.log(`Selected group: ${JSON.stringify(group)}`);
 
     const isAdmin = await this.validateCityAdmin(selectedCity, userId.toString());
 
     if (!isAdmin) {
+      this.logger.warn(`User ${userId} is not authorized for city: ${selectedCity}`);
       await ctx.reply(`❌ You are not authorized to send messages to the ${selectedCity} group.`);
       return null;
     }
 
+    // Set the city and move to next state
     state.message.city = selectedCity;
     state.message.scope = 'city';
     state.step = 'collect_message';
 
+    this.logger.log(`Updated state for user ${userId}: ${JSON.stringify(state)}`);
+
+    // Send confirmation and prompt for message content
     await ctx.reply(
       `🏙️ *Selected city: ${selectedCity}*\n\nNow, let's collect your message details.`,
       { parse_mode: 'Markdown' },
     );
 
+    // Force this call to prompt for message content
     await this.promptForMessageContent(ctx);
+
     return Number(group.group_id);
   }
 
@@ -762,6 +779,8 @@ Ready to get started?
         ? ctx.message.text
         : '';
 
+    this.logger.log(`Text message from user ${userId}: "${text}", current state: ${state.step}`);
+
     // Skip processing if the text is a command
     if (typeof text === 'string' && text.startsWith('/')) {
       if (text === '/cancel') {
@@ -782,26 +801,33 @@ Ready to get started?
     // Process other text messages based on current step
     switch (state.step) {
       case 'collect_message':
+        this.logger.log(`Processing message content for user ${userId}`);
         if (typeof text === 'string') {
           state.message.content = text;
+          this.logger.log(`Set message content: ${text}`);
         } else {
-          Logger.warn('Invalid message content type received.');
+          this.logger.warn('Invalid message content type received.');
           await ctx.reply('❌ Invalid message content. Please try again.');
           return;
         }
         state.step = 'collect_place';
+        this.logger.log(`Moving to step: ${state.step}`);
         await this.promptForPlace(ctx);
         break;
 
       case 'collect_place':
+        this.logger.log(`Processing place for user ${userId}`);
         if (typeof text === 'string' && text.toLowerCase() !== 'skip') {
           state.message.place = text;
+          this.logger.log(`Set place: ${text}`);
         }
         state.step = 'collect_date';
+        this.logger.log(`Moving to step: ${state.step}`);
         await this.promptForDate(ctx);
         break;
 
       case 'collect_date':
+        this.logger.log(`Processing date for user ${userId}`);
         if (typeof text === 'string' && text.toLowerCase() !== 'skip') {
           if (!this.isValidDate(text)) {
             await ctx.reply(
@@ -817,12 +843,15 @@ Ready to get started?
             return;
           }
           state.message.date = text;
+          this.logger.log(`Set date: ${text}`);
         }
         state.step = 'collect_time';
+        this.logger.log(`Moving to step: ${state.step}`);
         await this.promptForTime(ctx);
         break;
 
       case 'collect_time':
+        this.logger.log(`Processing time for user ${userId}`);
         if (typeof text === 'string' && text.toLowerCase() !== 'skip') {
           if (!this.isValidTime(text)) {
             await ctx.reply(
@@ -837,17 +866,20 @@ Ready to get started?
             return;
           }
           state.message.time = text;
+          this.logger.log(`Set time: ${text}`);
         }
         state.step = 'collect_links';
+        this.logger.log(`Moving to step: ${state.step}`);
         await this.promptForLinks(ctx);
         break;
 
       case 'collect_links':
+        this.logger.log(`Processing links for user ${userId}`);
         if (
           typeof text !== 'string' ||
-          (!text.startsWith('http://') &&
-            !text.startsWith('https://') &&
-            text.toLowerCase() !== 'skip')
+          (text.toLowerCase() !== 'skip' &&
+            !text.startsWith('http://') &&
+            !text.startsWith('https://'))
         ) {
           await ctx.reply(
             '⚠️ Please enter a valid URL starting with http:// or https:// or type "skip"',
@@ -857,31 +889,38 @@ Ready to get started?
 
         if (text.toLowerCase() !== 'skip') {
           state.message.externalLinks = text;
+          this.logger.log(`Set external links: ${text}`);
         }
 
         state.step = 'ask_image';
+        this.logger.log(`Moving to step: ${state.step}`);
 
         await ctx.reply('🖼️ *Would you like to add an image to this message?*', {
           parse_mode: 'Markdown',
-          ...Markup.inlineKeyboard([
-            [
-              Markup.button.callback('✅ Yes', 'image_yes'),
-              Markup.button.callback('❌ No', 'image_no'),
+          reply_markup: {
+            inline_keyboard: [
+              [
+                Markup.button.callback('✅ Yes', 'image_yes'),
+                Markup.button.callback('❌ No', 'image_no'),
+              ],
+              [Markup.button.callback('❌ Cancel Broadcast', 'cancel_broadcast')],
             ],
-            [Markup.button.callback('❌ Cancel Broadcast', 'cancel_broadcast')],
-          ]),
+          },
         });
         break;
 
       case 'collect_button_text':
+        this.logger.log(`Processing button text for user ${userId}`);
         if (typeof text === 'string') {
           state.message.buttonText = text;
+          this.logger.log(`Set button text: ${text}`);
         } else {
-          Logger.warn('Invalid button text type received.');
+          this.logger.warn('Invalid button text type received.');
           await ctx.reply('❌ Invalid button text. Please try again.');
           return;
         }
         state.step = 'collect_button_url';
+        this.logger.log(`Moving to step: ${state.step}`);
         await this.showCancelOption(
           ctx,
           '🔗 *Enter the URL for the button:*\n\nThis should be a valid URL starting with http:// or https://',
@@ -890,6 +929,7 @@ Ready to get started?
         break;
 
       case 'collect_button_url':
+        this.logger.log(`Processing button URL for user ${userId}`);
         // Simple URL validation
         if (
           typeof text !== 'string' ||
@@ -900,7 +940,9 @@ Ready to get started?
         }
 
         state.message.buttonUrl = text;
+        this.logger.log(`Set button URL: ${text}`);
         state.step = 'confirmation';
+        this.logger.log(`Moving to step: ${state.step}`);
         await this.showConfirmation(ctx, state.message);
         break;
     }
@@ -1009,8 +1051,13 @@ Ready to get started?
         ]),
       });
     } else {
-      await ctx.reply('❌ Please send the image when prompted.');
-      return;
+      // If user sends a photo when not asked for one, show the main keyboard
+      await ctx.reply(
+        '❌ *Invalid step*\n\nPlease follow the prompts to send your broadcast message.',
+        {
+          parse_mode: 'Markdown',
+        },
+      );
     }
   }
 
@@ -1145,9 +1192,6 @@ Ready to get started?
     }
 
     state.step = 'completed';
-
-    // Show the main keyboard again
-    await this.showMainKeyboardAfterInlineQuery(ctx);
   }
 
   @Action('confirm_broadcast_pin')
@@ -1201,9 +1245,6 @@ Ready to get started?
     }
 
     state.step = 'completed';
-
-    // Show the main keyboard again
-    await this.showMainKeyboardAfterInlineQuery(ctx);
   }
 
   @Action('cancel_broadcast')
@@ -1217,9 +1258,6 @@ Ready to get started?
     await ctx.editMessageText('❌ *Broadcast canceled*\n\nYour broadcast has been canceled.', {
       parse_mode: 'Markdown',
     });
-
-    // Show the main keyboard again
-    await this.showMainKeyboardAfterInlineQuery(ctx);
   }
 
   // Additional handlers for command interactions

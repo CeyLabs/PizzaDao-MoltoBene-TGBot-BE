@@ -43,13 +43,14 @@ config();
       },
       inject: [ConfigService],
     }),
-    BroadcastFlowModule,
-    KnexModule,
+
+    CommonModule,
     UserModule,
     WelcomeModule,
+    BroadcastFlowModule,
+    KnexModule,
     CountryModule,
     CityModule,
-    CommonModule,
   ],
 
   controllers: [AppController],
