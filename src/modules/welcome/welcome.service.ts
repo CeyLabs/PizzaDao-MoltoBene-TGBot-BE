@@ -244,11 +244,13 @@ export class WelcomeService {
         });
 
         // Mute the user and send a verification message
-        await ctx.telegram.restrictChatMember(chatId, member.id, {
-          permissions: {
-            can_send_messages: false,
-          },
-        });
+        if (ctx.chat?.type === 'supergroup') {
+          await ctx.telegram.restrictChatMember(chatId, member.id, {
+            permissions: {
+              can_send_messages: false,
+            },
+          });
+        }
 
         const botUsername = process.env.BOT_USERNAME;
         const deepLink = `https://t.me/${botUsername}?start=register_${member.id}_${chatId}`;
