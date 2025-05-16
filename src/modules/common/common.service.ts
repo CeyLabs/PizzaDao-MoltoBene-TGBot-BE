@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Command, Help, On, Start, Update } from 'nestjs-telegraf';
+import { Command, Help, On, Start, Update, Action } from 'nestjs-telegraf';
 import { WelcomeService } from '../welcome/welcome.service';
 import { Context } from 'telegraf';
 import { BroadcastService } from '../broadcast/broadcast.service';
@@ -22,6 +22,12 @@ export class CommonService {
   @Command('broadcast')
   async handleBroadcast(ctx: Context) {
     await this.broadcastService.onBroadcast(ctx);
+  }
+
+  @Action('create_post')
+  async handleCreatePost(ctx: Context) {
+    this.logger.log('Create post action received');
+    await this.broadcastService.onCreatePost(ctx);
   }
 
   @Command('profile')
