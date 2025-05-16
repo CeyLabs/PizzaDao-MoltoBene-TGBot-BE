@@ -8,4 +8,5 @@ export interface IUser {
   mafia_movie: string | null;
   ninja_turtle_character: string[] | null;
   pizza_topping: string | null;
+  role?: string | null;
 }

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Context, Telegraf } from 'telegraf';
 import { CityService } from '../city/city.service';
 import { UserService } from '../user/user.service';
@@ -14,7 +14,23 @@ export class BroadcastService {
 
   @Command('broadcast')
   async onBroadcast(@Ctx() ctx: Context) {
-    await ctx.reply('Please select a city to broadcast the message:', {
+    // get telegram chat username
+    const user = ctx.from;
+    const userId = ctx.from?.id;
+    const username = user?.username;
+
+    if (!userId) {
+      await ctx.reply('User ID is undefined. Cannot determine user role.');
+      return;
+    }
+    const userRole = await this.userService.getUserRole(userId.toString());
+
+    if (userRole !== 'admin') {
+      await ctx.reply('❌ You do not have access to broadcast messages.');
+      return;
+    }
+
+    await ctx.reply(`${username} Please select a city to broadcast the message:`, {
       reply_markup: {
         inline_keyboard: [
           [
