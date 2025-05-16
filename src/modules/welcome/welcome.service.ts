@@ -485,7 +485,7 @@ export class WelcomeService {
     };
 
     await this.userService.addUser(newUser);
-    await this.sendUserDataToGoogleScript(newUser, 'add');
+    await this.sendUserDataToGoogleScript(newUser, 'create');
 
     const cityDetails = await this.cityService.getCityByGroupId(userData.group_id || '');
 
@@ -706,6 +706,12 @@ export class WelcomeService {
       // Update only the Ninja Turtle selection for existing users
       await this.userService.updateUserField(userId, 'ninja_turtle_character', formattedArray);
 
+      // Fetch the updated user data
+      const updatedUser = await this.userService.findUser(userId);
+      if (updatedUser) {
+        await this.sendUserDataToGoogleScript(updatedUser, 'update');
+      }
+
       // Acknowledge the confirmation
       await ctx.answerCbQuery('Your Ninja Turtle selection has been updated!');
       await ctx.deleteMessage();
@@ -798,14 +804,14 @@ export class WelcomeService {
   // Method to send user data to Google Apps Script
   private async sendUserDataToGoogleScript(
     userData: IUser | IUserRegistrationData,
-    action: 'add' | 'update',
+    action: 'create' | 'update',
   ) {
     const GOOGLE_APPS_SCRIPT_URL = process.env.GOOGLE_APPS_SCRIPT_URL!;
 
     try {
       await axios.post(GOOGLE_APPS_SCRIPT_URL, {
         action,
-        user: userData,
+        ...userData,
       });
     } catch (error) {
       console.error('Failed to sync user data with Google Apps Script:', error);
