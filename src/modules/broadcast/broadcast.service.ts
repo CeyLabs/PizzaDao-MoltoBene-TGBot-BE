@@ -14,7 +14,17 @@ export class BroadcastService {
 
   @Command('broadcast')
   async onBroadcast(@Ctx() ctx: Context) {
-    // send a greeting message
-    await ctx.reply('Welcome to the broadcast flow!');
+    await ctx.reply('Please select a city to broadcast the message:', {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: 'Create post',
+              callback_data: 'create_post',
+            },
+          ],
+        ],
+      },
+    });
   }
 }
