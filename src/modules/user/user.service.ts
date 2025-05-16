@@ -12,7 +12,7 @@ export class UserService {
     await this.knexService.knex<IUser>('user').insert(user);
   }
 
-  async getAllUsers(): Promise<any[]> {
+  async getAllUsers(): Promise<IUser[]> {
     return this.knexService.knex('user').select('*');
   }
 
