@@ -25,7 +25,7 @@ export class BroadcastService {
     }
     const userRole = await this.userService.getUserRole(userId.toString());
 
-    if (userRole !== 'admin') {
+    if (!userRole || !['admin', 'host', 'underboss'].includes(userRole)) {
       await ctx.reply('❌ You do not have access to broadcast messages.');
       return;
     }
