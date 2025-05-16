@@ -3,6 +3,7 @@ import { Context, Telegraf } from 'telegraf';
 import { CityService } from '../city/city.service';
 import { UserService } from '../user/user.service';
 import { Command, Ctx, InjectBot } from 'nestjs-telegraf';
+import { AccessService } from '../access/access.service';
 
 @Injectable()
 export class BroadcastService {
@@ -10,6 +11,7 @@ export class BroadcastService {
     @InjectBot() private bot: Telegraf<Context>,
     private readonly cityService: CityService,
     private readonly userService: UserService,
+    private readonly accessService: AccessService,
   ) {}
 
   @Command('broadcast')
@@ -23,7 +25,9 @@ export class BroadcastService {
       await ctx.reply('User ID is undefined. Cannot determine user role.');
       return;
     }
-    const userRole = await this.userService.getUserRole(userId.toString());
+    const userRole = await this.accessService.getRoleByTelegramId(userId.toString());
+
+    Logger.log(`User role for ${username}: ${userRole}`);
 
     if (!userRole || !['admin', 'host', 'underboss'].includes(userRole)) {
       await ctx.reply('❌ You do not have access to broadcast messages.');

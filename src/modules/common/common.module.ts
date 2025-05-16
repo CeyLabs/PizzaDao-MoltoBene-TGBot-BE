@@ -6,6 +6,7 @@ import { MembershipModule } from '../membership/membership.module';
 import { CommonService } from './common.service';
 import { BroadcastModule } from '../broadcast/broadcast.module';
 import { UserModule } from '../user/user.module';
+import { AccessModule } from '../access/access.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { UserModule } from '../user/user.module';
     CountryModule,
     CityModule,
     MembershipModule,
+    AccessModule,
     BroadcastModule,
     UserModule,
   ],
