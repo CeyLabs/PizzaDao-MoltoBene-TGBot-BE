@@ -807,9 +807,11 @@ export class WelcomeService {
     action: 'create' | 'update',
   ) {
     const GOOGLE_APPS_SCRIPT_URL = process.env.GOOGLE_APPS_SCRIPT_URL!;
+    const GOOGLE_APPS_AUTH_TOKEN = process.env.GOOGLE_APPS_AUTH_TOKEN!;
 
     try {
       await axios.post(GOOGLE_APPS_SCRIPT_URL, {
+        key: GOOGLE_APPS_AUTH_TOKEN,
         action,
         ...userData,
       });
