@@ -12,6 +12,10 @@ export class UserService {
     await this.knexService.knex<IUser>('user').insert(user);
   }
 
+  async getAllUsers(): Promise<any[]> {
+    return this.knexService.knex('user').select('*');
+  }
+
   async isUserRegistered(userId: string | null): Promise<boolean> {
     if (!userId) {
       return false;
