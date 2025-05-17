@@ -3,3 +3,9 @@ export interface IAccess {
   city_id: string;
   role: string;
 }
+
+export const USER_ROLE = {
+  HOST: 'host',
+  UNDERBOSS: 'underboss',
+  ADMIN: 'admin',
+};

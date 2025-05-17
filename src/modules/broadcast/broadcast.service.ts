@@ -4,6 +4,7 @@ import { CityService } from '../city/city.service';
 import { UserService } from '../user/user.service';
 import { Command, Ctx, InjectBot } from 'nestjs-telegraf';
 import { AccessService } from '../access/access.service';
+import { USER_ROLE } from '../access/access.interface';
 
 @Injectable()
 export class BroadcastService {
@@ -58,9 +59,9 @@ export class BroadcastService {
 
     const userRole = await this.accessService.getRoleByTelegramId(userId.toString());
 
-    if (userRole === 'host') {
+    if (userRole === USER_ROLE.HOST) {
       await ctx.reply('You\'re assigned as admin to **"Colombo Pizza DAO"** chat');
-    } else if (userRole === 'admin') {
+    } else if (userRole === USER_ROLE.ADMIN) {
       await ctx.reply(
         "You're assigned as **super admin** to all the **Pizza DAO chats.**\nSelect a Specific Group(s) to send the Broadcast Message",
         {
@@ -79,7 +80,7 @@ export class BroadcastService {
           },
         },
       );
-    } else if (userRole === 'underboss') {
+    } else if (userRole === USER_ROLE.UNDERBOSS) {
       await ctx.reply(
         "You're assigned as **Underboss** to all the **Asia Pizza DAO** chats.\nSelect a Specific Group(s) to send the Broadcast Message",
         {

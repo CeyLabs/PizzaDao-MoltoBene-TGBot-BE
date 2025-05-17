@@ -51,13 +51,4 @@ export class UserService {
 
     return !!existingPizzaName;
   }
-
-  async getUserRole(telegram_id: string): Promise<string | null> {
-    const user: IUser | undefined = await this.knexService
-      .knex<IUser>('user')
-      .where({ telegram_id })
-      .first();
-
-    return user && user.role !== undefined ? user.role : null;
-  }
 }

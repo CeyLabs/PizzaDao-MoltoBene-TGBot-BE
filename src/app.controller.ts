@@ -1,5 +1,4 @@
 import { Update } from 'nestjs-telegraf';
-import {} from 'telegraf';
 import { AppService } from './app.service';
 import { Controller } from '@nestjs/common';
 
