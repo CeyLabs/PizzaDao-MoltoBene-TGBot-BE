@@ -1,6 +1,6 @@
 import type { Knex } from 'knex';
 
-const tableName = 'access';
+const tableName = 'city_access';
 
 export async function up(knex: Knex): Promise<void> {
   await knex.schema.createTable(tableName, (table) => {
@@ -12,17 +12,10 @@ export async function up(knex: Knex): Promise<void> {
       .inTable('user')
       .onDelete('CASCADE');
     table.uuid('city_id').notNullable().references('id').inTable('city').onDelete('CASCADE');
-    table
-      .enu('role', ['admin', 'host', 'underboss'], {
-        useNative: true,
-        enumName: 'user_access_role',
-      })
-      .notNullable();
     table.timestamp('created_at').defaultTo(knex.fn.now());
   });
 }
 
 export async function down(knex: Knex): Promise<void> {
   await knex.schema.dropTableIfExists(tableName);
-  await knex.raw('DROP TYPE IF EXISTS user_access_role');
 }
