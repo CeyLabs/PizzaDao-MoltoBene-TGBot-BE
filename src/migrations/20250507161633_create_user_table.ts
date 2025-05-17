@@ -14,9 +14,6 @@ export async function up(knex: Knex): Promise<void> {
     table.specificType('ninja_turtle_character', 'text[]');
     table.string('pizza_topping');
     table.timestamps(true, true);
-
-    table.index('username', 'idx_username');
-    table.index('discord_name', 'idx_discord_name');
   });
 }
 
