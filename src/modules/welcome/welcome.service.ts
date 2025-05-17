@@ -9,6 +9,7 @@ import { IUser } from '../user/user.interface';
 import { IUserRegistrationData } from './welcome.interface';
 import OpenAI from 'openai';
 import { getContextTelegramUserId } from 'src/utils/context';
+import axios from 'axios';
 
 @Update()
 @Injectable()
@@ -243,11 +244,13 @@ export class WelcomeService {
         });
 
         // Mute the user and send a verification message
-        await ctx.telegram.restrictChatMember(chatId, member.id, {
-          permissions: {
-            can_send_messages: false,
-          },
-        });
+        if (ctx.chat?.type === 'supergroup') {
+          await ctx.telegram.restrictChatMember(chatId, member.id, {
+            permissions: {
+              can_send_messages: false,
+            },
+          });
+        }
 
         const botUsername = process.env.BOT_USERNAME;
         const deepLink = `https://t.me/${botUsername}?start=register_${member.id}_${chatId}`;
@@ -484,6 +487,7 @@ export class WelcomeService {
     };
 
     await this.userService.addUser(newUser);
+    await this.sendUserDataToGoogleScript(newUser, 'create');
 
     const cityDetails = await this.cityService.getCityByGroupId(userData.group_id || '');
 
@@ -704,6 +708,12 @@ export class WelcomeService {
       // Update only the Ninja Turtle selection for existing users
       await this.userService.updateUserField(userId, 'ninja_turtle_character', formattedArray);
 
+      // Fetch the updated user data
+      const updatedUser = await this.userService.findUser(userId);
+      if (updatedUser) {
+        await this.sendUserDataToGoogleScript(updatedUser, 'update');
+      }
+
       // Acknowledge the confirmation
       await ctx.answerCbQuery('Your Ninja Turtle selection has been updated!');
       await ctx.deleteMessage();
@@ -725,17 +735,19 @@ export class WelcomeService {
       // Enable group permissions
       const groupId = userData.group_id;
       if (groupId) {
-        await ctx.telegram.restrictChatMember(groupId, Number(userId), {
-          permissions: {
-            can_send_messages: true,
-            can_send_polls: true,
-            can_send_other_messages: true,
-            can_add_web_page_previews: true,
-            can_change_info: false,
-            can_invite_users: true,
-            can_pin_messages: false,
-          },
-        });
+        if (ctx.chat?.type === 'supergroup') {
+          await ctx.telegram.restrictChatMember(groupId, Number(userId), {
+            permissions: {
+              can_send_messages: true,
+              can_send_polls: true,
+              can_send_other_messages: true,
+              can_add_web_page_previews: true,
+              can_change_info: false,
+              can_invite_users: true,
+              can_pin_messages: false,
+            },
+          });
+        }
 
         const welcomeMessage = await ctx.telegram.sendMessage(
           groupId,
@@ -791,6 +803,25 @@ export class WelcomeService {
     }
 
     return userData;
+  }
+
+  // Method to send user data to Google Apps Script
+  private async sendUserDataToGoogleScript(
+    userData: IUser | IUserRegistrationData,
+    action: 'create' | 'update',
+  ) {
+    const GOOGLE_APPS_SCRIPT_URL = process.env.GOOGLE_APPS_SCRIPT_URL!;
+    const GOOGLE_APPS_AUTH_TOKEN = process.env.GOOGLE_APPS_AUTH_TOKEN!;
+
+    try {
+      await axios.post(GOOGLE_APPS_SCRIPT_URL, {
+        key: GOOGLE_APPS_AUTH_TOKEN,
+        action,
+        ...userData,
+      });
+    } catch (error) {
+      console.error('Failed to sync user data with Google Apps Script:', error);
+    }
   }
 
   // Method to call ChatGPT API
@@ -1020,6 +1051,12 @@ export class WelcomeService {
       }
 
       await this.userService.updateUserField(userId, field, newValue);
+
+      // Fetch the updated user data
+      const updatedUser = await this.userService.findUser(userId);
+      if (updatedUser) {
+        await this.sendUserDataToGoogleScript(updatedUser, 'update');
+      }
 
       this.userSteps.delete(userId);
 

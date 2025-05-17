@@ -59,13 +59,13 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Córdoba',
       country_id: countryMap['Argentina'],
-      group_id: null,
+      group_id: -4706786212,
       telegram_link: 'https://t.me/+oK58UluVeuFhZjgx',
     },
     {
       name: 'Entre Rios',
       country_id: countryMap['Argentina'],
-      group_id: null,
+      group_id: -4756690061,
       telegram_link: 'https://t.me/+kK8avIREGho1MWQ5',
     },
     {
@@ -77,14 +77,15 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Mendoza',
       country_id: countryMap['Argentina'],
-      group_id: null,
+      group_id: -4676652309,
       telegram_link: 'https://t.me/+aM2DNNqo31VkZTc5',
     },
     {
       name: 'Misiones',
       country_id: countryMap['Argentina'],
-      group_id: null,
+      group_id: -4611752323,
       telegram_link: 'https://t.me/+yISwTIJCl0QxYjcx',
+
     },
     // Armenia
     {
@@ -198,7 +199,7 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Calavi',
       country_id: countryMap['Benin'],
-      group_id: -2068296055,
+      group_id: -1002068296055,
       telegram_link: 'https://t.me/+NfSwNeX1R2Y1Yzdh',
     },
     // Bhutan
@@ -238,7 +239,7 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Belo Horizonte',
       country_id: countryMap['Brazil'],
-      group_id: null,
+      group_id: -4740933920,
       telegram_link: 'https://t.me/+MBnpRab-Wbw2MWI5',
     },
     {
@@ -280,7 +281,7 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Natal',
       country_id: countryMap['Brazil'],
-      group_id: null,
+      group_id: -4709921696,
       telegram_link: 'https://t.me/+_vMAWwbDaEZhYTRh',
     },
     {
@@ -298,7 +299,7 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Salvador Bahia',
       country_id: countryMap['Brazil'],
-      group_id: null,
+      group_id: -4648973538,
       telegram_link: 'https://t.me/+JRFX1SxqVTYzZDNh',
     },
     {
@@ -579,7 +580,7 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'San Jose',
       country_id: countryMap['Costa Rica'],
-      group_id: null,
+      group_id: -1002452959570,
       telegram_link: 'https://t.me/+BtFO1PRVtTs5Yjkx',
     },
     {
@@ -677,7 +678,7 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Portoviejo',
       country_id: countryMap['Ecuador'],
-      group_id: null,
+      group_id: -1002053014169,
       telegram_link: 'https://t.me/+HQXoPag4mUU1YzJh',
     },
     {
@@ -762,7 +763,7 @@ export async function seed(knex: Knex): Promise<void> {
       name: 'Nice',
       country_id: countryMap['France'],
       group_id: null,
-      telegram_link: 'https://t.me/+JOp3U9hir3oyYWNk',
+      telegram_link: null,
     },
     {
       name: 'Paris',
@@ -838,13 +839,13 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Guatemala City',
       country_id: countryMap['Guatemala'],
-      group_id: null,
+      group_id: -4661554508,
       telegram_link: 'https://t.me/+HqhltY2xBmliMWYx',
     },
     {
       name: 'Quetzaltenango',
       country_id: countryMap['Guatemala'],
-      group_id: null,
+      group_id: -4216294878,
       telegram_link: 'https://t.me/+hAke7dCDibU2YTQx',
     },
     {
@@ -1034,7 +1035,7 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Itanagar',
       country_id: countryMap['India'],
-      group_id: null,
+      group_id: -4684369747,
       telegram_link: 'https://t.me/+v3A7_ZMxadNjMGM9',
     },
     {
@@ -1202,13 +1203,13 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Shillong',
       country_id: countryMap['India'],
-      group_id: null,
+      group_id: -4656153771,
       telegram_link: 'https://t.me/+uiNkf1ksHwZiY2Q9',
     },
     {
       name: 'Solapur',
       country_id: countryMap['India'],
-      group_id: null,
+      group_id: -4720072569,
       telegram_link: 'https://t.me/+1JaXzazebNMzZDJl',
     },
     {
@@ -1370,7 +1371,7 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Kingston',
       country_id: countryMap['Jamaica'],
-      group_id: null,
+      group_id: -4727808353,
       telegram_link: 'https://t.me/+VAYYolGPAlE1YWNh',
     },
     // Japan
@@ -1683,7 +1684,7 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Biratnagar',
       country_id: countryMap['Nepal'],
-      group_id: null,
+      group_id: -4621493204,
       telegram_link: 'https://t.me/+AlE5Q0DFN0IzNjgx',
     },
     {
@@ -1803,7 +1804,7 @@ export async function seed(knex: Knex): Promise<void> {
       name: 'Bida',
       country_id: countryMap['Nigeria'],
       group_id: null,
-      telegram_link: 'https://t.me/+XMnmjhOfsrQyNDQ0',
+      telegram_link: null,
     },
     {
       name: 'Calabar',
@@ -2211,7 +2212,7 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Durban',
       country_id: countryMap['South Africa'],
-      group_id: -2103655881,
+      group_id: -1002103655881,
       telegram_link: 'https://t.me/+Lt7pM-oTAWdiMmUx',
     },
     {
@@ -2285,13 +2286,13 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Galle',
       country_id: countryMap['Sri Lanka'],
-      group_id: null,
+      group_id: -4289700732,
       telegram_link: 'https://t.me/+Y26Ba6VmwVQyNDYx',
     },
     {
       name: 'Kandy',
       country_id: countryMap['Sri Lanka'],
-      group_id: null,
+      group_id: -4751551223,
       telegram_link: 'https://t.me/+nIAH1LX6UW8zNWM5',
     },
     // Suriname
@@ -2355,7 +2356,7 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Papeete',
       country_id: countryMap['Tahití'],
-      group_id: null,
+      group_id: -1002533513518,
       telegram_link: 'https://t.me/+qMxQM8diAeBlOTI0',
     },
     // Taiwan
@@ -2414,7 +2415,7 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Lomé',
       country_id: countryMap['Togo'],
-      group_id: -2368962692,
+      group_id: -1002368962692,
       telegram_link: 'https://t.me/+SIk1s_i7r5kyZWVh',
     },
     // Tunisia
@@ -2460,7 +2461,7 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Montgomery',
       country_id: countryMap['USA AL'],
-      group_id: null,
+      group_id: -1002622509517,
       telegram_link: 'https://t.me/+2Uq2tmJtvuYwNzQx',
     },
     // USA AR
@@ -2545,7 +2546,7 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Boynton Beach',
       country_id: countryMap['USA FL'],
-      group_id: null,
+      group_id: -4758024552,
       telegram_link: 'https://t.me/+A7GFaaVvKz4zNDVh',
     },
     {
@@ -2657,7 +2658,7 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Boise',
       country_id: countryMap['USA ID'],
-      group_id: null,
+      group_id: -4250998386,
       telegram_link: 'https://t.me/+AzbmW_uM9mg3NGUx',
     },
     {
@@ -2966,7 +2967,7 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Salt Lake City',
       country_id: countryMap['USA UT'],
-      group_id: null,
+      group_id: -1002531566855,
       telegram_link: 'https://t.me/+WD_p-cvJKBQyNWQx',
     },
     // USA VA
@@ -3051,7 +3052,7 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Rivera',
       country_id: countryMap['Uruguay'],
-      group_id: null,
+      group_id: -4632417295,
       telegram_link: 'https://t.me/+AYWeAOWOGUViZDAx',
     },
     // Venezuela
@@ -3070,7 +3071,7 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Maracaibo',
       country_id: countryMap['Venezuela'],
-      group_id: null,
+      group_id: -4246298079,
       telegram_link: 'https://t.me/+9wnptRM4urE3OTIx',
     },
     {
@@ -3151,7 +3152,7 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Harare',
       country_id: countryMap['Zimbabwe'],
-      group_id: -2263622423,
+      group_id: -1002263622423,
       telegram_link: 'https://t.me/+i06gg9ln789kYTAx',
     },
   ]);
