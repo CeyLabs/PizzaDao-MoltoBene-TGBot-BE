@@ -13,7 +13,7 @@ export async function up(knex: Knex): Promise<void> {
       .onDelete('CASCADE');
     table.uuid('city_id').notNullable().references('id').inTable('city').onDelete('CASCADE');
     table
-      .enu('role', ['admin', 'host', 'underboss'], {
+      .enu('role', ['host', 'underboss'], { // `admin` is not included, its hardcoded in the code
         useNative: true,
         enumName: 'user_access_role',
       })
