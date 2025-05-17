@@ -10,6 +10,8 @@ export async function up(knex: Knex): Promise<void> {
     table.string('group_id').unique();
     table.string('telegram_link').unique();
     table.timestamps(true, true);
+
+    table.index('country_id', 'idx_city_country_id');
   });
 }
 

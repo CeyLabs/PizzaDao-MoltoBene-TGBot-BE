@@ -19,6 +19,9 @@ export async function up(knex: Knex): Promise<void> {
       })
       .notNullable();
     table.timestamp('created_at').defaultTo(knex.fn.now());
+
+    table.index('user_telegram_id', 'idx_user_telegram_id');
+    table.index('city_id', 'idx_city_id');
   });
 }
 
