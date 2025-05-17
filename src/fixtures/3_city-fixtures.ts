@@ -85,7 +85,6 @@ export async function seed(knex: Knex): Promise<void> {
       country_id: countryMap['Argentina'],
       group_id: -4611752323,
       telegram_link: 'https://t.me/+yISwTIJCl0QxYjcx',
-
     },
     // Armenia
     {
