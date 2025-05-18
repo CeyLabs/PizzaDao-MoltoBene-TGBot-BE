@@ -2268,7 +2268,7 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Galle',
       country_id: countryMap['Sri Lanka'],
-      group_id: -4289700732,
+      group_id: -4754189002,
       telegram_link: 'https://t.me/+Y26Ba6VmwVQyNDYx',
     },
     {
