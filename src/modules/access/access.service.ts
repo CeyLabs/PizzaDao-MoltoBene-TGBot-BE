@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { KnexService } from '../knex/knex.service';
-import { IAccess } from './access.interface';
 
 type CityData = {
   city_id: string;
@@ -28,31 +27,32 @@ type HostAccessResult = {
   city_data: CityData[];
 };
 
+type regionAccess = {
+  telegram_id: string;
+  region_id: string;
+};
+
 type AccessResult = RegionAccessResult[] | CountryAccessResult[] | HostAccessResult[] | 'no access';
 
 @Injectable()
 export class AccessService {
   constructor(private readonly knexService: KnexService) {}
 
-  // async getRoleByTelegramId(telegram_id: string): Promise<string | null> {
-  //   const access: IAccess | undefined = await this.knexService
-  //     .knex<IAccess>('access')
-  //     .where({ user_telegram_id: telegram_id })
-  //     .first();
-
-  //   return access ? access.role : null;
-  // }
-
   async getUserAccess(telegram_id: string): Promise<AccessResult> {
     // 1. Check region_access (role = underboss)
-    const regionAccess = await this.knexService
-      .knex('region_access')
+    const regionAccess: regionAccess | undefined = await this.knexService
+      .knex<regionAccess>('region_access')
       .where('user_telegram_id', telegram_id)
       .first();
 
     if (regionAccess) {
-      const region = await this.knexService
-        .knex('region')
+      interface Region {
+        id: string;
+        name: string;
+      }
+
+      const region: Region | undefined = await this.knexService
+        .knex<Region>('region')
         .where('id', regionAccess.region_id)
         .first();
 
@@ -60,9 +60,15 @@ export class AccessService {
         return 'no access';
       }
 
-      const countries = await this.knexService.knex('country').where('region_id', region.id);
+      interface Country {
+        id: string;
+      }
 
-      const countryIds = countries.map((c) => c.id);
+      const countries: Country[] = await this.knexService
+        .knex<Country>('country')
+        .where('region_id', region.id);
+
+      const countryIds = countries.map((c: Country) => c.id);
 
       const cities: CityData[] = await this.knexService
         .knex('city')
@@ -80,14 +86,23 @@ export class AccessService {
     }
 
     // 2. Check country_access
-    const countryAccess = await this.knexService
-      .knex('country_access')
+    interface CountryAccess {
+      country_id: string;
+    }
+
+    const countryAccess: CountryAccess | undefined = await this.knexService
+      .knex<CountryAccess>('country_access')
       .where('user_telegram_id', telegram_id)
       .first();
 
     if (countryAccess) {
-      const country = await this.knexService
-        .knex('country')
+      interface Country {
+        id: string;
+        name: string;
+      }
+
+      const country: Country | undefined = await this.knexService
+        .knex<Country>('country')
         .where('id', countryAccess.country_id)
         .first();
 
@@ -111,8 +126,13 @@ export class AccessService {
     }
 
     // 3. Host role: only return cities user has access to from city_access table
-    const userExists = await this.knexService
-      .knex('user')
+    interface User {
+      id: string;
+      telegram_id: string;
+    }
+
+    const userExists: User | undefined = await this.knexService
+      .knex<User>('user')
       .where('telegram_id', telegram_id)
       .first();
 
