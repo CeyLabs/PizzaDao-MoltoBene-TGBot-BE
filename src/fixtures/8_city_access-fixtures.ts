@@ -10,9 +10,7 @@ export async function seed(knex: Knex): Promise<void> {
     id: number;
     name: string;
   }
-  const city: ICity | undefined = await knex<ICity>('city')
-    .where({ name: 'Colombo' })
-    .first();
+  const city: ICity | undefined = await knex<ICity>('city').where({ name: 'Colombo' }).first();
 
   await knex(tableName).insert({
     user_telegram_id: '1558627049',
