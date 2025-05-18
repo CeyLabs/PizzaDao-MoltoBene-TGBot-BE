@@ -8,11 +8,20 @@ type CityData = {
   telegram_link: string | null;
 };
 
+type RegionData = {
+  country_id: string;
+  country_name: string;
+  city_id: string;
+  city_name: string;
+  group_id: string | null;
+  telegram_link: string | null;
+};
+
 type RegionAccessResult = {
   region_id: string;
   region_name: string;
   role: 'underboss';
-  city_data: CityData[];
+  region_data: RegionData[];
 };
 
 type CountryAccessResult = {
@@ -62,25 +71,41 @@ export class AccessService {
 
       interface Country {
         id: string;
+        name: string;
       }
 
+      // Fetch all countries in the region
       const countries: Country[] = await this.knexService
         .knex<Country>('country')
         .where('region_id', region.id);
 
-      const countryIds = countries.map((c: Country) => c.id);
+      // Loop through countries to get their cities and format the region data
+      const region_data: RegionData[] = [];
 
-      const cities: CityData[] = await this.knexService
-        .knex('city')
-        .whereIn('country_id', countryIds)
-        .select('id as city_id', 'name as city_name', 'group_id', 'telegram_link');
+      for (const country of countries) {
+        const cities: CityData[] = await this.knexService
+          .knex('city')
+          .where('country_id', country.id)
+          .select('id as city_id', 'name as city_name', 'group_id', 'telegram_link');
+
+        for (const city of cities) {
+          region_data.push({
+            country_id: country.id,
+            country_name: country.name,
+            city_id: city.city_id,
+            city_name: city.city_name,
+            group_id: city.group_id,
+            telegram_link: city.telegram_link,
+          });
+        }
+      }
 
       return [
         {
           region_id: region.id,
           region_name: region.name,
           role: 'underboss',
-          city_data: cities,
+          region_data,
         },
       ];
     }
