@@ -8,6 +8,9 @@ export async function up(knex: Knex): Promise<void> {
     table.string('name').notNullable();
     table.uuid('region_id').notNullable().references('id').inTable('region').onDelete('CASCADE');
     table.timestamps(true, true);
+
+    table.index('region_id', 'idx_country_region_id');
+    table.index('name', 'idx_country_name');
   });
 }
 

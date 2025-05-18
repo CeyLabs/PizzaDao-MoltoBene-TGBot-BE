@@ -13,6 +13,9 @@ export async function up(knex: Knex): Promise<void> {
       .onDelete('CASCADE');
     table.uuid('city_id').notNullable().references('id').inTable('city').onDelete('CASCADE');
     table.timestamp('joined_at').defaultTo(knex.fn.now());
+
+    table.index('user_telegram_id', 'idx_membership_user_telegram_id');
+    table.index('city_id', 'idx_membership_city_id');
   });
 }
 
