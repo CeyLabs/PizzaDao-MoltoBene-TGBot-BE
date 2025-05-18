@@ -98,6 +98,8 @@ export class BroadcastService {
     let message: string;
     let inline_keyboard: InlineKeyboardButton[][] = [];
 
+    await this.displayRichPostInterface(ctx, role);
+
     if (role === 'admin') {
       message = `*${username}*, You're assigned as *super admin* to all the Pizza DAO chats\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
       inline_keyboard = [
@@ -177,7 +179,48 @@ export class BroadcastService {
     }
   }
 
+  private async displayRichPostInterface(ctx: Context, role: string) {
+    try {
+      const formattedRole = `*${this.escapeMarkdown(role.charAt(0).toUpperCase() + role.slice(1))}*`;
+
+      const rawMessage = `Hello there ${formattedRole} 👋
+Here you can create rich posts, set Variables and Invite new Admins
+
+Current Variables:
+- City: Galle
+- Country: Sri Lanka
+- Date: 22nd May 2025
+- Start Time: 06:00 PM
+- End Time: 09:00 PM
+- Venue: Pizza Den
+- Venue Link: https://t.co/sSsfnwwhAd
+- Unlock Link: https://app.unlock-protocol.com/event/global-pizza-party-kandy-1
+- X Post: https://x.com/pizzadao/fsda
+- Admins: @naveensavishka`;
+
+      const escapedMessage = this.escapeMarkdown(rawMessage);
+
+      const inline_keyboard: InlineKeyboardButton[][] = [
+        [
+          { text: 'Create Post', callback_data: 'create_post' },
+          { text: 'Update Variables', callback_data: 'update_variables' },
+        ],
+        [{ text: 'Invite new Admin', callback_data: 'invite_admin' }],
+      ];
+
+      await ctx.reply(escapedMessage, {
+        parse_mode: 'MarkdownV2',
+        reply_markup: {
+          inline_keyboard,
+        },
+      });
+    } catch (error) {
+      this.logger.error('Error displaying rich post interface:', error);
+      await ctx.reply('❌ Failed to display post creation interface.');
+    }
+  }
+
   private escapeMarkdown(text: string): string {
-    return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+    return text.replace(/([\\`>#+\-=|{}.!])/g, '\\$1');
   }
 }
