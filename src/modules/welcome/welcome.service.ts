@@ -375,6 +375,24 @@ export class WelcomeService {
       await ctx.replyWithMarkdownV2(
         `✅ You have successfully registered in the *${cityDetails.name}* city\\!`,
       );
+
+      // Enable group permissions
+      if (groupId) {
+        // Check if the groupId represents a supergroup (starts with "-100")
+        if (typeof groupId === 'string' && groupId.startsWith('-100')) {
+          await ctx.telegram.restrictChatMember(groupId, Number(userId), {
+            permissions: {
+              can_send_messages: true,
+              can_send_polls: true,
+              can_send_other_messages: true,
+              can_add_web_page_previews: true,
+              can_change_info: false,
+              can_invite_users: true,
+              can_pin_messages: false,
+            },
+          });
+        }
+      }
       return;
     }
 
