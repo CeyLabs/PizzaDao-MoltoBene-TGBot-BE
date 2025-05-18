@@ -2595,7 +2595,7 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Atlanta',
       country_id: countryMap['USA GA'],
-      group_id: -1001955545426,
+      group_id: -1001911439204,
       telegram_link: 'https://t.me/+bamsDW_7unBhYWUx',
     },
     {
@@ -2705,7 +2705,7 @@ export async function seed(knex: Knex): Promise<void> {
     {
       name: 'Portland ME',
       country_id: countryMap['USA ME'],
-      group_id: -1001825156130,
+      group_id: -1001706123313,
       telegram_link: 'https://t.me/+uPXnn4hhcRQ2NzZh',
     },
     // USA MI
