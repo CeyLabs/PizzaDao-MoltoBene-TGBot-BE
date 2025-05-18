@@ -4,6 +4,19 @@ import { Command, Ctx, InjectBot } from 'nestjs-telegraf';
 import { AccessService } from '../access/access.service';
 import { InlineKeyboardButton } from 'telegraf/typings/core/types/typegram';
 
+interface UserAccess {
+  role: string;
+  city_data?: { city_name: string }[];
+  region_name?: string;
+}
+
+interface UserAccessInfo {
+  userAccess: UserAccess[] | 'no access';
+  role: string;
+  username: string;
+  userId: number | undefined;
+}
+
 @Injectable()
 export class BroadcastService {
   private readonly HARDCODED_ADMIN_ID = 123456789;
@@ -49,12 +62,20 @@ export class BroadcastService {
         return;
       }
 
+      // Handle create post button
+      if (callbackData === 'create_post') {
+        await this.showBroadcastSelectionUI(ctx);
+        return;
+      }
+
       await ctx.answerCbQuery();
     });
   }
 
-  @Command('broadcast')
-  async onBroadcast(@Ctx() ctx: Context) {
+  /**
+   * Get user access information
+   */
+  private async getUserAccessInfo(ctx: Context): Promise<UserAccessInfo | null> {
     const user = ctx.from;
     const userId = user?.id;
     const username = user?.username || 'User';
@@ -63,13 +84,7 @@ export class BroadcastService {
       await ctx.reply('User ID is undefined\\. Cannot determine user role\\.', {
         parse_mode: 'MarkdownV2',
       });
-      return;
-    }
-
-    interface UserAccess {
-      role: string;
-      city_data?: { city_name: string }[];
-      region_name?: string;
+      return null;
     }
 
     let userAccess: UserAccess[] | 'no access';
@@ -90,15 +105,34 @@ export class BroadcastService {
         await ctx.reply('❌ You do not have access to broadcast messages\\.', {
           parse_mode: 'MarkdownV2',
         });
-        return;
+        return null;
       }
       role = userAccess[0].role;
     }
 
+    return { userAccess, role, username, userId };
+  }
+
+  @Command('broadcast')
+  async onBroadcast(@Ctx() ctx: Context) {
+    const accessInfo = await this.getUserAccessInfo(ctx);
+    if (!accessInfo) return;
+
+    // Display rich post interface without broadcast UI
+    await this.displayRichPostInterface(ctx, accessInfo.role);
+  }
+
+  /**
+   * Shows the broadcast selection UI based on user role
+   */
+  private async showBroadcastSelectionUI(ctx: Context) {
+    const accessInfo = await this.getUserAccessInfo(ctx);
+    if (!accessInfo) return;
+
+    const { userAccess, role, username } = accessInfo;
+
     let message: string;
     let inline_keyboard: InlineKeyboardButton[][] = [];
-
-    await this.displayRichPostInterface(ctx, role);
 
     if (role === 'admin') {
       message = `*${username}*, You're assigned as *super admin* to all the Pizza DAO chats\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
@@ -113,7 +147,8 @@ export class BroadcastService {
         ],
       ];
     } else if (role === 'underboss') {
-      const regionName = userAccess[0].region_name || '';
+      const regionName =
+        Array.isArray(userAccess) && userAccess[0]?.region_name ? userAccess[0].region_name : '';
       message = `*${username}*, You're assigned as *underboss* to all the *${this.escapeMarkdown(regionName)}* Pizza DAO chats\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
       inline_keyboard = [
         [
@@ -123,8 +158,9 @@ export class BroadcastService {
         [{ text: `All City Chats in ${regionName}`, callback_data: 'broadcast_all_region_cities' }],
       ];
     } else if (role === 'host') {
-      const cityName = userAccess[0].city_data?.[0]?.city_name || '';
-      message = `*${username}*, You're assigned as admin to *"${this.escapeMarkdown(cityName)} Pizza DAO"* chat\\. Select an option below
+      const cityName =
+        (Array.isArray(userAccess) && userAccess[0]?.city_data?.[0]?.city_name) ?? '';
+      message = `*${username}*, You're assigned as admin to *"${this.escapeMarkdown(cityName || 'Unknown City')} Pizza DAO"* chat\\. Select an option below
       \nSend me one or multiple messages you want to include in the post\\. It can be anything — a text, photo, video, even a sticker\\.`;
     } else {
       await ctx.reply('❌ You do not have access to broadcast messages\\.', {
