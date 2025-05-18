@@ -8,6 +8,7 @@ interface UserAccess {
   role: string;
   city_data?: { city_name: string }[];
   region_name?: string;
+  country_name?: string;
 }
 
 interface UserAccessInfo {
@@ -135,7 +136,7 @@ export class BroadcastService {
     let inline_keyboard: InlineKeyboardButton[][] = [];
 
     if (role === 'admin') {
-      message = `*${username}*, You're assigned as *super admin* to all the Pizza DAO chats\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
+      message = `*${username}*, You're assigned as *Super Admin* to all the Pizza DAO chats\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
       inline_keyboard = [
         [
           { text: '🌍 All City Chats', callback_data: 'broadcast_all_cities' },
@@ -149,7 +150,7 @@ export class BroadcastService {
     } else if (role === 'underboss') {
       const regionName =
         Array.isArray(userAccess) && userAccess[0]?.region_name ? userAccess[0].region_name : '';
-      message = `*${username}*, You're assigned as *underboss* to all the *${this.escapeMarkdown(regionName)}* Pizza DAO chats\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
+      message = `*${username}*, You're assigned as *Underboss* to all the *${this.escapeMarkdown(regionName)}* Pizza DAO chats\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
       inline_keyboard = [
         [
           { text: '🏙️ Specific City', callback_data: 'broadcast_underboss_city' },
@@ -160,8 +161,23 @@ export class BroadcastService {
     } else if (role === 'host') {
       const cityName =
         (Array.isArray(userAccess) && userAccess[0]?.city_data?.[0]?.city_name) ?? '';
-      message = `*${username}*, You're assigned as admin to *"${this.escapeMarkdown(cityName || 'Unknown City')} Pizza DAO"* chat\\. Select an option below
+      message = `*${username}*, You're assigned as Host to *"${this.escapeMarkdown(cityName || 'Unknown City')} Pizza DAO"* chat\\. Select an option below
       \nSend me one or multiple messages you want to include in the post\\. It can be anything — a text, photo, video, even a sticker\\.`;
+    } else if (role === 'caporegime') {
+      const countryName = (Array.isArray(userAccess) && userAccess[0]?.country_name) ?? '';
+      message = `*${username}*, You're assigned as *Caporegime* to all the *${this.escapeMarkdown(countryName || 'Unknown Country')}* Pizza DAO chats\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
+      inline_keyboard = [
+        [
+          { text: '🏙️ Specific City', callback_data: 'broadcast_caporegime_city' },
+          { text: '🌐 Specific Country', callback_data: 'broadcast_caporegime_country' },
+        ],
+        [
+          {
+            text: `All City Chats in ${countryName}`,
+            callback_data: 'broadcast_all_caporegime_cities',
+          },
+        ],
+      ];
     } else {
       await ctx.reply('❌ You do not have access to broadcast messages\\.', {
         parse_mode: 'MarkdownV2',
@@ -187,6 +203,9 @@ export class BroadcastService {
         broadcast_underboss_city: 'Underboss City',
         broadcast_underboss_country: 'Underboss Country',
         broadcast_all_region_cities: 'All Region Cities',
+        broadcast_caporegime_city: 'Caporegime City',
+        broadcast_caporegime_country: 'Caporegime Country',
+        broadcast_all_caporegime_cities: 'All Caporegime Cities',
       };
 
       const action = actionMap[callbackData] || 'Unknown action';
