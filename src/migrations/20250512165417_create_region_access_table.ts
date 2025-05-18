@@ -13,6 +13,10 @@ export async function up(knex: Knex): Promise<void> {
       .onDelete('CASCADE');
     table.uuid('region_id').notNullable().references('id').inTable('region').onDelete('CASCADE');
     table.timestamp('created_at').defaultTo(knex.fn.now());
+
+    table.index('user_telegram_id', 'idx_region_access_user_telegram_id');
+    table.index('region_id', 'idx_region_access_region_id');
+    table.index(['user_telegram_id', 'region_id'], 'idx_region_access_user_region');
   });
 }
 
