@@ -224,10 +224,6 @@ export class WelcomeService {
 
     if (message?.new_chat_members) {
       for (const member of message.new_chat_members) {
-        if (await this.userService.isUserRegistered(String(member.id))) {
-          return;
-        }
-
         // Store the group_id in userGroupMap
         this.userGroupMap.set(String(member.id), {
           group_id: chatId,
