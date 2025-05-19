@@ -1,6 +1,6 @@
 import type { Knex } from 'knex';
 
-const tableName = 'event_details';
+const tableName = 'event_detail';
 
 export async function up(knex: Knex): Promise<void> {
   await knex.schema.createTable(tableName, (table) => {
@@ -22,5 +22,6 @@ export async function up(knex: Knex): Promise<void> {
 }
 
 export async function down(knex: Knex): Promise<void> {
+  // Then drop the table
   await knex.schema.dropTableIfExists(tableName);
 }

@@ -53,8 +53,14 @@ const db = knex({
 function extractEventSlug(url: string): string | null {
     try {
         const urlObj = new URL(url);
-        const pathParts = urlObj.pathname.split('/');
-        return pathParts[pathParts.length - 1];
+        const pathParts = urlObj.pathname.split('/').filter(Boolean); // remove empty parts
+
+        const eventIndex = pathParts.indexOf('event');
+        if (eventIndex !== -1 && pathParts.length > eventIndex + 1) {
+            return pathParts[eventIndex + 1];
+        }
+
+        return pathParts[pathParts.length - 1] || null;
     } catch (error) {
         console.error('Invalid URL:', url);
         return null;
@@ -117,8 +123,16 @@ async function processCSVData(data: CSVRow[]): Promise<void> {
         const groupId = row['Group ID'].replace('#', '');
         if(!groupId) continue;
 
+        const existingCity = await db('city')
+            .where('group_id', groupId)
+            .first();
+        if(!existingCity) {
+            console.log(`WARN: City ${row['City']} not found in db, skipping...`);
+            continue;
+        }
+
         // Check if group_id already exists in the database
-        const existingEvent = await db('event_details')
+        const existingEvent = await db('event_detail')
             .where('group_id', groupId)
             .first();
         
@@ -126,7 +140,7 @@ async function processCSVData(data: CSVRow[]): Promise<void> {
         if (!eventSlug) continue;
 
         if (existingEvent) {
-            console.log(`Event ${eventSlug} already exists in db, skipping...`);
+            console.log(`WARN: Event ${eventSlug} already exists in db, skipping...`);
             continue;
         }
 
@@ -134,14 +148,14 @@ async function processCSVData(data: CSVRow[]): Promise<void> {
         if (!eventDetails) continue;
 
         if(!eventDetails.ticket.event_address || !eventDetails.ticket.event_location) {
-            console.log(`Event ${eventSlug} has no address or location, skipping...`);
+            console.log(`WARN: Event ${eventSlug} has no address or location, skipping...`);
             continue;
         }
 
         const year = new Date(eventDetails.ticket.event_start_date).getFullYear();
 
         try {
-            await db('event_details').insert({
+            await db('event_detail').insert({
                 group_id: groupId,
                 is_one_person: true,
                 name: eventDetails.name,
@@ -156,9 +170,9 @@ async function processCSVData(data: CSVRow[]): Promise<void> {
                 location: eventDetails.ticket.event_location,
                 year: year
             });
-            console.log(`Successfully inserted event: ${eventDetails.slug}`);
+            console.log(`OK: Successfully inserted event: ${eventDetails.slug}`);
         } catch (error) {
-            console.error(`Failed to insert event ${eventDetails.name}:`, error);
+            console.error(`ERR: Failed to insert event ${eventDetails.name}:`, error);
         }
     }
 }
