@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { KnexService } from '../knex/knex.service';
+import { ICityAccess, ICountryAccess, IRegionAccess } from './access.interface';
 
 type CityData = {
   city_id: string;
@@ -61,9 +62,51 @@ type AccessResult =
   | AdminAccessResult[]
   | 'no access';
 
+type Role = 'admin' | 'underboss' | 'caporegime' | 'host' | 'no access';
+
 @Injectable()
 export class AccessService {
   constructor(private readonly knexService: KnexService) {}
+
+  async getAccessRole(telegram_id: string): Promise<Role> {
+    const adminId = process.env.ADMIN_ID || '';
+
+    if (telegram_id === adminId) {
+      return 'admin';
+    }
+
+    // Check region_access for underboss role
+    const regionAccess = await this.knexService
+      .knex<IRegionAccess>('region_access')
+      .where('user_telegram_id', telegram_id)
+      .first();
+
+    if (regionAccess) {
+      return 'underboss';
+    }
+
+    // Check country_access for caporegime role
+    const countryAccess = await this.knexService
+      .knex<ICountryAccess>('country_access')
+      .where('user_telegram_id', telegram_id)
+      .first();
+
+    if (countryAccess) {
+      return 'caporegime';
+    }
+
+    // Check user table for host role
+    const cityAccess = await this.knexService
+      .knex<ICityAccess>('city_access')
+      .where('user_telegram_id', telegram_id)
+      .first();
+
+    if (cityAccess) {
+      return 'host';
+    }
+
+    return 'no access';
+  }
 
   async getUserAccess(telegram_id: string): Promise<AccessResult> {
     const adminId = process.env.ADMIN_ID || '';

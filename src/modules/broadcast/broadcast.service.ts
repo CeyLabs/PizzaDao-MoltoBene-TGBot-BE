@@ -62,11 +62,11 @@ export class BroadcastService {
 
   @Command('broadcast')
   async onBroadcast(@Ctx() ctx: Context) {
-    const accessInfo = await this.getUserAccessInfo(ctx);
-    if (!accessInfo) return;
+    const accessRole = await this.accessService.getAccessRole(String(ctx.from?.id));
+    if (!accessRole) return;
 
-    // Display rich post interface without broadcast UI
-    await this.displayRichPostInterface(ctx, accessInfo.role);
+    // show broadcast selection menu
+    await this.showBroadcastMenu(ctx, accessRole);
   }
 
   /**
@@ -218,7 +218,7 @@ export class BroadcastService {
     }
   }
 
-  private async displayRichPostInterface(ctx: Context, role: string) {
+  private async showBroadcastMenu(ctx: Context, role: string) {
     try {
       const formattedRole = `*${this.escapeMarkdown(role.charAt(0).toUpperCase() + role.slice(1))}*`;
 
