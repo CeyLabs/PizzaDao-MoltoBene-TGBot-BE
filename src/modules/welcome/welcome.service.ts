@@ -749,7 +749,7 @@ export class WelcomeService {
       // Enable group permissions
       const groupId = userData.group_id;
       if (groupId) {
-        if (ctx.chat?.type === 'supergroup') {
+        if (typeof groupId === 'string' && groupId.startsWith('-100')) {
           await ctx.telegram.restrictChatMember(groupId, Number(userId), {
             permissions: {
               can_send_messages: true,
