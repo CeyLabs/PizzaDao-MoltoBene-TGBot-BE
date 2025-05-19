@@ -220,9 +220,7 @@ export class BroadcastService {
 
   private async showBroadcastMenu(ctx: Context, role: string) {
     try {
-      const formattedRole = `*${this.escapeMarkdown(role.charAt(0).toUpperCase() + role.slice(1))}*`;
-
-      const rawMessage = `Hello there ${formattedRole} 👋
+      const rawMessage = `Hello there *${role.charAt(0).toUpperCase() + role.slice(1)}* 👋
 Here you can create rich posts, set Variables and Invite new Admins
 
 Current Variables:
@@ -237,20 +235,18 @@ Current Variables:
 - X Post: https://x.com/pizzadao/fsda
 - Admins: @naveensavishka`;
 
-      const escapedMessage = this.escapeMarkdown(rawMessage);
+      const formattedMessage = this.escapeMarkdown(rawMessage);
 
-      const inline_keyboard: InlineKeyboardButton[][] = [
-        [
-          { text: 'Create Post', callback_data: 'create_post' },
-          { text: 'Update Variables', callback_data: 'update_variables' },
-        ],
-        [{ text: 'Invite new Admin', callback_data: 'invite_admin' }],
-      ];
-
-      await ctx.reply(escapedMessage, {
+      await ctx.reply(formattedMessage, {
         parse_mode: 'MarkdownV2',
         reply_markup: {
-          inline_keyboard,
+          inline_keyboard: [
+            [
+              { text: 'Create Post', callback_data: 'create_post' },
+              { text: 'Update Variables', callback_data: 'update_variables' },
+            ],
+            [{ text: 'Invite new Admin', callback_data: 'invite_admin' }],
+          ],
         },
       });
     } catch (error) {
