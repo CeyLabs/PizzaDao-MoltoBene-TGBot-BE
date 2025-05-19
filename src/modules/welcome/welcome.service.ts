@@ -279,7 +279,6 @@ export class WelcomeService {
     }
   }
 
-  @On('callback_query')
   async handleCallbackQuery(ctx: Context) {
     const callbackData =
       ctx.callbackQuery && 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : undefined;

@@ -12,6 +12,7 @@ export class CommonService {
     private readonly welcomeService: WelcomeService,
     private readonly broadcastService: BroadcastService,
   ) {}
+
   @Help()
   async handleHelpCommand(ctx: Context) {
     await ctx.replyWithMarkdownV2(
@@ -29,5 +30,11 @@ export class CommonService {
   async handlePrivateChat(ctx: Context) {
     await this.welcomeService.handlePrivateChat(ctx);
     // await this.broadcastService.handlePrivateChat?.(ctx);
+  }
+
+  @On('callback_query')
+  async handleCallbackQuery(ctx: Context) {
+    await this.welcomeService.handleCallbackQuery(ctx);
+    await this.broadcastService.handleCallbackQuery?.(ctx);
   }
 }
