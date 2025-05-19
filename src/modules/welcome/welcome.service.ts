@@ -224,9 +224,16 @@ export class WelcomeService {
 
     if (message?.new_chat_members) {
       for (const member of message.new_chat_members) {
-        if (await this.userService.isUserRegistered(String(member.id))) {
-          return;
-        }
+        // Check if the city exists for the group id
+        const cityDetails = await this.cityService.getCityByGroupId(String(chatId));
+        if (!cityDetails) return;
+
+        // Check if the user already has a membership with the city
+        const hasMembership = await this.membershipService.checkUserCityMembership(
+          String(member.id),
+          cityDetails.id,
+        );
+        if (hasMembership) return;
 
         // Store the group_id in userGroupMap
         this.userGroupMap.set(String(member.id), {
@@ -379,6 +386,24 @@ export class WelcomeService {
       await ctx.replyWithMarkdownV2(
         `✅ You have successfully registered in the *${cityDetails.name}* city\\!`,
       );
+
+      // Enable group permissions
+      if (groupId) {
+        // Check if the groupId represents a supergroup (starts with "-100")
+        if (typeof groupId === 'string' && groupId.startsWith('-100')) {
+          await ctx.telegram.restrictChatMember(groupId, Number(userId), {
+            permissions: {
+              can_send_messages: true,
+              can_send_polls: true,
+              can_send_other_messages: true,
+              can_add_web_page_previews: true,
+              can_change_info: false,
+              can_invite_users: true,
+              can_pin_messages: false,
+            },
+          });
+        }
+      }
       return;
     }
 
@@ -735,7 +760,7 @@ export class WelcomeService {
       // Enable group permissions
       const groupId = userData.group_id;
       if (groupId) {
-        if (ctx.chat?.type === 'supergroup') {
+        if (typeof groupId === 'string' && groupId.startsWith('-100')) {
           await ctx.telegram.restrictChatMember(groupId, Number(userId), {
             permissions: {
               can_send_messages: true,
