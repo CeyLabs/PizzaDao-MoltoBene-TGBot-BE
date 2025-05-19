@@ -71,6 +71,18 @@ Current Variables:
     const callbackData =
       ctx.callbackQuery && 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : undefined;
 
+    // Handle create post button
+    if (callbackData === 'create_post') {
+      await this.handleCreatePost(ctx);
+      return;
+    }
+
+    // Handle broadcast buttons
+    if (callbackData?.startsWith('broadcast_')) {
+      await this.handleBroadcastSelection(ctx, callbackData);
+      return;
+    }
+
     // Handle host buttons
     if (
       callbackData === 'host_specific_city' ||
@@ -88,18 +100,6 @@ Current Variables:
       if (callbackData === 'host_create_post') {
         await this.onCreatePost(ctx);
       }
-      return;
-    }
-
-    // Handle broadcast buttons
-    if (callbackData?.startsWith('broadcast_')) {
-      await this.handleBroadcastSelection(ctx, callbackData);
-      return;
-    }
-
-    // Handle create post button
-    if (callbackData === 'create_post') {
-      await this.handleCreatePost(ctx);
       return;
     }
 
@@ -198,7 +198,6 @@ Current Variables:
           (Array.isArray(userAccess) && userAccess[0]?.city_data?.[0]?.city_name) || '';
         message = `You're assigned as Host to *"${escape(cityName || 'Unknown City')} Pizza DAO"* chat\\. Select an option below
 \nSend me one or multiple messages you want to include in the post\\. It can be anything — a text, photo, video, even a sticker\\.`;
-        // No inline_keyboard for host in your original code
         break;
       }
 
