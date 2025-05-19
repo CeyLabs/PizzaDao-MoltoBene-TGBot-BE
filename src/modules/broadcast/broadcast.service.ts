@@ -3,50 +3,7 @@ import { Context, Telegraf } from 'telegraf';
 import { Command, Ctx, InjectBot } from 'nestjs-telegraf';
 import { AccessService } from '../access/access.service';
 import { InlineKeyboardButton } from 'telegraf/typings/core/types/typegram';
-
-interface UserAccess {
-  role: string;
-  city_data?: { city_name: string }[];
-  region_name?: string;
-  country_name?: string;
-}
-
-interface AdminAccessResult {
-  role: 'admin';
-  city_data: {
-    city_id: string;
-    city_name: string;
-    group_id: string | null;
-    telegram_link: string | null;
-  }[];
-  region_data: {
-    region_id: string;
-    region_name: string;
-    country_id: string;
-    country_name: string;
-    city_id: string;
-    city_name: string;
-    group_id: string | null;
-    telegram_link: string | null;
-  }[];
-  country_data: {
-    country_id: string;
-    country_name: string;
-    city_data: {
-      city_id: string;
-      city_name: string;
-      group_id: string | null;
-      telegram_link: string | null;
-    }[];
-  }[];
-}
-
-interface UserAccessInfo {
-  userAccess: UserAccess[] | 'no access' | AdminAccessResult;
-  role: string;
-  username: string;
-  userId: number | undefined;
-}
+import { UserAccess, AdminAccessResult, UserAccessInfo } from './broadcast.type';
 
 @Injectable()
 export class BroadcastService {
@@ -103,6 +60,15 @@ export class BroadcastService {
     });
   }
 
+  @Command('broadcast')
+  async onBroadcast(@Ctx() ctx: Context) {
+    const accessInfo = await this.getUserAccessInfo(ctx);
+    if (!accessInfo) return;
+
+    // Display rich post interface without broadcast UI
+    await this.displayRichPostInterface(ctx, accessInfo.role);
+  }
+
   /**
    * Get user access information
    */
@@ -139,15 +105,6 @@ export class BroadcastService {
     }
 
     return { userAccess, role, username, userId };
-  }
-
-  @Command('broadcast')
-  async onBroadcast(@Ctx() ctx: Context) {
-    const accessInfo = await this.getUserAccessInfo(ctx);
-    if (!accessInfo) return;
-
-    // Display rich post interface without broadcast UI
-    await this.displayRichPostInterface(ctx, accessInfo.role);
   }
 
   /**
