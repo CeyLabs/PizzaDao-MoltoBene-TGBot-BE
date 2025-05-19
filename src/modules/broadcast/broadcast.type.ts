@@ -38,6 +38,5 @@ export interface AdminAccessResult {
 export interface UserAccessInfo {
   userAccess: UserAccess[] | 'no access' | AdminAccessResult;
   role: string;
-  username: string;
   userId: number | undefined;
 }

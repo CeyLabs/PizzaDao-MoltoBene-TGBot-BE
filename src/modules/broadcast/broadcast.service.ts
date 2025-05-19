@@ -18,6 +18,13 @@ export class BroadcastService {
     const accessRole = await this.accessService.getAccessRole(String(ctx.from?.id));
     if (!accessRole) return;
 
+    if (accessRole === 'no access') {
+      await ctx.reply('❌ You do not have access to broadcast messages\\.', {
+        parse_mode: 'MarkdownV2',
+      });
+      return;
+    }
+
     // show broadcast selection menu
     await this.showBroadcastMenu(ctx, accessRole);
   }
@@ -92,7 +99,7 @@ Current Variables:
 
     // Handle create post button
     if (callbackData === 'create_post') {
-      await this.showBroadcastSelectionUI(ctx);
+      await this.handleCreatePost(ctx);
       return;
     }
 
@@ -105,7 +112,6 @@ Current Variables:
   private async getUserAccessInfo(ctx: Context): Promise<UserAccessInfo | null> {
     const user = ctx.from;
     const userId = user?.id;
-    const username = user?.username || 'User';
 
     if (!userId) {
       await ctx.reply('User ID is undefined\\. Cannot determine user role\\.', {
@@ -134,78 +140,98 @@ Current Variables:
       role = userAccess[0].role;
     }
 
-    return { userAccess, role, username, userId };
+    return { userAccess, role, userId };
   }
 
   /**
-   * Shows the broadcast selection UI based on user role
+   * Handle the creation of a post
    */
-  private async showBroadcastSelectionUI(ctx: Context) {
+  private async handleCreatePost(ctx: Context) {
     const accessInfo = await this.getUserAccessInfo(ctx);
     if (!accessInfo) return;
 
-    const { userAccess, role, username } = accessInfo;
+    const { userAccess, role } = accessInfo;
+
+    await ctx.deleteMessage();
 
     let message: string;
     let inline_keyboard: InlineKeyboardButton[][] = [];
 
-    await ctx.deleteMessage();
+    const escape = (str: string) => this.escapeMarkdown(str);
 
-    if (role === 'admin') {
-      message = `You're assigned as *Super Admin* to all the Pizza DAO chats\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
-      inline_keyboard = [
-        [
-          { text: '🌍 All City Chats', callback_data: 'broadcast_all_cities' },
-          { text: '🏙️ Specific City', callback_data: 'broadcast_specific_city' },
-        ],
-        [
-          { text: '📍 Specific Region', callback_data: 'broadcast_specific_region' },
-          { text: '🌐 Specific Country', callback_data: 'broadcast_specific_country' },
-        ],
-      ];
-    } else if (role === 'underboss') {
-      const regionName =
-        Array.isArray(userAccess) && userAccess[0]?.region_name ? userAccess[0].region_name : '';
-      message = `*${username}*, You're assigned as *Underboss* to all the *${this.escapeMarkdown(regionName)}* Pizza DAO chats\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
-      inline_keyboard = [
-        [
-          { text: '🏙️ Specific City', callback_data: 'broadcast_underboss_city' },
-          { text: '🌐 Specific Country', callback_data: 'broadcast_underboss_country' },
-        ],
-        [{ text: `All City Chats in ${regionName}`, callback_data: 'broadcast_all_region_cities' }],
-      ];
-    } else if (role === 'host') {
-      const cityName =
-        (Array.isArray(userAccess) && userAccess[0]?.city_data?.[0]?.city_name) ?? '';
-      message = `You're assigned as Host to *"${this.escapeMarkdown(cityName || 'Unknown City')} Pizza DAO"* chat\\. Select an option below
-      \nSend me one or multiple messages you want to include in the post\\. It can be anything — a text, photo, video, even a sticker\\.`;
-    } else if (role === 'caporegime') {
-      const countryName = (Array.isArray(userAccess) && userAccess[0]?.country_name) ?? '';
-      message = `You're assigned as *Caporegime* to all the *${this.escapeMarkdown(countryName || 'Unknown Country')}* Pizza DAO chats\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
-      inline_keyboard = [
-        [
-          { text: '🏙️ Specific City', callback_data: 'broadcast_caporegime_city' },
-          { text: '🌐 Specific Country', callback_data: 'broadcast_caporegime_country' },
-        ],
-        [
-          {
-            text: `All City Chats in ${countryName}`,
-            callback_data: 'broadcast_all_caporegime_cities',
-          },
-        ],
-      ];
-    } else {
-      await ctx.reply('❌ You do not have access to broadcast messages\\.', {
-        parse_mode: 'MarkdownV2',
-      });
-      return;
+    switch (role) {
+      case 'admin':
+        message = `You're assigned as *Super Admin* to all the Pizza DAO chats\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
+        inline_keyboard = [
+          [
+            { text: '🌍 All City Chats', callback_data: 'broadcast_all_cities' },
+            { text: '🏙️ Specific City', callback_data: 'broadcast_specific_city' },
+          ],
+          [
+            { text: '📍 Specific Region', callback_data: 'broadcast_specific_region' },
+            { text: '🌐 Specific Country', callback_data: 'broadcast_specific_country' },
+          ],
+        ];
+        break;
+
+      case 'underboss': {
+        const regionName =
+          Array.isArray(userAccess) && userAccess[0]?.region_name ? userAccess[0].region_name : '';
+        message = `You're assigned as *Underboss* to all the *${escape(regionName)}* Pizza DAO chats\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
+        inline_keyboard = [
+          [
+            { text: '🏙️ Specific City', callback_data: 'broadcast_underboss_city' },
+            { text: '🌐 Specific Country', callback_data: 'broadcast_underboss_country' },
+          ],
+          [
+            {
+              text: `All City Chats in ${regionName}`,
+              callback_data: 'broadcast_all_region_cities',
+            },
+          ],
+        ];
+        break;
+      }
+
+      case 'host': {
+        const cityName =
+          (Array.isArray(userAccess) && userAccess[0]?.city_data?.[0]?.city_name) || '';
+        message = `You're assigned as Host to *"${escape(cityName || 'Unknown City')} Pizza DAO"* chat\\. Select an option below
+\nSend me one or multiple messages you want to include in the post\\. It can be anything — a text, photo, video, even a sticker\\.`;
+        // No inline_keyboard for host in your original code
+        break;
+      }
+
+      case 'caporegime': {
+        const countryName = (Array.isArray(userAccess) && userAccess[0]?.country_name) || '';
+        message = `You're assigned as *Caporegime* to all the *${escape(countryName || 'Unknown Country')}* Pizza DAO chats\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
+        inline_keyboard = [
+          [
+            { text: '🏙️ Specific City', callback_data: 'broadcast_caporegime_city' },
+            { text: '🌐 Specific Country', callback_data: 'broadcast_caporegime_country' },
+          ],
+          [
+            {
+              text: `All City Chats in ${countryName}`,
+              callback_data: 'broadcast_all_caporegime_cities',
+            },
+          ],
+        ];
+        break;
+      }
+
+      default:
+        await ctx.reply('❌ You do not have access to broadcast messages\\.', {
+          parse_mode: 'MarkdownV2',
+        });
+        return;
     }
 
     await ctx.reply(message, {
       parse_mode: 'MarkdownV2',
-      reply_markup: {
-        inline_keyboard,
-      },
+      ...(inline_keyboard.length > 0 && {
+        reply_markup: { inline_keyboard },
+      }),
     });
   }
 
