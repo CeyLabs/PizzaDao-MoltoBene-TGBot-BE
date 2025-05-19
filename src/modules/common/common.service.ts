@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Command, Help, On, Start, Update, Action } from 'nestjs-telegraf';
+import { Help, On, Update } from 'nestjs-telegraf';
 import { WelcomeService } from '../welcome/welcome.service';
 import { Context } from 'telegraf';
 import { BroadcastService } from '../broadcast/broadcast.service';
@@ -12,36 +12,6 @@ export class CommonService {
     private readonly welcomeService: WelcomeService,
     private readonly broadcastService: BroadcastService,
   ) {}
-
-  @Start()
-  async handleStart(ctx: Context) {
-    this.logger.log('Start command received');
-    await this.welcomeService.handleStartCommand(ctx);
-  }
-
-  @Command('broadcast')
-  async handleBroadcast(ctx: Context) {
-    await this.broadcastService.onBroadcast(ctx);
-  }
-
-  @Action('create_post')
-  async handleCreatePost(ctx: Context) {
-    this.logger.log('Create post action received');
-    await this.broadcastService.onCreatePost(ctx);
-  }
-
-  @Command('profile')
-  async handleProfileCommand(ctx: Context) {
-    this.logger.log('Profile command received');
-    await this.welcomeService.handleProfile(ctx);
-  }
-
-  @Command('register')
-  async handleRegisterCommand(ctx: Context) {
-    this.logger.log('Register command received');
-    await this.welcomeService.handleUserRegistration(ctx);
-  }
-
   @Help()
   async handleHelpCommand(ctx: Context) {
     await ctx.replyWithMarkdownV2(
@@ -58,5 +28,6 @@ export class CommonService {
   @On('text')
   async handlePrivateChat(ctx: Context) {
     await this.welcomeService.handlePrivateChat(ctx);
+    // await this.broadcastService.handlePrivateChat?.(ctx);
   }
 }
