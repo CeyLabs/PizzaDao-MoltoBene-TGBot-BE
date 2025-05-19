@@ -43,10 +43,10 @@ config();
       inject: [ConfigService],
     }),
 
-    CommonModule,
     UserModule,
     WelcomeModule,
     BroadcastModule,
+    CommonModule,
     KnexModule,
     CountryModule,
     CityModule,
