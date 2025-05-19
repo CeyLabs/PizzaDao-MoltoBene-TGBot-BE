@@ -804,11 +804,11 @@ export class WelcomeService {
 
         // Fetch city (group) name
         const cityDetails = await this.cityService.getCityByGroupId(groupId);
-        const groupName = cityDetails?.name || 'the group';
+        const groupName = cityDetails?.name;
         const pizzaName = userData.pizza_name || userData.tg_first_name || 'New Member';
 
         // Send random welcome message
-        const welcomeText = this.getRandomWelcomeMessage(pizzaName, groupName, userId);
+        const welcomeText = this.getRandomWelcomeMessage(pizzaName, groupName!, userId);
 
         const welcomeMessage = await ctx.telegram.sendMessage(groupId, welcomeText, {
           parse_mode: 'Markdown',
