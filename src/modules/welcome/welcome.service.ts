@@ -224,15 +224,16 @@ export class WelcomeService {
 
     if (message?.new_chat_members) {
       for (const member of message.new_chat_members) {
-        // Check if the user is already registered
+        // Check if the city exists for the group id
         const cityDetails = await this.cityService.getCityByGroupId(String(chatId));
-        if (cityDetails) {
-          if (
-            await this.membershipService.checkUserCityMembership(String(member.id), cityDetails.id)
-          ) {
-            return;
-          }
-        }
+        if (!cityDetails) return;
+
+        // Check if the user already has a membership with the city
+        const hasMembership = await this.membershipService.checkUserCityMembership(
+          String(member.id),
+          cityDetails.id,
+        );
+        if (hasMembership) return;
 
         // Store the group_id in userGroupMap
         this.userGroupMap.set(String(member.id), {
