@@ -9,6 +9,8 @@ type CityData = {
 };
 
 type RegionData = {
+  region_id: string;
+  region_name: string;
   country_id: string;
   country_name: string;
   city_id: string;
@@ -36,19 +38,82 @@ type HostAccessResult = {
   city_data: CityData[];
 };
 
+type AdminAccessResult = {
+  role: 'admin';
+  city_data: CityData[];
+  region_data: RegionData[];
+  country_data: {
+    country_id: string;
+    country_name: string;
+    city_data: CityData[];
+  }[];
+};
+
 type regionAccess = {
   telegram_id: string;
   region_id: string;
 };
 
-type AccessResult = RegionAccessResult[] | CountryAccessResult[] | HostAccessResult[] | 'no access';
+type AccessResult =
+  | RegionAccessResult[]
+  | CountryAccessResult[]
+  | HostAccessResult[]
+  | AdminAccessResult[]
+  | 'no access';
 
 @Injectable()
 export class AccessService {
   constructor(private readonly knexService: KnexService) {}
 
   async getUserAccess(telegram_id: string): Promise<AccessResult> {
-    // 1. Check region_access (role = underboss)
+    const adminId = process.env.ADMIN_ID || '';
+
+    if (telegram_id === adminId) {
+      const cities: CityData[] = await this.knexService
+        .knex('city')
+        .select('id as city_id', 'name as city_name', 'group_id', 'telegram_link');
+
+      const regions: RegionData[] = await this.knexService
+        .knex('region')
+        .select('id as region_id', 'name as region_name');
+
+      const country_data: { country_id: string; country_name: string; city_data: CityData[] }[] =
+        [];
+      for (const region of regions) {
+        interface Country {
+          country_id: string;
+          country_name: string;
+        }
+
+        const countries: Country[] = await this.knexService
+          .knex<Country>('country')
+          .where('region_id', region.region_id)
+          .select('id as country_id', 'name as country_name');
+
+        for (const country of countries) {
+          const citiesInCountry: CityData[] = await this.knexService
+            .knex<CityData>('city')
+            .where('country_id', country.country_id)
+            .select('id as city_id', 'name as city_name', 'group_id', 'telegram_link');
+
+          country_data.push({
+            country_id: country.country_id,
+            country_name: country.country_name,
+            city_data: citiesInCountry,
+          });
+        }
+      }
+
+      return [
+        {
+          role: 'admin',
+          city_data: cities,
+          region_data: regions,
+          country_data,
+        },
+      ];
+    }
+
     const regionAccess: regionAccess | undefined = await this.knexService
       .knex<regionAccess>('region_access')
       .where('user_telegram_id', telegram_id)
@@ -74,12 +139,10 @@ export class AccessService {
         name: string;
       }
 
-      // Fetch all countries in the region
       const countries: Country[] = await this.knexService
         .knex<Country>('country')
         .where('region_id', region.id);
 
-      // Loop through countries to get their cities and format the region data
       const region_data: RegionData[] = [];
 
       for (const country of countries) {
@@ -90,6 +153,8 @@ export class AccessService {
 
         for (const city of cities) {
           region_data.push({
+            region_id: region.id,
+            region_name: region.name,
             country_id: country.id,
             country_name: country.name,
             city_id: city.city_id,
@@ -110,7 +175,7 @@ export class AccessService {
       ];
     }
 
-    // 2. Check country_access
+    //  Check country_access
     interface CountryAccess {
       country_id: string;
     }
@@ -150,7 +215,7 @@ export class AccessService {
       ];
     }
 
-    // 3. Host role: only return cities user has access to from city_access table
+    //  Host role: only return cities user has access to from city_access table
     interface User {
       id: string;
       telegram_id: string;
@@ -162,7 +227,6 @@ export class AccessService {
       .first();
 
     if (userExists) {
-      // Get cities user has access to
       const accessibleCityIds = await this.knexService
         .knex('city_access')
         .where('user_telegram_id', telegram_id)

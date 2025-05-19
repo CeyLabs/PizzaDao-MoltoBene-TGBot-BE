@@ -11,8 +11,38 @@ interface UserAccess {
   country_name?: string;
 }
 
+interface AdminAccessResult {
+  role: 'admin';
+  city_data: {
+    city_id: string;
+    city_name: string;
+    group_id: string | null;
+    telegram_link: string | null;
+  }[];
+  region_data: {
+    region_id: string;
+    region_name: string;
+    country_id: string;
+    country_name: string;
+    city_id: string;
+    city_name: string;
+    group_id: string | null;
+    telegram_link: string | null;
+  }[];
+  country_data: {
+    country_id: string;
+    country_name: string;
+    city_data: {
+      city_id: string;
+      city_name: string;
+      group_id: string | null;
+      telegram_link: string | null;
+    }[];
+  }[];
+}
+
 interface UserAccessInfo {
-  userAccess: UserAccess[] | 'no access';
+  userAccess: UserAccess[] | 'no access' | AdminAccessResult;
   role: string;
   username: string;
   userId: number | undefined;
@@ -20,7 +50,7 @@ interface UserAccessInfo {
 
 @Injectable()
 export class BroadcastService {
-  private readonly HARDCODED_ADMIN_ID = 123456789;
+  private readonly SUPER_ADMIN_ID = process.env.ADMIN_ID;
   private readonly logger = new Logger(BroadcastService.name);
 
   constructor(
@@ -88,17 +118,14 @@ export class BroadcastService {
       return null;
     }
 
-    let userAccess: UserAccess[] | 'no access';
+    let userAccess: UserAccess[] | 'no access' | AdminAccessResult;
     let role: string;
 
-    if (userId === this.HARDCODED_ADMIN_ID) {
+    // Admin role handling
+    if (userId.toString() === this.SUPER_ADMIN_ID?.toString()) {
+      // Fetch admin access data
+      userAccess = await this.accessService.getUserAccess(userId.toString());
       role = 'admin';
-      userAccess = [
-        {
-          role,
-          city_data: [],
-        },
-      ];
     } else {
       userAccess = await this.accessService.getUserAccess(userId.toString());
 
