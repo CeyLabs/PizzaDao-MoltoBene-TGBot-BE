@@ -149,8 +149,10 @@ Current Variables:
     let message: string;
     let inline_keyboard: InlineKeyboardButton[][] = [];
 
+    await ctx.deleteMessage();
+
     if (role === 'admin') {
-      message = `*${username}*, You're assigned as *Super Admin* to all the Pizza DAO chats\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
+      message = `You're assigned as *Super Admin* to all the Pizza DAO chats\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
       inline_keyboard = [
         [
           { text: '🌍 All City Chats', callback_data: 'broadcast_all_cities' },
@@ -175,11 +177,11 @@ Current Variables:
     } else if (role === 'host') {
       const cityName =
         (Array.isArray(userAccess) && userAccess[0]?.city_data?.[0]?.city_name) ?? '';
-      message = `*${username}*, You're assigned as Host to *"${this.escapeMarkdown(cityName || 'Unknown City')} Pizza DAO"* chat\\. Select an option below
+      message = `You're assigned as Host to *"${this.escapeMarkdown(cityName || 'Unknown City')} Pizza DAO"* chat\\. Select an option below
       \nSend me one or multiple messages you want to include in the post\\. It can be anything — a text, photo, video, even a sticker\\.`;
     } else if (role === 'caporegime') {
       const countryName = (Array.isArray(userAccess) && userAccess[0]?.country_name) ?? '';
-      message = `*${username}*, You're assigned as *Caporegime* to all the *${this.escapeMarkdown(countryName || 'Unknown Country')}* Pizza DAO chats\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
+      message = `You're assigned as *Caporegime* to all the *${this.escapeMarkdown(countryName || 'Unknown Country')}* Pizza DAO chats\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
       inline_keyboard = [
         [
           { text: '🏙️ Specific City', callback_data: 'broadcast_caporegime_city' },
