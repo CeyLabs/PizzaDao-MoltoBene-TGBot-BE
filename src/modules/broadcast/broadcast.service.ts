@@ -1,64 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Context, Telegraf } from 'telegraf';
-import { Command, Ctx, InjectBot } from 'nestjs-telegraf';
+import { Context } from 'telegraf';
+import { Command, Ctx, On, Update } from 'nestjs-telegraf';
 import { AccessService } from '../access/access.service';
 import { InlineKeyboardButton } from 'telegraf/typings/core/types/typegram';
 import { UserAccess, AdminAccessResult, UserAccessInfo } from './broadcast.type';
 
+@Update()
 @Injectable()
 export class BroadcastService {
   private readonly SUPER_ADMIN_ID = process.env.ADMIN_ID;
   private readonly logger = new Logger(BroadcastService.name);
 
-  constructor(
-    @InjectBot() private bot: Telegraf<Context>,
-    private readonly accessService: AccessService,
-  ) {
-    this.bot.on('callback_query', async (ctx) => {
-      const callbackQuery = ctx.callbackQuery;
-
-      if (!('data' in callbackQuery)) {
-        await ctx.answerCbQuery();
-        return;
-      }
-
-      const callbackData = callbackQuery.data;
-
-      // Handle host buttons
-      if (
-        callbackData === 'host_specific_city' ||
-        callbackData === 'host_specific_country' ||
-        callbackData === 'host_create_post'
-      ) {
-        const buttonNameMap: Record<string, string> = {
-          host_specific_city: 'Specific City',
-          host_specific_country: 'Specific Country',
-          host_create_post: 'Create post',
-        };
-        const buttonName = buttonNameMap[callbackData] || 'Unknown button';
-        await ctx.answerCbQuery(`You clicked on ${buttonName}`, { show_alert: true });
-
-        if (callbackData === 'host_create_post') {
-          await this.onCreatePost(ctx);
-        }
-        return;
-      }
-
-      // Handle broadcast buttons
-      if (callbackData.startsWith('broadcast_')) {
-        await this.handleBroadcastSelection(ctx, callbackData);
-        return;
-      }
-
-      // Handle create post button
-      if (callbackData === 'create_post') {
-        await this.showBroadcastSelectionUI(ctx);
-        return;
-      }
-
-      await ctx.answerCbQuery();
-    });
-  }
+  constructor(private readonly accessService: AccessService) {}
 
   @Command('broadcast')
   async onBroadcast(@Ctx() ctx: Context) {
@@ -67,6 +20,83 @@ export class BroadcastService {
 
     // show broadcast selection menu
     await this.showBroadcastMenu(ctx, accessRole);
+  }
+
+  private async showBroadcastMenu(ctx: Context, role: string) {
+    try {
+      const rawMessage = `Hello there *${role.charAt(0).toUpperCase() + role.slice(1)}* 👋
+Here you can create rich posts, set Variables and Invite new Admins
+
+Current Variables:
+- City: Galle
+- Country: Sri Lanka
+- Date: 22nd May 2025
+- Start Time: 06:00 PM
+- End Time: 09:00 PM
+- Venue: Pizza Den
+- Venue Link: https://t.co/sSsfnwwhAd
+- Unlock Link: https://app.unlock-protocol.com/event/global-pizza-party-kandy-1
+- X Post: https://x.com/pizzadao/fsda
+- Admins: @naveensavishka`;
+
+      const formattedMessage = this.escapeMarkdown(rawMessage);
+
+      await ctx.reply(formattedMessage, {
+        parse_mode: 'MarkdownV2',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'Create Post', callback_data: 'create_post' },
+              { text: 'Update Variables', callback_data: 'update_variables' },
+            ],
+            [{ text: 'Invite new Admin', callback_data: 'invite_admin' }],
+          ],
+        },
+      });
+    } catch (error) {
+      this.logger.error('Error displaying rich post interface:', error);
+      await ctx.reply('❌ Failed to display post creation interface.');
+    }
+  }
+
+  @On('callback_query')
+  async handleCallbackQuery(ctx: Context) {
+    const callbackData =
+      ctx.callbackQuery && 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : undefined;
+
+    // Handle host buttons
+    if (
+      callbackData === 'host_specific_city' ||
+      callbackData === 'host_specific_country' ||
+      callbackData === 'host_create_post'
+    ) {
+      const buttonNameMap: Record<string, string> = {
+        host_specific_city: 'Specific City',
+        host_specific_country: 'Specific Country',
+        host_create_post: 'Create post',
+      };
+      const buttonName = buttonNameMap[callbackData] || 'Unknown button';
+      await ctx.answerCbQuery(`You clicked on ${buttonName}`, { show_alert: true });
+
+      if (callbackData === 'host_create_post') {
+        await this.onCreatePost(ctx);
+      }
+      return;
+    }
+
+    // Handle broadcast buttons
+    if (callbackData?.startsWith('broadcast_')) {
+      await this.handleBroadcastSelection(ctx, callbackData);
+      return;
+    }
+
+    // Handle create post button
+    if (callbackData === 'create_post') {
+      await this.showBroadcastSelectionUI(ctx);
+      return;
+    }
+
+    await ctx.answerCbQuery();
   }
 
   /**
@@ -206,7 +236,7 @@ export class BroadcastService {
     try {
       this.logger.log('Create post flow initiated');
       await ctx.reply(
-        "📝 Let's create a new post! Please send me the message you want to broadcast.",
+        "📝 Let's create a new post\\! Please send me the message you want to broadcast\\.",
         {
           parse_mode: 'MarkdownV2',
           reply_markup: { remove_keyboard: true },
@@ -215,43 +245,6 @@ export class BroadcastService {
     } catch (error) {
       this.logger.error('Error in onCreatePost:', error);
       await ctx.reply('❌ Failed to start post creation. Please try again.');
-    }
-  }
-
-  private async showBroadcastMenu(ctx: Context, role: string) {
-    try {
-      const rawMessage = `Hello there *${role.charAt(0).toUpperCase() + role.slice(1)}* 👋
-Here you can create rich posts, set Variables and Invite new Admins
-
-Current Variables:
-- City: Galle
-- Country: Sri Lanka
-- Date: 22nd May 2025
-- Start Time: 06:00 PM
-- End Time: 09:00 PM
-- Venue: Pizza Den
-- Venue Link: https://t.co/sSsfnwwhAd
-- Unlock Link: https://app.unlock-protocol.com/event/global-pizza-party-kandy-1
-- X Post: https://x.com/pizzadao/fsda
-- Admins: @naveensavishka`;
-
-      const formattedMessage = this.escapeMarkdown(rawMessage);
-
-      await ctx.reply(formattedMessage, {
-        parse_mode: 'MarkdownV2',
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: 'Create Post', callback_data: 'create_post' },
-              { text: 'Update Variables', callback_data: 'update_variables' },
-            ],
-            [{ text: 'Invite new Admin', callback_data: 'invite_admin' }],
-          ],
-        },
-      });
-    } catch (error) {
-      this.logger.error('Error displaying rich post interface:', error);
-      await ctx.reply('❌ Failed to display post creation interface.');
     }
   }
 
