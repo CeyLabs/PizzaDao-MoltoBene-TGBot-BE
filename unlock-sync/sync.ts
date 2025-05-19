@@ -133,6 +133,11 @@ async function processCSVData(data: CSVRow[]): Promise<void> {
         const eventDetails = await fetchEventDetails(eventSlug);
         if (!eventDetails) continue;
 
+        if(!eventDetails.ticket.event_address || !eventDetails.ticket.event_location) {
+            console.log(`Event ${eventSlug} has no address or location, skipping...`);
+            continue;
+        }
+
         const year = new Date(eventDetails.ticket.event_start_date).getFullYear();
 
         try {
@@ -163,7 +168,7 @@ async function main(): Promise<void> {
     try {
         console.log('Reading CSV...');
         const data = await readCSVFromURL(CSV_URL, START_ROW);
-        console.log(data.length)
+        console.log(`${data.length} events found.\n`);
         await processCSVData(data);
         console.log('CSV processing completed');
     } catch (error) {
