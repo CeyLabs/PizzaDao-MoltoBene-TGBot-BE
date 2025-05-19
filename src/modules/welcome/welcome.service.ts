@@ -17,7 +17,7 @@ export class WelcomeService {
   private readonly openAi: OpenAI;
 
   private readonly welcomeMessages: string[] = [
-    '🍕 Welcome <pizza_name> to the <group_name> Chat! The crust is strong with this one.',
+    '🍕 Welcome <pizza_name> to <group_name> Chat! The crust is strong with this one.',
     '🔥 Say hello to <pizza_name> — fresh outta the oven and straight into <group_name>.',
     '💼 Another made slice joins the family. Welcome <pizza_name> to <group_name>.',
     '🧀 Respect the cheese. <pizza_name> is now part of <group_name>.',
