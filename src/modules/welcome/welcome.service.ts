@@ -16,6 +16,34 @@ import axios from 'axios';
 export class WelcomeService {
   private readonly openAi: OpenAI;
 
+  private readonly welcomeMessages: string[] = [
+    '🍕 Welcome <pizza_name> to <group_name> Chat! The crust is strong with this one.',
+    '🔥 Say hello to <pizza_name> — fresh outta the oven and straight into <group_name>.',
+    '💼 Another made slice joins the family. Welcome <pizza_name> to <group_name>.',
+    '🧀 Respect the cheese. <pizza_name> is now part of <group_name>.',
+    '🕶️ <pizza_name> just walked into <group_name>. Keep your toppings close.',
+    '🍅 The family’s growing. Say hi to <pizza_name> at <group_name>.',
+    '🔫 <pizza_name> just entered the scene. Things heat up in <group_name>.',
+    '🍽️ Pull up a chair for <pizza_name>. They’re dining with the bosses at <group_name>.',
+    '😎 Welcome to the slice life, <pizza_name>. You’re now rolling with <group_name>.',
+    '🧄 Every pie needs flavor. Welcome <pizza_name> to <group_name>.',
+    '🧊 Keep it chill—but not too chill. <pizza_name> just joined <group_name>.',
+    '🍴 Another knife in the drawer. <pizza_name> is in <group_name> now.',
+    '📦 Special delivery! <pizza_name> is now part of <group_name>.',
+    '💼 No toppings off-limits now. Welcome <pizza_name> to <group_name>.',
+    '🔥 Hot outta the oven — <pizza_name> has landed in <group_name>.',
+    '🧀 Ain’t no party without extra cheese. Welcome <pizza_name> to <group_name>.',
+    '🕶️ Look who just got made — <pizza_name> is now one of us in <group_name>.',
+    '🍕 The pie just got bigger. Welcome <pizza_name> to <group_name>.',
+    '🔫 Don’t ask questions — <pizza_name> is family now in <group_name>.',
+    '🍅 A new sauce boss has entered. Say hi to <pizza_name> in <group_name>.',
+    '🍴 Another flavor joins the fam. Welcome <pizza_name> to <group_name>.',
+    '🧄 Garlic knots salute you, <pizza_name>. Welcome to <group_name>.',
+    '📦 Fresh out the box — <pizza_name> has arrived in <group_name>.',
+    '😎 Say less. <pizza_name> knows the code. Welcome to <group_name>.',
+    '🔥 It’s gettin’ spicy in here. <pizza_name> just joined <group_name>.',
+  ];
+
   constructor(
     private readonly userService: UserService,
     private readonly countryService: CountryService,
@@ -224,9 +252,16 @@ export class WelcomeService {
 
     if (message?.new_chat_members) {
       for (const member of message.new_chat_members) {
-        if (await this.userService.isUserRegistered(String(member.id))) {
-          return;
-        }
+        // Check if the city exists for the group id
+        const cityDetails = await this.cityService.getCityByGroupId(String(chatId));
+        if (!cityDetails) return;
+
+        // Check if the user already has a membership with the city
+        const hasMembership = await this.membershipService.checkUserCityMembership(
+          String(member.id),
+          cityDetails.id,
+        );
+        if (hasMembership) return;
 
         // Store the group_id in userGroupMap
         this.userGroupMap.set(String(member.id), {
@@ -274,7 +309,7 @@ export class WelcomeService {
               console.error('Failed to delete message.');
             }
           })();
-        }, 30000);
+        }, 60000);
       }
     }
   }
@@ -378,6 +413,24 @@ export class WelcomeService {
       await ctx.replyWithMarkdownV2(
         `✅ You have successfully registered in the *${cityDetails.name}* city\\!`,
       );
+
+      // Enable group permissions
+      if (groupId) {
+        // Check if the groupId represents a supergroup (starts with "-100")
+        if (typeof groupId === 'string' && groupId.startsWith('-100')) {
+          await ctx.telegram.restrictChatMember(groupId, Number(userId), {
+            permissions: {
+              can_send_messages: true,
+              can_send_polls: true,
+              can_send_other_messages: true,
+              can_add_web_page_previews: true,
+              can_change_info: false,
+              can_invite_users: true,
+              can_pin_messages: false,
+            },
+          });
+        }
+      }
       return;
     }
 
@@ -734,7 +787,7 @@ export class WelcomeService {
       // Enable group permissions
       const groupId = userData.group_id;
       if (groupId) {
-        if (ctx.chat?.type === 'supergroup') {
+        if (typeof groupId === 'string' && groupId.startsWith('-100')) {
           await ctx.telegram.restrictChatMember(groupId, Number(userId), {
             permissions: {
               can_send_messages: true,
@@ -748,27 +801,26 @@ export class WelcomeService {
           });
         }
 
-        const welcomeMessage = await ctx.telegram.sendMessage(
-          groupId,
-          `User ${`[${ctx.callbackQuery?.from.first_name}](tg://user?id=${userId})`} has been verified and unmuted\\. Welcome to the group\\!`,
-          {
-            parse_mode: 'MarkdownV2',
-          },
-        );
+        // Fetch city (group) name
+        const cityDetails = await this.cityService.getCityByGroupId(groupId);
+        const groupName = cityDetails?.name;
+        const pizzaName = userData.pizza_name || userData.tg_first_name || 'New Member';
 
-        setTimeout(() => {
-          void (async () => {
-            try {
-              await ctx.telegram.deleteMessage(groupId, welcomeMessage.message_id);
-            } catch (error) {
-              console.error('Failed to delete message:', error);
-            }
-          })();
-        }, 10000);
+        // Send random welcome message
+        const welcomeText = this.getRandomWelcomeMessage(pizzaName, groupName!, userId);
+
+        const welcomeMessage = await ctx.telegram.sendMessage(groupId, welcomeText, {
+          parse_mode: 'Markdown',
+        });
 
         await this.handleProfile(ctx);
       }
     }
+  }
+
+  private getRandomWelcomeMessage(pizzaName: string, groupName: string, userId: string): string {
+    const msg = this.welcomeMessages[Math.floor(Math.random() * this.welcomeMessages.length)];
+    return `${msg.replace(/<pizza_name>/g, `[${pizzaName}](tg://user?id=${userId})`).replace(/<group_name>/g, `*${groupName}*`)}`;
   }
 
   private async populateUserData(userId: string): Promise<IUserRegistrationData | null> {
