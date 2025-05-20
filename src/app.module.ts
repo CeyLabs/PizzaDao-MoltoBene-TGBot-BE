@@ -11,6 +11,7 @@ import { UserModule } from './modules/user/user.module';
 import { CountryModule } from './modules/country/country.module';
 import { CityModule } from './modules/city/city.module';
 import { CommonModule } from './modules/common/common.module';
+import { PrivateChatMiddleware } from './middleware/chat-type.middleware';
 
 // Load environment variables
 config();
@@ -36,6 +37,7 @@ config();
                   },
                 }
               : {},
+          middlewares: [new PrivateChatMiddleware().use()],
         };
       },
       inject: [ConfigService],
