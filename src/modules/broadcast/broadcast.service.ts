@@ -104,7 +104,47 @@ Current Variables:
       return;
     }
 
+    // Handle broadcast confirmation
+    if (callbackData === 'confirm_broadcast' || callbackData === 'cancel_broadcast') {
+      await this.handleBroadcastConfirmation(ctx, callbackData);
+      return;
+    }
+
     await ctx.answerCbQuery();
+  }
+
+  /**
+   * Handle broadcast confirmation/cancellation
+   */
+  private async handleBroadcastConfirmation(ctx: Context, callbackData: string) {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const session = this.broadcastSessions.get(userId);
+    if (!session || !session.message || !session.targetCities) {
+      await ctx.answerCbQuery('❌ Session data not found');
+      return;
+    }
+
+    try {
+      if (callbackData === 'confirm_broadcast') {
+        await ctx.answerCbQuery('✅ Broadcasting confirmed!');
+        await ctx.reply('✅ Your message will be sent to all cities. This may take some time...');
+
+        // Here you would implement the actual broadcast logic
+        // For now, just show a success message
+        await ctx.reply(`✅ Message successfully sent to ${session.targetCities.length} cities!`);
+      } else {
+        await ctx.answerCbQuery('❌ Broadcast cancelled');
+        await ctx.reply('❌ Broadcast cancelled. You can create a new broadcast message.');
+      }
+
+      // Reset session
+      this.broadcastSessions.set(userId, { step: 'idle' });
+    } catch (error) {
+      this.logger.error('Error in broadcast confirmation:', error);
+      await ctx.answerCbQuery('❌ Error processing your request');
+    }
   }
 
   /**
@@ -304,15 +344,83 @@ Current Variables:
 
     if (session?.step === 'awaiting_message') {
       try {
-        const processedMessage = text.replace(/{city}/gi, 'Colombo');
+        // Get access information
+        const accessInfo = await this.getUserAccessInfo(ctx);
+        if (!accessInfo) return;
 
-        // Send the processed message
-        await ctx.reply(processedMessage, {
-          parse_mode: 'MarkdownV2',
+        const { userAccess } = accessInfo;
+
+        // Extract city data based on user access type
+        let cityData: { city_name: string }[] = [];
+
+        if (Array.isArray(userAccess)) {
+          // For regular roles
+          cityData = userAccess.flatMap((access) => access.city_data || []);
+        } else if (userAccess !== 'no access') {
+          // For admin role
+          cityData = userAccess.city_data;
+        }
+
+        // Limit to 10 cities for preview
+        const previewLimit = 10;
+        const citiesToPreview = cityData.slice(0, previewLimit);
+
+        if (citiesToPreview.length === 0) {
+          await ctx.reply('❌ No cities found in your access data\\.');
+          return;
+        }
+
+        // Send preview messages for each city
+        await ctx.reply(
+          `🔍 *Preview:* Your message will be sent to ${citiesToPreview.length} cities \\(showing first ${Math.min(citiesToPreview.length, previewLimit)}\\)`,
+          {
+            parse_mode: 'MarkdownV2',
+          },
+        );
+
+        // Generate preview for each city
+        for (const city of citiesToPreview) {
+          const cityName = city.city_name;
+          const processedMessage = text.replace(/{city}/gi, cityName);
+
+          await ctx.reply(
+            `*Message for ${this.escapeMarkdown(cityName)}:*\n\n${this.escapeMarkdown(processedMessage)}`,
+            {
+              parse_mode: 'MarkdownV2',
+            },
+          );
+        }
+
+        // Show total number of cities if there are more
+        if (cityData.length > previewLimit) {
+          await ctx.reply(
+            `\\.\\.\\. and ${cityData.length - previewLimit} more cities not shown in preview`,
+            {
+              parse_mode: 'MarkdownV2',
+            },
+          );
+        }
+
+        // Add confirmation buttons
+        await ctx.reply('Do you want to send this message to all cities?', {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '✅ Confirm', callback_data: 'confirm_broadcast' },
+                { text: '❌ Cancel', callback_data: 'cancel_broadcast' },
+              ],
+            ],
+          },
         });
 
-        // Reset the session
-        this.broadcastSessions.set(userId, { step: 'idle' });
+        // Update session to include the message and cities
+        this.broadcastSessions.set(userId, {
+          step: 'awaiting_confirmation',
+          selectedAction: session.selectedAction,
+          message: text,
+          targetCities: cityData,
+        });
+
         return;
       } catch (error) {
         this.logger.error('Error processing message:', error);

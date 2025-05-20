@@ -42,6 +42,8 @@ export interface UserAccessInfo {
 }
 
 export interface BroadcastSession {
-  step: 'awaiting_message' | 'idle';
+  step: 'awaiting_message' | 'awaiting_confirmation' | 'idle';
   selectedAction?: string;
+  message?: string;
+  targetCities?: { city_name: string }[];
 }
