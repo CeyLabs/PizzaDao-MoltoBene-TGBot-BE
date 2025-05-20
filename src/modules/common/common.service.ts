@@ -1,17 +1,9 @@
+import { Context } from 'telegraf';
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { Help, On, Update } from 'nestjs-telegraf';
 import { WelcomeService } from '../welcome/welcome.service';
 import { BroadcastService } from '../broadcast/broadcast.service';
-import { Context } from 'telegraf';
-
-type UserFlow = 'welcome' | 'broadcast' | 'idle';
-
-interface UserState {
-  flow: UserFlow;
-  messages?: any[];
-  step?: string;
-  [key: string]: unknown;
-}
+import { UserFlow, UserState } from './common.interface';
 
 @Update()
 @Injectable()
