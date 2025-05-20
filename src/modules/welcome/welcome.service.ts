@@ -309,7 +309,7 @@ export class WelcomeService {
               console.error('Failed to delete message.');
             }
           })();
-        }, 30000);
+        }, 60000);
       }
     }
   }
@@ -813,16 +813,6 @@ export class WelcomeService {
         const welcomeMessage = await ctx.telegram.sendMessage(groupId, welcomeText, {
           parse_mode: 'Markdown',
         });
-
-        setTimeout(() => {
-          void (async () => {
-            try {
-              await ctx.telegram.deleteMessage(groupId, welcomeMessage.message_id);
-            } catch (error) {
-              console.error('Failed to delete message:', error);
-            }
-          })();
-        }, 30000);
 
         await this.handleProfile(ctx);
       }
