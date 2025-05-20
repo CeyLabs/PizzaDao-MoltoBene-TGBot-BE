@@ -3,13 +3,14 @@ import { Context } from 'telegraf';
 import { Command, Ctx, On, Update } from 'nestjs-telegraf';
 import { AccessService } from '../access/access.service';
 import { InlineKeyboardButton } from 'telegraf/typings/core/types/typegram';
-import { UserAccess, AdminAccessResult, UserAccessInfo } from './broadcast.type';
+import { UserAccess, AdminAccessResult, UserAccessInfo, BroadcastSession } from './broadcast.type';
 
 @Update()
 @Injectable()
 export class BroadcastService {
   private readonly SUPER_ADMIN_ID = process.env.ADMIN_ID;
   private readonly logger = new Logger(BroadcastService.name);
+  private readonly broadcastSessions = new Map<number, BroadcastSession>();
 
   constructor(private readonly accessService: AccessService) {}
 
@@ -252,10 +253,71 @@ Current Variables:
       const action = actionMap[callbackData] || 'Unknown action';
       await ctx.answerCbQuery(`Selected: ${action}`);
       this.logger.log(`Initiating broadcast for ${action}`);
-      // Implement actual broadcast logic here
+
+      try {
+        const userId = ctx.from?.id;
+        if (!userId) {
+          await ctx.answerCbQuery('❌ User ID not found');
+          return;
+        }
+
+        if (callbackData === 'broadcast_all_cities') {
+          // Set the session state
+          this.broadcastSessions.set(userId, {
+            step: 'awaiting_message',
+            selectedAction: 'broadcast_all_cities',
+          });
+
+          // Ask user for the message
+          await ctx.reply(
+            `📢 You're assigned as admin to *All Pizza DAO* chats\\.\n\n` +
+              `Send me one or multiple messages you want to include in the post\\. It can be anything — a text, photo, video, even a sticker\\.\n\n` +
+              `You can use variables with below format within curly brackets\\.\n\n` +
+              `*Eg:*\n` +
+              `Hello \\{city\\} Pizza DAO members,\n` +
+              `We have Upcoming Pizza Day on \\{venue\\} at \\{time\\} \\.\n\n` +
+              `You can register via \\- \\{unlock\\_link\\}`,
+            {
+              parse_mode: 'MarkdownV2',
+            },
+          );
+          return;
+        }
+      } catch (error) {
+        this.logger.error('Error handling broadcast selection:', error);
+        await ctx.answerCbQuery('❌ Error processing your request');
+      }
     } catch (error) {
       this.logger.error('Error handling broadcast selection:', error);
       await ctx.answerCbQuery('❌ Error processing your request');
+    }
+  }
+
+  @On('text')
+  async onText(@Ctx() ctx: Context) {
+    const userId = ctx.from?.id;
+    const text = ctx.message && 'text' in ctx.message ? ctx.message.text : null;
+
+    if (!userId || !text) return;
+
+    const session = this.broadcastSessions.get(userId);
+
+    if (session?.step === 'awaiting_message') {
+      try {
+        const processedMessage = text.replace(/{city}/gi, 'Colombo');
+
+        // Send the processed message
+        await ctx.reply(processedMessage, {
+          parse_mode: 'MarkdownV2',
+        });
+
+        // Reset the session
+        this.broadcastSessions.set(userId, { step: 'idle' });
+        return;
+      } catch (error) {
+        this.logger.error('Error processing message:', error);
+        await ctx.reply('❌ Error processing your message. Please try again.');
+      }
     }
   }
 

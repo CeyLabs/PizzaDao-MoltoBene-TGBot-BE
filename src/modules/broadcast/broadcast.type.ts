@@ -40,3 +40,8 @@ export interface UserAccessInfo {
   role: string;
   userId: number | undefined;
 }
+
+export interface BroadcastSession {
+  step: 'awaiting_message' | 'idle';
+  selectedAction?: string;
+}
