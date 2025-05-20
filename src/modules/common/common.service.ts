@@ -1,15 +1,27 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { Help, On, Update } from 'nestjs-telegraf';
 import { WelcomeService } from '../welcome/welcome.service';
-import { Context } from 'telegraf';
 import { BroadcastService } from '../broadcast/broadcast.service';
+import { Context } from 'telegraf';
+
+type UserFlow = 'welcome' | 'broadcast' | 'idle';
+
+interface UserState {
+  flow: UserFlow;
+  messages?: any[];
+  step?: string;
+  [key: string]: unknown;
+}
 
 @Update()
 @Injectable()
 export class CommonService {
-  private readonly logger = new Logger(CommonService.name);
+  private userState = new Map<number, UserState>();
+
   constructor(
+    @Inject(forwardRef(() => WelcomeService))
     private readonly welcomeService: WelcomeService,
+    @Inject(forwardRef(() => BroadcastService))
     private readonly broadcastService: BroadcastService,
   ) {}
 
@@ -26,15 +38,48 @@ export class CommonService {
     );
   }
 
-  @On('text')
-  async handlePrivateChat(ctx: Context) {
-    await this.welcomeService.handlePrivateChat(ctx);
-    // await this.broadcastService.handlePrivateChat?.(ctx);
-  }
-
   @On('callback_query')
   async handleCallbackQuery(ctx: Context) {
     await this.welcomeService.handleCallbackQuery(ctx);
     await this.broadcastService.handleCallbackQuery?.(ctx);
+  }
+
+  @On('message')
+  async handleMessage(ctx: Context) {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const state = this.userState.get(userId) || { flow: 'idle' };
+
+    if (state.flow === 'broadcast') {
+      // Ensure state has required properties for broadcast
+      const broadcastState = {
+        messages: state.messages ?? [],
+        step: typeof state.step === 'string' ? state.step : '',
+      };
+      await this.broadcastService.handleBroadcastMessage(ctx, broadcastState);
+    } else if (state.flow === 'welcome') {
+      await this.welcomeService.handlePrivateChat(ctx);
+    } else {
+      // Default: maybe start welcome flow or ignore
+      await this.welcomeService.handlePrivateChat(ctx);
+    }
+  }
+
+  setUserState(userId: number, state: Partial<UserState>) {
+    const prev = this.userState.get(userId) || { flow: 'idle' as UserFlow };
+    const merged = { ...prev, ...state };
+    if (!merged.flow) {
+      merged.flow = 'idle';
+    }
+    this.userState.set(userId, merged as UserState);
+  }
+
+  getUserState(userId: number): UserState | undefined {
+    return this.userState.get(userId);
+  }
+
+  clearUserState(userId: number) {
+    this.userState.delete(userId);
   }
 }

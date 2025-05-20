@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { Context } from 'telegraf';
 import { Command, On, Start, Update } from 'nestjs-telegraf';
 import { UserService } from '../user/user.service';
 import { CountryService } from '../country/country.service';
 import { CityService } from '../city/city.service';
 import { MembershipService } from '../membership/membership.service';
+import { CommonService } from '../common/common.service';
 import { IUser } from '../user/user.interface';
 import { IUserRegistrationData } from './welcome.interface';
 import OpenAI from 'openai';
@@ -49,13 +50,14 @@ export class WelcomeService {
     private readonly countryService: CountryService,
     private readonly cityService: CityService,
     private readonly membershipService: MembershipService,
+    @Inject(forwardRef(() => CommonService))
+    private readonly commonService: CommonService,
   ) {
     this.openAi = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
   }
 
-  private userSteps = new Map<string, number | string>();
   private userGroupMap = new Map<string, IUserRegistrationData>();
 
   @Start()
@@ -323,7 +325,6 @@ export class WelcomeService {
 
     // CallBackQuery[Explore Parties]: Handle Explore Cities button
     if (callbackData === 'explore_cities') {
-      this.userSteps.set(userId, 1);
       this.userGroupMap.set(userId, {
         telegram_id: userId,
         username: ctx.message?.from.username || null,
@@ -349,7 +350,6 @@ export class WelcomeService {
 
       if (userData) {
         userData.region_id = regionId;
-        this.userSteps.set(userId, 2);
 
         await this.handleCountrySelection(ctx, regionId);
       }
@@ -449,6 +449,7 @@ export class WelcomeService {
     // CallBackQuery[Profile]: Handle 'Edit Profile' button
     if (callbackData?.startsWith('edit_')) {
       if (callbackData === 'edit_ninja_turtle_character') {
+        await ctx.deleteMessage();
         await this.handleNinjaTurtleMessage(ctx);
       } else {
         const field = callbackData.split('_').slice(1).join('_');
@@ -458,7 +459,10 @@ export class WelcomeService {
             force_reply: true,
           },
         });
-        this.userSteps.set(userId, `edit_${field}`);
+        this.commonService.setUserState(Number(userId), {
+          flow: 'welcome',
+          step: `edit_${field}`,
+        });
       }
     } else if (callbackData === 'back_to_region') {
       await ctx.deleteMessage();
@@ -476,7 +480,10 @@ export class WelcomeService {
     // CallBackQuery[Register User]: Handle 'Yes, I have a Pizza Name' button
     if (callbackData === 'has_pizza_name') {
       await ctx.deleteMessage();
-      this.userSteps.set(userId, 'discord_pizza_name');
+      this.commonService.setUserState(Number(userId), {
+        flow: 'welcome',
+        step: 'discord_pizza_name',
+      });
       await ctx.reply('🍕 What is your Pizza Name?', {
         reply_markup: {
           force_reply: true,
@@ -488,7 +495,10 @@ export class WelcomeService {
     // CallBackQuery[Register User]: Handle 'Give me a Pizza Name' button
     if (callbackData === 'give_me_pizza_name') {
       await ctx.deleteMessage();
-      this.userSteps.set(userId, 'pizza_topping');
+      this.commonService.setUserState(Number(userId), {
+        flow: 'welcome',
+        step: 'pizza_topping',
+      });
       await ctx.reply('🍕 *What is your favorite pizza topping?*', {
         reply_markup: {
           force_reply: true,
@@ -548,7 +558,7 @@ export class WelcomeService {
       cityDetails?.id || '',
     );
 
-    this.userSteps.delete(userId);
+    this.commonService.clearUserState(Number(userId));
     this.userGroupMap.delete(userId);
   }
 
@@ -563,7 +573,10 @@ export class WelcomeService {
       return;
     }
 
-    this.userSteps.set(userId, 'ninja_turtle_character');
+    this.commonService.setUserState(Number(userId), {
+      flow: 'welcome',
+      step: 'ninja_turtle_character',
+    });
 
     // Generate Ninja Turtle options with tick marks for already selected ones
     const ninjaTurtleOptions = [
@@ -944,7 +957,10 @@ export class WelcomeService {
       await ctx.reply(
         '❌ Failed to generate a unique pizza name. Please try again with another topping or mafia movie.',
       );
-      this.userSteps.set(userId, 'pizza_topping');
+      this.commonService.setUserState(Number(userId), {
+        flow: 'welcome',
+        step: 'pizza_topping',
+      });
       await ctx.reply('🍕 *What is your favorite pizza topping?*', {
         reply_markup: {
           force_reply: true,
@@ -1089,7 +1105,8 @@ export class WelcomeService {
     const userId = getContextTelegramUserId(ctx);
     if (!userId) return;
 
-    const step = this.userSteps.get(userId);
+    const step = this.commonService.getUserState(Number(userId))?.step;
+
     const userData = this.userGroupMap.get(userId);
 
     if (step && typeof step === 'string' && step.startsWith('edit_')) {
@@ -1109,7 +1126,7 @@ export class WelcomeService {
         await this.sendUserDataToGoogleScript(updatedUser, 'update');
       }
 
-      this.userSteps.delete(userId);
+      this.commonService.clearUserState(Number(userId));
 
       await ctx.reply(`Your ${field.replaceAll('_', ' ')} has been updated to "${newValue}".`);
       await this.handleStartCommand(ctx);
@@ -1125,7 +1142,10 @@ export class WelcomeService {
         return;
       }
 
-      this.userSteps.set(userId, 'discord_username');
+      this.commonService.setUserState(Number(userId), {
+        flow: 'welcome',
+        step: 'discord_username',
+      });
       await ctx.reply('What is your Discord Username?', {
         reply_markup: {
           force_reply: true,
@@ -1165,7 +1185,10 @@ export class WelcomeService {
         await ctx.reply('Invalid input. Please provide a valid name.');
         return;
       }
-      this.userSteps.set(userId, 'enter_mafia_movie');
+      this.commonService.setUserState(Number(userId), {
+        flow: 'welcome',
+        step: 'enter_mafia_movie',
+      });
       await ctx.reply('🎥 *What is your favorite Mafia movie?*', {
         reply_markup: {
           force_reply: true,

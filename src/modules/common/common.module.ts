@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { WelcomeModule } from '../welcome/welcome.module';
 import { CountryModule } from '../country/country.module';
 import { CityModule } from '../city/city.module';
@@ -10,12 +10,12 @@ import { AccessModule } from '../access/access.module';
 
 @Module({
   imports: [
-    WelcomeModule,
+    forwardRef(() => WelcomeModule),
     CountryModule,
     CityModule,
     MembershipModule,
     AccessModule,
-    BroadcastModule,
+    forwardRef(() => BroadcastModule),
     UserModule,
   ],
   providers: [CommonService],
