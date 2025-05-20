@@ -12,6 +12,7 @@ import { CountryModule } from './modules/country/country.module';
 import { CityModule } from './modules/city/city.module';
 import { CommonModule } from './modules/common/common.module';
 import { PrivateChatMiddleware } from './middleware/chat-type.middleware';
+import { TelegramLoggerService } from 'src/utils/telegram-logger.service';
 
 // Load environment variables
 config();
@@ -50,6 +51,6 @@ config();
     CommonModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, TelegramLoggerService],
 })
 export class AppModule {}
