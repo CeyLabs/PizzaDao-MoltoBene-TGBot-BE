@@ -809,7 +809,7 @@ export class WelcomeService {
         // Send random welcome message
         const welcomeText = this.getRandomWelcomeMessage(pizzaName, groupName!, userId);
 
-        const welcomeMessage = await ctx.telegram.sendMessage(groupId, welcomeText, {
+        await ctx.telegram.sendMessage(groupId, welcomeText, {
           parse_mode: 'Markdown',
         });
 
