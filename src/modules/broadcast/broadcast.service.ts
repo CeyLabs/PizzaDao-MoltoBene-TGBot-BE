@@ -2,7 +2,7 @@ import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { Context } from 'telegraf';
 import { Command, Ctx, On, Update } from 'nestjs-telegraf';
 import { AccessService } from '../access/access.service';
-import { InlineKeyboardButton } from 'telegraf/typings/core/types/typegram';
+import { InlineKeyboardButton, Message } from 'telegraf/typings/core/types/typegram';
 import { UserAccessInfo, BroadcastSession, PostMessage } from './broadcast.type';
 import { CommonService } from '../common/common.service';
 
@@ -624,8 +624,11 @@ Current Variables:
 
       let successCount = 0;
       let failureCount = 0;
+      let progressMsgId: number | undefined = undefined;
 
-      for (const city of cityData) {
+      for (let i = 0; i < cityData.length; i++) {
+        const city = cityData[i];
+        console.log('😼 meow!!');
         try {
           for (const message of session.messages) {
             const processedText = message.text?.replace(/{city}/gi, city.city_name);
@@ -636,11 +639,13 @@ Current Variables:
 
             const replyMarkup = urlButtons.length > 0 ? { inline_keyboard: urlButtons } : undefined;
 
+            let sentMessage: Message;
+
             // Simulate sending (replace with actual Telegram API call to group_id)
             if (message.mediaType && message.mediaUrl) {
               switch (message.mediaType) {
                 case 'photo':
-                  await ctx.telegram.sendPhoto(
+                  sentMessage = await ctx.telegram.sendPhoto(
                     (city.group_id || ctx.chat?.id) ?? 0,
                     message.mediaUrl,
                     {
@@ -651,7 +656,7 @@ Current Variables:
                   );
                   break;
                 case 'video':
-                  await ctx.telegram.sendVideo(
+                  sentMessage = await ctx.telegram.sendVideo(
                     (city.group_id || ctx.chat?.id) ?? 0,
                     message.mediaUrl,
                     {
@@ -662,7 +667,7 @@ Current Variables:
                   );
                   break;
                 case 'document':
-                  await ctx.telegram.sendDocument(
+                  sentMessage = await ctx.telegram.sendDocument(
                     (city.group_id || ctx.chat?.id) ?? 0,
                     message.mediaUrl,
                     {
@@ -673,7 +678,7 @@ Current Variables:
                   );
                   break;
                 case 'animation':
-                  await ctx.telegram.sendAnimation(
+                  sentMessage = await ctx.telegram.sendAnimation(
                     (city.group_id || ctx.chat?.id) ?? 0,
                     message.mediaUrl,
                     {
@@ -685,7 +690,7 @@ Current Variables:
                   break;
               }
             } else {
-              await ctx.telegram.sendMessage(
+              sentMessage = await ctx.telegram.sendMessage(
                 (city.group_id || ctx.chat?.id) ?? 0,
                 this.escapeMarkdown(processedText ?? ''),
                 {
@@ -698,28 +703,51 @@ Current Variables:
             if (message.isPinned) {
               await ctx.telegram.pinChatMessage(
                 (city.group_id || ctx.chat?.id) ?? 0,
-                message.messageId ?? 0,
+                sentMessage.message_id ?? 0,
                 {
                   disable_notification: true,
                 },
               );
             }
 
-            const success = Math.random() > 0.2; // Simulate success/failure
-            if (success) {
-              successCount++;
-              console.log(`Successfully sent messages to ${city.city_name}(${city.group_id})`);
-            } else {
-              failureCount++;
-              console.log(`Failed to send messages to ${city.city_name}(${city.group_id})`);
-            }
+            successCount++;
           }
-
-          await new Promise((resolve) => setTimeout(resolve, 100));
         } catch (error) {
           failureCount++;
           console.log(`Error sending to ${city.city_name}:`, error);
         }
+
+        // Progress update every 10 cities or at the end
+        if ((i + 1) % 10 === 0 || i === cityData.length - 1) {
+          const progressText = this.escapeMarkdown(
+            `📊 Progress: ${i + 1}/${cityData.length} cities\n` +
+              `✅ Success: ${successCount}\n❌ Failed: ${failureCount}`,
+          );
+          if (progressMsgId) {
+            try {
+              await ctx.telegram.editMessageText(
+                ctx.chat?.id ?? 0,
+                progressMsgId,
+                undefined,
+                progressText,
+                { parse_mode: 'MarkdownV2' },
+              );
+            } catch {
+              // If edit fails (e.g., message deleted), send a new one
+              const sent = await ctx.reply(progressText, { parse_mode: 'MarkdownV2' });
+              if ('message_id' in sent) {
+                progressMsgId = sent.message_id;
+              }
+            }
+          } else {
+            const sent = await ctx.reply(progressText, { parse_mode: 'MarkdownV2' });
+            if ('message_id' in sent) {
+              progressMsgId = sent.message_id;
+            }
+          }
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
       await ctx.reply(
