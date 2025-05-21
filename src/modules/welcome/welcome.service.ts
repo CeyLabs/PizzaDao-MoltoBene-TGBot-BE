@@ -282,11 +282,15 @@ export class WelcomeService {
 
         // Mute the user and send a verification message
         if (ctx.chat?.type === 'supergroup') {
-          await ctx.telegram.restrictChatMember(chatId, member.id, {
-            permissions: {
-              can_send_messages: false,
-            },
-          });
+          try {
+            await ctx.telegram.restrictChatMember(chatId, member.id, {
+              permissions: {
+                can_send_messages: false,
+              },
+            });
+          } catch (error) {
+            console.log(error);
+          }
         }
 
         const botUsername = process.env.BOT_USERNAME;
