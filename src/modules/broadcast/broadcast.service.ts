@@ -75,7 +75,7 @@ Here you can create rich posts, set Variables, and invite new Admins\\.
 
 *Example usage:*
 Hello \`\\{city\\}\` Pizza DAO members,
-We have an upcoming Pizza Day at \`\\{venue\\}\` on \`\\{date\\}\` from \`\\{start\\_time\\}\` to \`\\{end\\_time\\}\`\\.
+We have an upcoming Pizza Day at \`\\{venue\\}\` on \`\\{start_date\\}\` from \`\\{start\\_time\\}\` to \`\\{end\\_time\\}\`\\.
 
 You can register via: \`\\{unlock\\_link\\}\`
 `;
@@ -186,11 +186,11 @@ You can register via: \`\\{unlock\\_link\\}\`
         inline_keyboard = [
           [
             { text: '🌍 All City Chats', callback_data: 'broadcast_all_cities' },
-            { text: '🏙️ Specific City', callback_data: 'broadcast_specific_city' },
+            // { text: '🏙️ Specific City', callback_data: 'broadcast_specific_city' },
           ],
           [
-            { text: '📍 Specific Region', callback_data: 'broadcast_specific_region' },
-            { text: '🌐 Specific Country', callback_data: 'broadcast_specific_country' },
+            // { text: '📍 Specific Region', callback_data: 'broadcast_specific_region' },
+            // { text: '🌐 Specific Country', callback_data: 'broadcast_specific_country' },
           ],
         ];
         break;
@@ -288,22 +288,22 @@ You can register via: \`\\{unlock\\_link\\}\`
         });
 
         await ctx.reply(
-          this.escapeMarkdown(
-            `📢 You're assigned as admin to *All Pizza DAO* chats.\n\n` +
-              `Send me one or multiple messages you want to include in the post. It can be anything — a text, photo, video, even a sticker.\n\n` +
-              `You can use variables with below format within curly brackets.\n\n` +
-              `*Eg:*\n` +
-              `Hello {city} Pizza DAO members,\n` +
-              `We have Upcoming Pizza Day on {venue} at {time} .\n\n` +
-              `You can register via - {unlock_link}`,
-          ),
+          `📢 You're assigned as admin to *All Pizza DAO* chats\\.\n\n` +
+            `Send me one or multiple messages you want to include in the post\\. It can be anything — a text, photo, video, even a sticker\\.\n\n` +
+            `You can use variables with below format within curly brackets\\.\n\n` +
+            `*Eg:*\n` +
+            `Hello \\{city\\} Pizza DAO members,\n` +
+            `We have Upcoming Pizza Day on \\{location\\} at \\{start\\_time\\}\\.\n\n` +
+            `You can register via \\- \\{unlock\\_link\\}`,
+
           {
             parse_mode: 'MarkdownV2',
             reply_markup: this.getKeyboardMarkup(),
           },
         );
       }
-    } catch {
+    } catch (error) {
+      console.log(error);
       await ctx.answerCbQuery(this.escapeMarkdown('❌ Error processing your request'));
     }
   }
