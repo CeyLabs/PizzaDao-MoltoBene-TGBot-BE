@@ -111,9 +111,11 @@ export class AccessService {
   }
 
   async getUserAccess(telegram_id: string): Promise<AccessResult> {
-    const adminId = process.env.ADMIN_ID || '';
+    const adminIds: string[] = process.env.ADMIN_IDS
+      ? process.env.ADMIN_IDS.split(',').map((id) => id.trim())
+      : [];
 
-    if (telegram_id === adminId) {
+    if (adminIds.includes(telegram_id)) {
       const cities: CityData[] = await this.knexService
         .knex('city')
         .select('id as city_id', 'name as city_name', 'group_id', 'telegram_link');
