@@ -41,9 +41,19 @@ export interface UserAccessInfo {
   userId: number | undefined;
 }
 
+export interface PostMessage {
+  text: string | null;
+  isPinned: boolean;
+  urlButtons: { text: string; url: string }[];
+  mediaUrl: string | null;
+  mediaType?: 'photo' | 'video' | 'document' | 'animation';
+  messageId?: number;
+}
+
 export interface BroadcastSession {
-  step: 'awaiting_message' | 'awaiting_confirmation' | 'idle';
+  step: 'awaiting_message' | 'creating_post' | 'idle';
   selectedAction?: string;
-  message?: string;
-  targetCities?: { city_name: string }[];
+  messages: PostMessage[];
+  currentAction?: 'attach_media' | 'add_url_buttons';
+  currentMessageIndex?: number;
 }

@@ -44,16 +44,10 @@ export class CommonService {
     const state = this.userState.get(userId) || { flow: 'idle' };
 
     if (state.flow === 'broadcast') {
-      // Ensure state has required properties for broadcast
-      const broadcastState = {
-        messages: state.messages ?? [],
-        step: typeof state.step === 'string' ? state.step : '',
-      };
-      await this.broadcastService.handleBroadcastMessage(ctx, broadcastState);
+      await this.broadcastService.handleBroadcatsMessages(ctx);
     } else if (state.flow === 'welcome') {
       await this.welcomeService.handlePrivateChat(ctx);
     } else {
-      // Default: maybe start welcome flow or ignore
       await this.welcomeService.handlePrivateChat(ctx);
     }
   }
