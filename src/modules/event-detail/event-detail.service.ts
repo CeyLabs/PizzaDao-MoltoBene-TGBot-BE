@@ -6,10 +6,10 @@ import { IEventDetail } from './event-detail.interface';
 export class EventDetailService {
   constructor(private readonly knexService: KnexService) {}
 
-  async getEventByGroupId(groupId: string | number): Promise<IEventDetail | null> {
+  async getEventByYear(year: number): Promise<IEventDetail | null> {
     const result = await this.knexService
       .knex<IEventDetail>('event_detail')
-      .where('group_id', groupId)
+      .where('year', year)
       .first();
     return result ?? null;
   }

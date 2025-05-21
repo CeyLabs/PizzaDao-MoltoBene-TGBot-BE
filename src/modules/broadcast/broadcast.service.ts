@@ -498,8 +498,10 @@ You can register via: \`\\{unlock\\_link\\}\`
       }
 
       const previewCity = cityData[0];
+
+      const currentYear = new Date().getFullYear();
       const eventDetails = previewCity.group_id
-        ? await this.eventDetailService.getEventByGroupId(previewCity.group_id)
+        ? await this.eventDetailService.getEventByYear(currentYear)
         : null;
 
       await ctx.reply(`🔍 *Preview for ${previewCity.city_name}:*`, {
@@ -675,8 +677,10 @@ You can register via: \`\\{unlock\\_link\\}\`
         const countryName = city.group_id
           ? await this.countryService.getCountryByGroupId(city.group_id)
           : null;
+
+        const currentYear = new Date().getFullYear();
         const eventDetails = city.group_id
-          ? await this.eventDetailService.getEventByGroupId(city.group_id)
+          ? await this.eventDetailService.getEventByYear(currentYear)
           : null;
 
         try {
