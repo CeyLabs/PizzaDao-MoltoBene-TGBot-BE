@@ -1,3 +1,6 @@
+import * as fs from 'fs';
+import * as path from 'path';
+
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { Context } from 'telegraf';
 import { Command, Ctx, On, Update } from 'nestjs-telegraf';
@@ -582,6 +585,8 @@ Current Variables:
   }
 
   private async sendMessages(ctx: Context, session: BroadcastSession) {
+    let logs: string[] = [];
+
     try {
       const accessInfo = await this.getUserAccessInfo(ctx);
       if (!accessInfo) return;
@@ -628,7 +633,6 @@ Current Variables:
 
       for (let i = 0; i < cityData.length; i++) {
         const city = cityData[i];
-        console.log('😼 meow!!');
         try {
           for (const message of session.messages) {
             const processedText = message.text?.replace(/{city}/gi, city.city_name);
@@ -711,10 +715,11 @@ Current Variables:
             }
 
             successCount++;
+            logs.push(`✅ Success: ${city.city_name} (${city.group_id})`);
           }
         } catch (error) {
           failureCount++;
-          console.log(`Error sending to ${city.city_name}:`, error);
+          logs.push(`❌ Failed: ${city.city_name} (${city.group_id}) - ${error}`);
         }
 
         // Progress update every 10 cities or at the end
@@ -763,6 +768,11 @@ Current Variables:
           reply_markup: { remove_keyboard: true },
         },
       );
+
+      const logFilePath = path.join(__dirname, `broadcast-log-${Date.now()}.txt`);
+      fs.writeFileSync(logFilePath, logs.join('\n'), 'utf8');
+      await ctx.replyWithDocument({ source: logFilePath, filename: 'broadcast-log.txt' });
+      fs.unlinkSync(logFilePath);
 
       if (accessInfo.userId !== undefined) {
         this.commonService.clearUserState(accessInfo.userId);
