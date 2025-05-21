@@ -2,8 +2,8 @@ export interface IEventDetail {
   id: string;
   group_id: string;
   is_one_person: boolean;
-  name: string;
-  slug: string;
+  name: string | null;
+  slug: string | null;
   country: string;
   image_url: string | null;
   start_date: string | null;
