@@ -1,6 +1,6 @@
 export type UserFlow = 'welcome' | 'broadcast' | 'idle';
 
-export interface UserState {
+export interface IUserState {
   flow: UserFlow;
   messages?: any[];
   step?: string;

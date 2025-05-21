@@ -15,7 +15,7 @@ import { AccessService } from '../access/access.service';
 import { CommonService } from '../common/common.service';
 import { EventDetailService } from '../event-detail/event-detail.service';
 
-import { UserAccessInfo, BroadcastSession, PostMessage } from './broadcast.type';
+import { IUserAccessInfo, IBroadcastSession, IPostMessage } from './broadcast.type';
 import { ICityForVars } from '../city/city.interface';
 import { IEventDetail } from '../event-detail/event-detail.interface';
 
@@ -147,7 +147,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     await ctx.answerCbQuery();
   }
 
-  private async getUserAccessInfo(ctx: Context): Promise<UserAccessInfo | null> {
+  private async getUserAccessInfo(ctx: Context): Promise<IUserAccessInfo | null> {
     if (!ctx.from?.id) {
       await ctx.reply(this.escapeMarkdown('❌ User ID is undefined.'), {
         parse_mode: 'MarkdownV2',
@@ -221,7 +221,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         this.commonService.setUserState(Number(ctx.from?.id), {
           flow: 'broadcast',
           step: `creating_post`,
-          messages: [] as PostMessage[],
+          messages: [] as IPostMessage[],
         });
 
         message = `You're assigned as Host to *"${this.escapeMarkdown(cityName || 'Unknown City')} Pizza DAO"* chat\\. Select an option below
@@ -284,7 +284,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         this.commonService.setUserState(Number(userId), {
           flow: 'broadcast',
           step: `creating_post`,
-          messages: [] as PostMessage[],
+          messages: [] as IPostMessage[],
         });
 
         await ctx.reply(
@@ -376,7 +376,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         break;
 
       case 'pin': {
-        const selectedMessage = session.messages[index] as PostMessage;
+        const selectedMessage = session.messages[index] as IPostMessage;
         selectedMessage.isPinned = !selectedMessage.isPinned;
         this.commonService.setUserState(userId, {
           ...session,
@@ -434,11 +434,11 @@ You can register via: \`\\{unlock\\_link\\}\`
 
     switch (action) {
       case 'Preview':
-        await this.previewMessages(ctx, session as BroadcastSession);
+        await this.previewMessages(ctx, session as IBroadcastSession);
         break;
 
       case 'Send':
-        await this.sendMessages(ctx, session as BroadcastSession);
+        await this.sendMessages(ctx, session as IBroadcastSession);
         break;
 
       case 'Delete All':
@@ -463,7 +463,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     }
   }
 
-  private async previewMessages(ctx: Context, session: BroadcastSession) {
+  private async previewMessages(ctx: Context, session: IBroadcastSession) {
     try {
       const accessInfo = await this.getUserAccessInfo(ctx);
       if (!accessInfo) return;
@@ -623,7 +623,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     }
   }
 
-  private async sendMessages(ctx: Context, session: BroadcastSession) {
+  private async sendMessages(ctx: Context, session: IBroadcastSession) {
     const logs: string[] = [];
 
     try {
@@ -891,7 +891,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         session.messages &&
         session.currentMessageIndex < session.messages.length
       ) {
-        (session.messages[session.currentMessageIndex] as PostMessage).urlButtons = buttons;
+        (session.messages[session.currentMessageIndex] as IPostMessage).urlButtons = buttons;
         this.commonService.setUserState(userId, session);
 
         await ctx.reply(this.escapeMarkdown('✅ URL buttons added to your message.'), {
@@ -908,7 +908,7 @@ You can register via: \`\\{unlock\\_link\\}\`
           await this.displayMessageWithActions(
             ctx,
             session.currentMessageIndex,
-            session.messages[session.currentMessageIndex] as PostMessage,
+            session.messages[session.currentMessageIndex] as IPostMessage,
           );
         }
 
@@ -929,7 +929,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     }
 
     try {
-      const messageObj: PostMessage = {
+      const messageObj: IPostMessage = {
         text,
         isPinned: false,
         urlButtons: [],
@@ -959,7 +959,7 @@ You can register via: \`\\{unlock\\_link\\}\`
   private async displayMessageWithActions(
     ctx: Context,
     index: number,
-    messageObj: PostMessage,
+    messageObj: IPostMessage,
     variableIncluded?: boolean,
   ) {
     try {
@@ -1180,7 +1180,7 @@ You can register via: \`\\{unlock\\_link\\}\`
           session.messages &&
           session.currentMessageIndex < session.messages.length
         ) {
-          const msg = session.messages[session.currentMessageIndex] as PostMessage;
+          const msg = session.messages[session.currentMessageIndex] as IPostMessage;
           msg.mediaUrl = fileId;
           msg.mediaType = mediaType;
           msg.text = text || msg.text;
@@ -1204,14 +1204,14 @@ You can register via: \`\\{unlock\\_link\\}\`
         await this.displayMessageWithActions(
           ctx,
           session.currentMessageIndex,
-          session.messages[session.currentMessageIndex] as PostMessage,
+          session.messages[session.currentMessageIndex] as IPostMessage,
         );
 
         session.currentAction = undefined;
         session.currentMessageIndex = undefined;
         this.commonService.setUserState(userId, session);
       } else {
-        const messageObj: PostMessage = {
+        const messageObj: IPostMessage = {
           text,
           isPinned: false,
           urlButtons: [],

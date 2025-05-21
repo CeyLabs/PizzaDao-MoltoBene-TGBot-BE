@@ -3,12 +3,12 @@ import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { Help, On, Update } from 'nestjs-telegraf';
 import { WelcomeService } from '../welcome/welcome.service';
 import { BroadcastService } from '../broadcast/broadcast.service';
-import { UserFlow, UserState } from './common.interface';
+import { UserFlow, IUserState } from './common.interface';
 
 @Update()
 @Injectable()
 export class CommonService {
-  private userState = new Map<number, UserState>();
+  private userState = new Map<number, IUserState>();
 
   constructor(
     @Inject(forwardRef(() => WelcomeService))
@@ -52,16 +52,16 @@ export class CommonService {
     }
   }
 
-  setUserState(userId: number, state: Partial<UserState>) {
+  setUserState(userId: number, state: Partial<IUserState>) {
     const prev = this.userState.get(userId) || { flow: 'idle' as UserFlow };
     const merged = { ...prev, ...state };
     if (!merged.flow) {
       merged.flow = 'idle';
     }
-    this.userState.set(userId, merged as UserState);
+    this.userState.set(userId, merged as IUserState);
   }
 
-  getUserState(userId: number): UserState | undefined {
+  getUserState(userId: number): IUserState | undefined {
     return this.userState.get(userId);
   }
 

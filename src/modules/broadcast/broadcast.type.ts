@@ -1,11 +1,11 @@
-export interface UserAccess {
+export interface IUserAccess {
   role: string;
   city_data?: { city_name: string }[];
   region_name?: string;
   country_name?: string;
 }
 
-export interface AdminAccessResult {
+export interface IAdminAccessResult {
   role: 'admin';
   city_data: {
     city_id: string;
@@ -35,13 +35,13 @@ export interface AdminAccessResult {
   }[];
 }
 
-export interface UserAccessInfo {
-  userAccess: UserAccess[] | AdminAccessResult | null;
+export interface IUserAccessInfo {
+  userAccess: IUserAccess[] | IAdminAccessResult | null;
   role: string;
   userId: number | undefined;
 }
 
-export interface PostMessage {
+export interface IPostMessage {
   text: string | null;
   isPinned: boolean;
   urlButtons: { text: string; url: string }[];
@@ -50,10 +50,10 @@ export interface PostMessage {
   messageId?: number;
 }
 
-export interface BroadcastSession {
+export interface IBroadcastSession {
   step: 'awaiting_message' | 'creating_post' | 'idle';
   selectedAction?: string;
-  messages: PostMessage[];
+  messages: IPostMessage[];
   currentAction?: 'attach_media' | 'add_url_buttons';
   currentMessageIndex?: number;
 }
