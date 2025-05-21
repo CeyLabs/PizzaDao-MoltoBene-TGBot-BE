@@ -22,7 +22,9 @@ import { IEventDetail } from '../event-detail/event-detail.interface';
 @Update()
 @Injectable()
 export class BroadcastService {
-  private readonly SUPER_ADMIN_ID = process.env.ADMIN_ID;
+  private readonly SUPER_ADMIN_IDS: string[] = process.env.ADMIN_IDS
+    ? process.env.ADMIN_IDS.split(',').map((id) => id.trim())
+    : [];
 
   constructor(
     private readonly accessService: AccessService,
@@ -162,8 +164,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       return null;
     }
 
-    const role = userId.toString() === this.SUPER_ADMIN_ID ? 'admin' : userAccess[0].role;
-    return { userAccess, role, userId };
+const role = this.SUPER_ADMIN_IDS.includes(userId.toString()) ? 'admin' : userAccess[0].role;    return { userAccess, role, userId };
   }
 
   private async handleCreatePost(ctx: Context) {

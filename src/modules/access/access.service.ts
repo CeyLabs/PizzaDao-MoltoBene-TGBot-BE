@@ -69,9 +69,11 @@ export class AccessService {
   constructor(private readonly knexService: KnexService) {}
 
   async getAccessRole(telegram_id: string): Promise<Role> {
-    const adminId = process.env.ADMIN_ID || '';
+    const adminIds: string[] = process.env.ADMIN_IDS
+      ? process.env.ADMIN_IDS.split(',').map((id) => id.trim())
+      : [];
 
-    if (telegram_id === adminId) {
+    if (adminIds.includes(telegram_id)) {
       return 'admin';
     }
 
