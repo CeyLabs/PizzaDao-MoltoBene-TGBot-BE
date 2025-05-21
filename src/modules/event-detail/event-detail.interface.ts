@@ -4,6 +4,7 @@ export interface IEventDetail {
   is_one_person: boolean;
   name: string;
   slug: string;
+  country: string;
   image_url: string | null;
   start_date: string | null;
   start_time: string | null;
@@ -12,5 +13,6 @@ export interface IEventDetail {
   timezone: string | null;
   address: string | null;
   location: string | null;
+  unlock_link: string | null;
   year: number | null;
 }

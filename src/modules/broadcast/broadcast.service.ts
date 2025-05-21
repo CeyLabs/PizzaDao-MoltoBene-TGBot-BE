@@ -4,15 +4,20 @@ import * as path from 'path';
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { Context } from 'telegraf';
 import { Command, Ctx, On, Update } from 'nestjs-telegraf';
-import { AccessService } from '../access/access.service';
 import {
   InlineKeyboardButton,
   KeyboardButton,
   Message,
 } from 'telegraf/typings/core/types/typegram';
-import { UserAccessInfo, BroadcastSession, PostMessage } from './broadcast.type';
+
+import { CountryService } from '../country/country.service';
+import { AccessService } from '../access/access.service';
 import { CommonService } from '../common/common.service';
 import { EventDetailService } from '../event-detail/event-detail.service';
+
+import { UserAccessInfo, BroadcastSession, PostMessage } from './broadcast.type';
+import { ICityForVars } from '../city/city.interface';
+import { IEventDetail } from '../event-detail/event-detail.interface';
 
 @Update()
 @Injectable()
@@ -22,6 +27,7 @@ export class BroadcastService {
   constructor(
     private readonly accessService: AccessService,
     private readonly eventDetailService: EventDetailService,
+    private readonly countryService: CountryService,
     @Inject(forwardRef(() => CommonService))
     private readonly commonService: CommonService,
   ) {}
@@ -271,22 +277,6 @@ You can register via: \`\\{unlock\\_link\\}\`
       }
 
       const userId = ctx.from.id;
-      const actionMap: Record<string, string> = {
-        broadcast_all_cities: 'All City Chats',
-        broadcast_specific_city: 'Specific City',
-        broadcast_specific_region: 'Specific Region',
-        broadcast_specific_country: 'Specific Country',
-        broadcast_underboss_city: 'Underboss City',
-        broadcast_underboss_country: 'Underboss Country',
-        broadcast_all_region_cities: 'All Region Cities',
-        broadcast_caporegime_city: 'Caporegime City',
-        broadcast_caporegime_country: 'Caporegime Country',
-        broadcast_all_caporegime_cities: 'All Caporegime Cities',
-      };
-
-      await ctx.answerCbQuery(
-        this.escapeMarkdown(`Selected: ${actionMap[callbackData] || 'Unknown action'}`),
-      );
 
       if (callbackData === 'broadcast_all_cities') {
         this.commonService.setUserState(Number(userId), {
@@ -506,12 +496,25 @@ You can register via: \`\\{unlock\\_link\\}\`
       }
 
       const previewCity = cityData[0];
+      const eventDetails = previewCity.group_id
+        ? await this.eventDetailService.getEventByGroupId(previewCity.group_id)
+        : null;
+
       await ctx.reply(`🔍 *Preview for ${previewCity.city_name}:*`, {
         parse_mode: 'MarkdownV2',
       });
 
+      const countryName = previewCity.group_id
+        ? await this.countryService.getCountryByGroupId(previewCity.group_id)
+        : null;
+
       for (const [index, message] of session.messages.entries()) {
-        const processedText = message.text?.replace(/{city}/gi, previewCity.city_name);
+        const processedText = this.replaceVars(
+          message.text ?? '',
+          eventDetails,
+          countryName,
+          previewCity,
+        );
 
         const urlButtons: InlineKeyboardButton[][] = message.urlButtons.map((btn) => [
           { text: btn.text, url: btn.url },
@@ -667,9 +670,21 @@ You can register via: \`\\{unlock\\_link\\}\`
 
       for (let i = 0; i < cityData.length; i++) {
         const city = cityData[i];
+        const countryName = city.group_id
+          ? await this.countryService.getCountryByGroupId(city.group_id)
+          : null;
+        const eventDetails = city.group_id
+          ? await this.eventDetailService.getEventByGroupId(city.group_id)
+          : null;
+
         try {
           for (const message of session.messages) {
-            const processedText = message.text?.replace(/{city}/gi, city.city_name);
+            const processedText = this.replaceVars(
+              message.text ?? '',
+              eventDetails,
+              countryName,
+              city,
+            );
 
             const urlButtons: InlineKeyboardButton[][] = message.urlButtons.map((btn) => [
               { text: btn.text, url: btn.url },
@@ -837,6 +852,13 @@ You can register via: \`\\{unlock\\_link\\}\`
 
     if (!session || session.step !== 'creating_post') return;
 
+    // Check variable included or not
+    const hasVariable = /\{(\w+)\}/.test(text);
+    let variableIncluded = false;
+    if (hasVariable) {
+      variableIncluded = true;
+    }
+
     if (text === 'Cancel') {
       if (session.currentAction) {
         session.currentAction = undefined;
@@ -924,7 +946,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       });
 
       const messageIndex = session.messages.length - 1;
-      await this.displayMessageWithActions(ctx, messageIndex, messageObj);
+      await this.displayMessageWithActions(ctx, messageIndex, messageObj, variableIncluded);
     } catch {
       await ctx.reply(this.escapeMarkdown('❌ Error processing your message. Please try again.'), {
         parse_mode: 'MarkdownV2',
@@ -932,7 +954,12 @@ You can register via: \`\\{unlock\\_link\\}\`
     }
   }
 
-  private async displayMessageWithActions(ctx: Context, index: number, messageObj: PostMessage) {
+  private async displayMessageWithActions(
+    ctx: Context,
+    index: number,
+    messageObj: PostMessage,
+    variableIncluded?: boolean,
+  ) {
     try {
       const chatId = ctx.chat?.id;
       if (!chatId) {
@@ -1023,6 +1050,15 @@ You can register via: \`\\{unlock\\_link\\}\`
           reply_markup: this.getKeyboardMarkup(),
         },
       );
+
+      if (variableIncluded) {
+        await ctx.reply(
+          '🔎 _Variables detected\\! Use "Preview" to see how they’ll be filled in the final broadcast\\._',
+          {
+            parse_mode: 'MarkdownV2',
+          },
+        );
+      }
     } catch {
       await ctx.reply(this.escapeMarkdown('❌ Error displaying message. Please try again.'), {
         parse_mode: 'MarkdownV2',
@@ -1210,5 +1246,38 @@ You can register via: \`\\{unlock\\_link\\}\`
 
   private escapeMarkdown(text: string): string {
     return text.replace(/([_*[\]()~`>#+\-=|{}.!\\])/g, '\\$1');
+  }
+
+  private replaceVars(
+    text: string,
+    event: IEventDetail | null | undefined,
+    country: string | null,
+    city: ICityForVars,
+  ): string {
+    console.log(city);
+    let result = text
+      .replace(/{city}/gi, city.city_name)
+      .replace(/{country}/gi, country ?? '')
+      .replace(/{event_name}/gi, event?.name ?? '')
+      .replace(/{start_date}/gi, event?.start_date ?? '')
+      .replace(/{end_date}/gi, event?.end_date ?? '')
+      .replace(/{start_time}/gi, event?.start_time ?? '')
+      .replace(/{end_time}/gi, event?.end_time ?? '')
+      .replace(/{timezone}/gi, event?.timezone ?? '')
+      .replace(/{location}/gi, event?.location ?? '')
+      .replace(/{address}/gi, event?.address ?? '')
+      .replace(/{year}/gi, event?.year?.toString() ?? '');
+
+    // Handle unlock_link replacement with slug if available
+    if (event?.slug) {
+      result = result.replace(
+        /{unlock_link}/gi,
+        `https://app.unlock-protocol.com/event/${event.slug}`,
+      );
+    } else {
+      result = result.replace(/{unlock_link}/gi, event?.unlock_link ?? '');
+    }
+
+    return result;
   }
 }
