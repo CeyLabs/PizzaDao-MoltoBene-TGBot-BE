@@ -18,9 +18,3 @@ export interface ICityAccess {
   city_id: string;
   created_at: Date;
 }
-
-export const USER_ROLE = {
-  HOST: 'host',
-  UNDERBOSS: 'underboss',
-  ADMIN: 'admin',
-};
