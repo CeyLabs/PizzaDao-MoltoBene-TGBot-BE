@@ -44,7 +44,7 @@ export class BroadcastService {
     }
 
     const accessRole = await this.accessService.getAccessRole(String(ctx.from.id));
-    if (!accessRole || accessRole === 'no access') {
+    if (!accessRole) {
       await ctx.reply(this.escapeMarkdown('❌ You do not have access to broadcast messages.'), {
         parse_mode: 'MarkdownV2',
       });
@@ -157,14 +157,15 @@ You can register via: \`\\{unlock\\_link\\}\`
 
     const userId = ctx.from.id;
     const userAccess = await this.accessService.getUserAccess(String(userId));
-    if (userAccess === 'no access') {
+    if (!userAccess) {
       await ctx.reply(this.escapeMarkdown('❌ You do not have access to broadcast messages.'), {
         parse_mode: 'MarkdownV2',
       });
       return null;
     }
 
-const role = this.SUPER_ADMIN_IDS.includes(userId.toString()) ? 'admin' : userAccess[0].role;    return { userAccess, role, userId };
+    const role = this.SUPER_ADMIN_IDS.includes(userId.toString()) ? 'admin' : userAccess[0].role;
+    return { userAccess, role, userId };
   }
 
   private async handleCreatePost(ctx: Context) {
@@ -481,7 +482,7 @@ const role = this.SUPER_ADMIN_IDS.includes(userId.toString()) ? 'admin' : userAc
             city_name: city.city_name,
             group_id: city.group_id,
           }));
-      } else if (userAccess !== 'no access') {
+      } else if (userAccess !== null) {
         cityData = userAccess.city_data.map((city) => ({
           city_name: city.city_name,
           group_id: city.group_id,
@@ -643,7 +644,7 @@ const role = this.SUPER_ADMIN_IDS.includes(userId.toString()) ? 'admin' : userAc
             city_name: city.city_name,
             group_id: city.group_id,
           }));
-      } else if (userAccess !== 'no access') {
+      } else if (userAccess !== null) {
         cityData = userAccess.city_data.map((city) => ({
           city_name: city.city_name,
           group_id: city.group_id,

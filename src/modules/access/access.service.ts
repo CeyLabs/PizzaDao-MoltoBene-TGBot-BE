@@ -60,9 +60,9 @@ type AccessResult =
   | CountryAccessResult[]
   | HostAccessResult[]
   | AdminAccessResult[]
-  | 'no access';
+  | null;
 
-type Role = 'admin' | 'underboss' | 'caporegime' | 'host' | 'no access';
+type Role = 'admin' | 'underboss' | 'caporegime' | 'host' | null;
 
 @Injectable()
 export class AccessService {
@@ -107,7 +107,7 @@ export class AccessService {
       return 'host';
     }
 
-    return 'no access';
+    return null;
   }
 
   async getUserAccess(telegram_id: string): Promise<AccessResult> {
@@ -176,7 +176,7 @@ export class AccessService {
         .first();
 
       if (!region) {
-        return 'no access';
+        return null;
       }
 
       interface Country {
@@ -242,7 +242,7 @@ export class AccessService {
         .first();
 
       if (!country) {
-        return 'no access';
+        return null;
       }
 
       const cities: CityData[] = await this.knexService
@@ -278,7 +278,7 @@ export class AccessService {
         .pluck('city_id');
 
       if (accessibleCityIds.length === 0) {
-        return 'no access';
+        return null;
       }
 
       const cities: CityData[] = await this.knexService
@@ -294,6 +294,6 @@ export class AccessService {
       ];
     }
 
-    return 'no access';
+    return null;
   }
 }
