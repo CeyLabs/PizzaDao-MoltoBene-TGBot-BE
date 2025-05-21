@@ -20,6 +20,17 @@ type RegionData = {
   telegram_link: string | null;
 };
 
+type AdminAccessResult = {
+  role: 'admin';
+  city_data: CityData[];
+  region_data: RegionData[];
+  country_data: {
+    country_id: string;
+    country_name: string;
+    city_data: CityData[];
+  }[];
+};
+
 type RegionAccessResult = {
   region_id: string;
   region_name: string;
@@ -34,20 +45,9 @@ type CountryAccessResult = {
   city_data: CityData[];
 };
 
-type HostAccessResult = {
+type CityAccessResult = {
   role: 'host';
   city_data: CityData[];
-};
-
-type AdminAccessResult = {
-  role: 'admin';
-  city_data: CityData[];
-  region_data: RegionData[];
-  country_data: {
-    country_id: string;
-    country_name: string;
-    city_data: CityData[];
-  }[];
 };
 
 type regionAccess = {
@@ -55,12 +55,8 @@ type regionAccess = {
   region_id: string;
 };
 
-type AccessResult =
-  | RegionAccessResult[]
-  | CountryAccessResult[]
-  | HostAccessResult[]
-  | AdminAccessResult[]
-  | null;
+type AccessEntry = AdminAccessResult | RegionAccessResult | CountryAccessResult | CityAccessResult;
+type AccessResult = AccessEntry[] | null;
 
 type Role = 'admin' | 'underboss' | 'caporegime' | 'host' | null;
 
@@ -115,6 +111,8 @@ export class AccessService {
       ? process.env.ADMIN_IDS.split(',').map((id) => id.trim())
       : [];
 
+    const accessEntries: AccessEntry[] = [];
+
     if (adminIds.includes(telegram_id)) {
       const cities: CityData[] = await this.knexService
         .knex('city')
@@ -151,22 +149,19 @@ export class AccessService {
         }
       }
 
-      return [
-        {
-          role: 'admin',
-          city_data: cities,
-          region_data: regions,
-          country_data,
-        },
-      ];
+      accessEntries.push({
+        role: 'admin',
+        city_data: cities,
+        region_data: regions,
+        country_data,
+      });
     }
 
-    const regionAccess: regionAccess | undefined = await this.knexService
+    const regionAccesses = await this.knexService
       .knex<regionAccess>('region_access')
-      .where('user_telegram_id', telegram_id)
-      .first();
+      .where('user_telegram_id', telegram_id);
 
-    if (regionAccess) {
+    for (const regionAccess of regionAccesses) {
       interface Region {
         id: string;
         name: string;
@@ -178,21 +173,14 @@ export class AccessService {
         .first();
 
       if (!region) {
-        return null;
+        continue;
       }
 
-      interface Country {
-        id: string;
-        name: string;
-      }
-
-      const countries: Country[] = await this.knexService
-        .knex<Country>('country')
-        .where('region_id', region.id);
+      const countries = await this.knexService.knex('country').where('region_id', region.id);
 
       const region_data: RegionData[] = [];
 
-      for (const country of countries) {
+      for (const country of countries as { id: string; name: string }[]) {
         const cities: CityData[] = await this.knexService
           .knex('city')
           .where('country_id', country.id)
@@ -212,39 +200,32 @@ export class AccessService {
         }
       }
 
-      return [
-        {
-          region_id: region.id,
-          region_name: region.name,
-          role: 'underboss',
-          region_data,
-        },
-      ];
+      accessEntries.push({
+        region_id: region.id,
+        region_name: region.name,
+        role: 'underboss',
+        region_data,
+      });
     }
 
-    //  Check country_access
-    interface CountryAccess {
-      country_id: string;
-    }
+    // Caporegime (country) access
+    const countryAccesses = await this.knexService
+      .knex<ICountryAccess>('country_access')
+      .where('user_telegram_id', telegram_id);
 
-    const countryAccess: CountryAccess | undefined = await this.knexService
-      .knex<CountryAccess>('country_access')
-      .where('user_telegram_id', telegram_id)
-      .first();
-
-    if (countryAccess) {
-      interface Country {
+    for (const countryAccess of countryAccesses) {
+      interface ICountry {
         id: string;
         name: string;
       }
 
-      const country: Country | undefined = await this.knexService
-        .knex<Country>('country')
+      const country = await this.knexService
+        .knex<ICountry>('country')
         .where('id', countryAccess.country_id)
         .first();
 
       if (!country) {
-        return null;
+        continue;
       }
 
       const cities: CityData[] = await this.knexService
@@ -252,50 +233,31 @@ export class AccessService {
         .where('country_id', country.id)
         .select('id as city_id', 'name as city_name', 'group_id', 'telegram_link');
 
-      return [
-        {
-          country_id: country.id,
-          country_name: country.name,
-          role: 'caporegime',
-          city_data: cities,
-        },
-      ];
+      accessEntries.push({
+        country_id: country.id,
+        country_name: country.name,
+        role: 'caporegime',
+        city_data: cities,
+      });
     }
 
-    //  Host role: only return cities user has access to from city_access table
-    interface User {
-      id: string;
-      telegram_id: string;
-    }
+    // Host (city) access
+    const accessibleCityIds = await this.knexService
+      .knex('city_access')
+      .where('user_telegram_id', telegram_id)
+      .pluck('city_id');
 
-    const userExists: User | undefined = await this.knexService
-      .knex<User>('user')
-      .where('telegram_id', telegram_id)
-      .first();
-
-    if (userExists) {
-      const accessibleCityIds = await this.knexService
-        .knex('city_access')
-        .where('user_telegram_id', telegram_id)
-        .pluck('city_id');
-
-      if (accessibleCityIds.length === 0) {
-        return null;
-      }
-
+    if (accessibleCityIds.length > 0) {
       const cities: CityData[] = await this.knexService
         .knex('city')
         .whereIn('id', accessibleCityIds)
         .select('id as city_id', 'name as city_name', 'group_id', 'telegram_link');
 
-      return [
-        {
-          role: 'host',
-          city_data: cities,
-        },
-      ];
+      accessEntries.push({
+        role: 'host',
+        city_data: cities,
+      });
     }
-
-    return null;
+    return accessEntries.length > 0 ? accessEntries : null;
   }
 }
