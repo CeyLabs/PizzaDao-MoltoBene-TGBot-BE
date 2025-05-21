@@ -585,7 +585,7 @@ Current Variables:
   }
 
   private async sendMessages(ctx: Context, session: BroadcastSession) {
-    let logs: string[] = [];
+    const logs: string[] = [];
 
     try {
       const accessInfo = await this.getUserAccessInfo(ctx);
