@@ -1256,7 +1256,6 @@ You can register via: \`\\{unlock\\_link\\}\`
     country: string | null,
     city: ICityForVars,
   ): string {
-    console.log(city);
     let result = text
       .replace(/{city}/gi, city.city_name)
       .replace(/{country}/gi, country ?? '')
