@@ -5,7 +5,11 @@ import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { Context } from 'telegraf';
 import { Command, Ctx, On, Update } from 'nestjs-telegraf';
 import { AccessService } from '../access/access.service';
-import { InlineKeyboardButton, Message } from 'telegraf/typings/core/types/typegram';
+import {
+  InlineKeyboardButton,
+  KeyboardButton,
+  Message,
+} from 'telegraf/typings/core/types/typegram';
 import { UserAccessInfo, BroadcastSession, PostMessage } from './broadcast.type';
 import { CommonService } from '../common/common.service';
 import { EventDetailService } from '../event-detail/event-detail.service';
@@ -164,10 +168,11 @@ You can register via: \`\\{unlock\\_link\\}\`
 
     let message: string;
     let inline_keyboard: InlineKeyboardButton[][] = [];
+    let default_keyboard: KeyboardButton[][] = [];
 
     switch (role) {
       case 'admin':
-        message = `You're assigned as *Super Admin* to all the Pizza DAO chats. Select a Specific Group(s) to send the Broadcast Message.`;
+        message = `You're assigned as *Super Admin* to all the Pizza DAO chats\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
         inline_keyboard = [
           [
             { text: '🌍 All City Chats', callback_data: 'broadcast_all_cities' },
@@ -183,7 +188,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       case 'underboss': {
         const regionName =
           Array.isArray(userAccess) && userAccess[0]?.region_name ? userAccess[0].region_name : '';
-        message = `You're assigned as *Underboss* to all the *${this.escapeMarkdown(regionName)}* Pizza DAO chats. Select a Specific Group(s) to send the Broadcast Message.`;
+        message = `You're assigned as *Underboss* to all the *${this.escapeMarkdown(regionName)}* Pizza DAO chats\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
         inline_keyboard = [
           [
             { text: '🏙️ Specific City', callback_data: 'broadcast_underboss_city' },
@@ -202,14 +207,22 @@ You can register via: \`\\{unlock\\_link\\}\`
       case 'host': {
         const cityName =
           (Array.isArray(userAccess) && userAccess[0]?.city_data?.[0]?.city_name) || '';
-        message = `You're assigned as Host to *"${this.escapeMarkdown(cityName || 'Unknown City')} Pizza DAO"* chat. Select an option below
-\nSend me one or multiple messages you want to include in the post. It can be anything — a text, photo, video, even a sticker.`;
+
+        this.commonService.setUserState(Number(ctx.from?.id), {
+          flow: 'broadcast',
+          step: `creating_post`,
+          messages: [] as PostMessage[],
+        });
+
+        message = `You're assigned as Host to *"${this.escapeMarkdown(cityName || 'Unknown City')} Pizza DAO"* chat\\. Select an option below
+\nSend me one or multiple messages you want to include in the post\\. It can be anything — a text, photo, video, even a sticker\\.`;
+        default_keyboard = this.getKeyboardMarkup().keyboard;
         break;
       }
 
       case 'caporegime': {
         const countryName = (Array.isArray(userAccess) && userAccess[0]?.country_name) || '';
-        message = `You're assigned as *Caporegime* to all the *${this.escapeMarkdown(countryName || 'Unknown Country')}* Pizza DAO chats. Select a Specific Group(s) to send the Broadcast Message.`;
+        message = `You're assigned as *Caporegime* to all the *${this.escapeMarkdown(countryName || 'Unknown Country')}* Pizza DAO chats\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
         inline_keyboard = [
           [
             { text: '🏙️ Specific City', callback_data: 'broadcast_caporegime_city' },
@@ -232,11 +245,19 @@ You can register via: \`\\{unlock\\_link\\}\`
         return;
     }
 
-    await ctx.reply(this.escapeMarkdown(message), {
+    await ctx.reply(message, {
       parse_mode: 'MarkdownV2',
-      ...(inline_keyboard.length > 0 && {
-        reply_markup: { inline_keyboard },
-      }),
+      ...(inline_keyboard.length > 0
+        ? { reply_markup: { inline_keyboard } }
+        : default_keyboard.length > 0
+          ? {
+              reply_markup: {
+                keyboard: default_keyboard,
+                resize_keyboard: true,
+                one_time_keyboard: true,
+              },
+            }
+          : {}),
     });
   }
 
@@ -582,7 +603,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       }
 
       await ctx.reply(
-        `This post will be sent to *${cityData.length} cities*\\. Use the Send button to distribute it\\.\n\nNOTE: This is just a preview using ${previewCity.city_name} as an example city\\. The actual messages will have the appropriate city name for each group\\.`,
+        `This post will be sent to *${cityData.length > 1 ? cityData.length + '* ' + 'cities' : cityData[0].city_name + '*'}\\. Use the Send button to distribute it\\.\n\nNOTE: This is just a preview using ${this.escapeMarkdown(previewCity.city_name)} as an example city\\. The actual messages will have the appropriate city name for each group\\.`,
         {
           parse_mode: 'MarkdownV2',
           reply_markup: this.getKeyboardMarkup(),
