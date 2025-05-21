@@ -704,17 +704,24 @@ Current Variables:
               );
             }
 
+            successCount++;
+
             if (message.isPinned) {
-              await ctx.telegram.pinChatMessage(
-                (city.group_id || ctx.chat?.id) ?? 0,
-                sentMessage.message_id ?? 0,
-                {
-                  disable_notification: true,
-                },
-              );
+              try {
+                await ctx.telegram.pinChatMessage(
+                  (city.group_id || ctx.chat?.id) ?? 0,
+                  sentMessage.message_id ?? 0,
+                  {
+                    disable_notification: true,
+                  },
+                );
+              } catch (error) {
+                logs.push(
+                  `☑️ Message delivered to ${city.city_name} (${city.group_id}), but pinning failed: ${error}`,
+                );
+              }
             }
 
-            successCount++;
             logs.push(`✅ Success: ${city.city_name} (${city.group_id})`);
           }
         } catch (error) {
