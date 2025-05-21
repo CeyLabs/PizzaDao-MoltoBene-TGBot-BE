@@ -8,6 +8,7 @@ import { AccessService } from '../access/access.service';
 import { InlineKeyboardButton, Message } from 'telegraf/typings/core/types/typegram';
 import { UserAccessInfo, BroadcastSession, PostMessage } from './broadcast.type';
 import { CommonService } from '../common/common.service';
+import { EventDetailService } from '../event-detail/event-detail.service';
 
 @Update()
 @Injectable()
@@ -16,6 +17,7 @@ export class BroadcastService {
 
   constructor(
     private readonly accessService: AccessService,
+    private readonly eventDetailService: EventDetailService,
     @Inject(forwardRef(() => CommonService))
     private readonly commonService: CommonService,
   ) {}
@@ -42,34 +44,43 @@ export class BroadcastService {
 
   private async showBroadcastMenu(ctx: Context, role: string) {
     try {
-      const rawMessage = `Hello there *${role.charAt(0).toUpperCase() + role.slice(1)}* 👋
-Here you can create rich posts, set Variables and Invite new Admins
+      const welcomeMessage = `Hello there *${role.charAt(0).toUpperCase() + role.slice(1)}* 👋
+Here you can create rich posts, set Variables, and invite new Admins\\.
 
-Current Variables:
-- City: Galle
-- Country: Sri Lanka
-- Date: 22nd May 2025
-- Start Time: 06:00 PM
-- End Time: 09:00 PM
-- Venue: Pizza Den
-- Venue Link: https://t.co/sSsfnwwhAd
-- Unlock Link: https://app.unlock-protocol.com/event/global-pizza-party-kandy-1
-- X Post: https://x.com/pizzadao/fsda
-- Admins: @naveensavishka`;
+*You can use the following variables in your broadcast messages:*\n
+>\\- \`\\{city\\}\` — City name
+>\\- \`\\{country\\}\` — Country name
+>\\- \`\\{date\\}\` — Event date
+>\\- \`\\{start\\_time\\}\` — Event start time
+>\\- \`\\{end\\_time\\}\` — Event end time
+>\\- \`\\{venue\\}\` — Venue name
+>\\- \`\\{venue\\_link\\}\` — Venue link
+>\\- \`\\{unlock\\_link\\}\` — Unlock Protocol link
+>\\- \`\\{x\\_post\\}\` — X \\(Twitter\\) post link
+>\\- \`\\{admins\\}\` — Admin usernames\n
 
-      await ctx.reply(this.escapeMarkdown(rawMessage), {
+*Example usage:*
+Hello \`\\{city\\}\` Pizza DAO members,
+We have an upcoming Pizza Day at \`\\{venue\\}\` on \`\\{date\\}\` from \`\\{start\\_time\\}\` to \`\\{end\\_time\\}\`\\.
+
+You can register via: \`\\{unlock\\_link\\}\`
+`;
+
+      await ctx.reply(welcomeMessage, {
         parse_mode: 'MarkdownV2',
         reply_markup: {
           inline_keyboard: [
+            [{ text: '📝 Create Post', callback_data: 'create_post' }],
             [
-              { text: 'Create Post', callback_data: 'create_post' },
-              { text: 'Update Variables', callback_data: 'update_variables' },
+              { text: '⏰ Scheduled Posts', callback_data: 'scheduled_posts' },
+              { text: '✏️ Edit Post', callback_data: 'edit_post' },
             ],
-            [{ text: 'Invite new Admin', callback_data: 'invite_admin' }],
+            [{ text: '⚙️ Settings', callback_data: 'settings' }],
           ],
         },
       });
-    } catch {
+    } catch (error) {
+      console.error('Error displaying broadcast menu:', error);
       await ctx.reply(this.escapeMarkdown('❌ Failed to display post creation interface.'), {
         parse_mode: 'MarkdownV2',
       });
