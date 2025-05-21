@@ -54,14 +54,16 @@ Here you can create rich posts, set Variables, and invite new Admins\\.
 *You can use the following variables in your broadcast messages:*\n
 >\\- \`\\{city\\}\` — City name
 >\\- \`\\{country\\}\` — Country name
->\\- \`\\{date\\}\` — Event date
+>\\- \`\\{event\\_name\\}\` — Event name
+>\\- \`\\{start\\_date\\}\` — Event start date
+>\\- \`\\{end\\_date\\}\` — Event end date
 >\\- \`\\{start\\_time\\}\` — Event start time
 >\\- \`\\{end\\_time\\}\` — Event end time
->\\- \`\\{venue\\}\` — Venue name
->\\- \`\\{venue\\_link\\}\` — Venue link
->\\- \`\\{unlock\\_link\\}\` — Unlock Protocol link
->\\- \`\\{x\\_post\\}\` — X \\(Twitter\\) post link
->\\- \`\\{admins\\}\` — Admin usernames\n
+>\\- \`\\{timezone\\}\` — Event timezone
+>\\- \`\\{location\\}\` — Event location
+>\\- \`\\{address\\}\` — Event address
+>\\- \`\\{year\\}\` — Event year
+>\\- \`\\{unlock\\_link\\}\` — Unlock Protocol link\n
 
 *Example usage:*
 Hello \`\\{city\\}\` Pizza DAO members,
