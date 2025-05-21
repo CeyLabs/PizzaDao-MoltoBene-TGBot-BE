@@ -279,13 +279,17 @@ export class WelcomeService {
         });
 
         // Mute the user and send a verification message
-        if (ctx.chat?.type === 'supergroup') {
-          await ctx.telegram.restrictChatMember(chatId, member.id, {
-            permissions: {
-              can_send_messages: false,
-            },
-          });
-        }
+        // if (ctx.chat?.type === 'supergroup') {
+        //   try {
+        //     await ctx.telegram.restrictChatMember(chatId, member.id, {
+        //       permissions: {
+        //         can_send_messages: false,
+        //       },
+        //     });
+        //   } catch (error) {
+        //     console.log(error);
+        //   }
+        // }
 
         const botUsername = process.env.BOT_USERNAME;
         const deepLink = `https://t.me/${botUsername}?start=register_${member.id}_${chatId}`;
@@ -416,22 +420,22 @@ export class WelcomeService {
       );
 
       // Enable group permissions
-      if (groupId) {
-        // Check if the groupId represents a supergroup (starts with "-100")
-        if (typeof groupId === 'string' && groupId.startsWith('-100')) {
-          await ctx.telegram.restrictChatMember(groupId, Number(userId), {
-            permissions: {
-              can_send_messages: true,
-              can_send_polls: true,
-              can_send_other_messages: true,
-              can_add_web_page_previews: true,
-              can_change_info: false,
-              can_invite_users: true,
-              can_pin_messages: false,
-            },
-          });
-        }
-      }
+      // if (groupId) {
+      //   // Check if the groupId represents a supergroup (starts with "-100")
+      //   if (typeof groupId === 'string' && groupId.startsWith('-100')) {
+      //     await ctx.telegram.restrictChatMember(groupId, Number(userId), {
+      //       permissions: {
+      //         can_send_messages: true,
+      //         can_send_polls: true,
+      //         can_send_other_messages: true,
+      //         can_add_web_page_previews: true,
+      //         can_change_info: false,
+      //         can_invite_users: true,
+      //         can_pin_messages: false,
+      //       },
+      //     });
+      //   }
+      // }
       return;
     }
 
