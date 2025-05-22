@@ -387,7 +387,32 @@ You can register via: \`\\{unlock\\_link\\}\`
         await ctx.answerCbQuery(
           this.escapeMarkdown(`Message pin status: ${selectedMessage.isPinned ? 'ON' : 'OFF'}`),
         );
-        await this.displayMessageWithActions(ctx, index, selectedMessage);
+
+        if (selectedMessage.messageId && ctx.chat?.id) {
+          const inlineKeyboard: InlineKeyboardButton[][] = [
+            ...selectedMessage.urlButtons.map((btn) => [{ text: btn.text, url: btn.url }]),
+            [
+              { text: 'Attach Media', callback_data: `msg_media_${index}` },
+              { text: 'Add URL Buttons', callback_data: `msg_url_${index}` },
+            ],
+            [
+              {
+                text: `Pin the Message: ${selectedMessage.isPinned ? 'ON' : 'OFF'}`,
+                callback_data: `msg_pin_${index}`,
+              },
+            ],
+            [{ text: 'Delete Message', callback_data: `msg_delete_${index}` }],
+          ];
+
+          await ctx.telegram.editMessageReplyMarkup(
+            ctx.chat.id,
+            selectedMessage.messageId,
+            undefined,
+            { inline_keyboard: inlineKeyboard },
+          );
+        } else {
+          await this.displayMessageWithActions(ctx, index, selectedMessage);
+        }
         break;
       }
 
