@@ -51,6 +51,7 @@ TELEGRAM_BOT_TOKEN=your_telegram_bot_token
 BOT_USERNAME=your_bot_username
 ENABLE_WEBHOOK=true/false
 WEBHOOK_DOMAIN=your_webhook_domain
+ADMIN_IDS=admin_ids_seperated_by_commas
 
 # Database Configuration
 PG_HOST=your_postgres_host
@@ -85,6 +86,11 @@ docker-compose up -d
 ```bash
 npm run migrate
 npm run fixtures
+```
+
+4. Sync unlock events:
+```bash
+npm run unlock:sync
 ```
 
 5. Start the development server:
