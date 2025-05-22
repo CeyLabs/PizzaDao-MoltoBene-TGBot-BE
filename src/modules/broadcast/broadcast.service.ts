@@ -17,7 +17,6 @@ import { EventDetailService } from '../event-detail/event-detail.service';
 
 import { IUserAccessInfo, IBroadcastSession, IPostMessage } from './broadcast.type';
 import { ICityForVars } from '../city/city.interface';
-import { IEventDetail } from '../event-detail/event-detail.interface';
 
 @Update()
 @Injectable()
@@ -524,11 +523,6 @@ You can register via: \`\\{unlock\\_link\\}\`
 
       const previewCity = cityData[0];
 
-      const currentYear = new Date().getFullYear();
-      const eventDetails = previewCity.group_id
-        ? await this.eventDetailService.getEventByYear(currentYear)
-        : null;
-
       await ctx.reply(`🔍 *Preview for ${previewCity.city_name}:*`, {
         parse_mode: 'MarkdownV2',
       });
@@ -538,12 +532,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         : null;
 
       for (const [index, message] of session.messages.entries()) {
-        const processedText = this.replaceVars(
-          message.text ?? '',
-          eventDetails,
-          countryName,
-          previewCity,
-        );
+        const processedText = await this.replaceVars(message.text ?? '', countryName, previewCity);
 
         const urlButtons: InlineKeyboardButton[][] = message.urlButtons.map((btn) => [
           { text: btn.text, url: btn.url },
@@ -703,19 +692,9 @@ You can register via: \`\\{unlock\\_link\\}\`
           ? await this.countryService.getCountryByGroupId(city.group_id)
           : null;
 
-        const currentYear = new Date().getFullYear();
-        const eventDetails = city.group_id
-          ? await this.eventDetailService.getEventByYear(currentYear)
-          : null;
-
         try {
           for (const message of session.messages) {
-            const processedText = this.replaceVars(
-              message.text ?? '',
-              eventDetails,
-              countryName,
-              city,
-            );
+            const processedText = this.replaceVars(message.text ?? '', countryName, city);
 
             const urlButtons: InlineKeyboardButton[][] = message.urlButtons.map((btn) => [
               { text: btn.text, url: btn.url },
@@ -733,7 +712,7 @@ You can register via: \`\\{unlock\\_link\\}\`
                     (city.group_id || ctx.chat?.id) ?? 0,
                     message.mediaUrl,
                     {
-                      caption: this.escapeMarkdown(processedText ?? ''),
+                      caption: this.escapeMarkdown((await processedText) ?? ''),
                       parse_mode: 'MarkdownV2',
                       reply_markup: replyMarkup,
                     },
@@ -744,7 +723,7 @@ You can register via: \`\\{unlock\\_link\\}\`
                     (city.group_id || ctx.chat?.id) ?? 0,
                     message.mediaUrl,
                     {
-                      caption: this.escapeMarkdown(processedText ?? ''),
+                      caption: this.escapeMarkdown((await processedText) ?? ''),
                       parse_mode: 'MarkdownV2',
                       reply_markup: replyMarkup,
                     },
@@ -755,7 +734,7 @@ You can register via: \`\\{unlock\\_link\\}\`
                     (city.group_id || ctx.chat?.id) ?? 0,
                     message.mediaUrl,
                     {
-                      caption: this.escapeMarkdown(processedText ?? ''),
+                      caption: this.escapeMarkdown((await processedText) ?? ''),
                       parse_mode: 'MarkdownV2',
                       reply_markup: replyMarkup,
                     },
@@ -766,7 +745,7 @@ You can register via: \`\\{unlock\\_link\\}\`
                     (city.group_id || ctx.chat?.id) ?? 0,
                     message.mediaUrl,
                     {
-                      caption: this.escapeMarkdown(processedText ?? ''),
+                      caption: this.escapeMarkdown((await processedText) ?? ''),
                       parse_mode: 'MarkdownV2',
                       reply_markup: replyMarkup,
                     },
@@ -776,7 +755,7 @@ You can register via: \`\\{unlock\\_link\\}\`
             } else {
               sentMessage = await ctx.telegram.sendMessage(
                 (city.group_id || ctx.chat?.id) ?? 0,
-                this.escapeMarkdown(processedText ?? ''),
+                this.escapeMarkdown((await processedText) ?? ''),
                 {
                   parse_mode: 'MarkdownV2',
                   reply_markup: replyMarkup,
@@ -912,7 +891,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     }
 
     if (session.currentAction === 'add_url_buttons' && session.currentMessageIndex !== undefined) {
-      const buttons = this.parseUrlButtons(text);
+      const buttons = await this.parseUrlButtons(text);
       if (
         buttons.length > 0 &&
         typeof session.currentMessageIndex === 'number' &&
@@ -1097,7 +1076,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     }
   }
 
-  private parseUrlButtons(text: string): { text: string; url: string }[] {
+  private async parseUrlButtons(text: string): Promise<{ text: string; url: string }[]> {
     const buttons: { text: string; url: string }[] = [];
     const buttonTexts = text
       .split(/[\n|]+/)
@@ -1105,9 +1084,20 @@ You can register via: \`\\{unlock\\_link\\}\`
       .filter((line) => line);
 
     for (const buttonText of buttonTexts) {
-      const match = buttonText.match(/^(.*?)\s*-\s*(https?:\/\/.*)$/i);
+      const match = buttonText.match(/^(.*?)\s*-\s*([^\s|]+)$/i);
       if (match && match.length === 3) {
-        const [, text, url] = match;
+        const text = match[1];
+        let url = match[2];
+
+        const variableMatches = url.match(/{(\w+)}/g);
+        if (variableMatches) {
+          try {
+            url = await this.replaceVars(url);
+          } catch (error) {
+            console.error('Error replacing variables in URL:', error);
+            return [];
+          }
+        }
         try {
           new URL(url);
           buttons.push({ text: text.trim(), url: url.trim() });
@@ -1279,14 +1269,16 @@ You can register via: \`\\{unlock\\_link\\}\`
     return text.replace(/([_*[\]()~`>#+\-=|{}.!\\])/g, '\\$1');
   }
 
-  private replaceVars(
+  private async replaceVars(
     text: string,
-    event: IEventDetail | null | undefined,
-    country: string | null,
-    city: ICityForVars,
-  ): string {
+    country?: string | null,
+    city?: ICityForVars,
+  ): Promise<string> {
+    const currentYear = new Date().getFullYear();
+    const event = await this.eventDetailService.getEventByYear(currentYear);
+
     let result = text
-      .replace(/{city}/gi, city.city_name)
+      .replace(/{city}/gi, city?.city_name ?? '')
       .replace(/{country}/gi, country ?? '')
       .replace(/{event_name}/gi, event?.name ?? '')
       .replace(/{start_date}/gi, event?.start_date ?? '')
