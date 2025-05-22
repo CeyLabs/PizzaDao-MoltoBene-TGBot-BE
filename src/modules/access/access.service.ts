@@ -155,6 +155,8 @@ export class AccessService {
         region_data: regions,
         country_data,
       });
+
+      return accessEntries;
     }
 
     const regionAccesses = await this.knexService
