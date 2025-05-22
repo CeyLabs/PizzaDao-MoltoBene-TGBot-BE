@@ -17,7 +17,6 @@ import { EventDetailService } from '../event-detail/event-detail.service';
 
 import { IUserAccessInfo, IBroadcastSession, IPostMessage } from './broadcast.type';
 import { ICityForVars } from '../city/city.interface';
-import { IEventDetail } from '../event-detail/event-detail.interface';
 
 @Update()
 @Injectable()
@@ -87,7 +86,7 @@ You can register via: \`\\{unlock\\_link\\}\`
             [{ text: '📝 Create Post', callback_data: 'create_post' }],
             [
               { text: '⏰ Scheduled Posts', callback_data: 'scheduled_posts' },
-              { text: '✏️ Edit Post', callback_data: 'edit_post' },
+              { text: '✏️ Edit Post', callback_data: 'broadcast_edit_post' },
             ],
             [{ text: '⚙️ Settings', callback_data: 'settings' }],
           ],
@@ -112,6 +111,11 @@ You can register via: \`\\{unlock\\_link\\}\`
 
     if (callbackData === 'create_post') {
       await this.handleCreatePost(ctx);
+      return;
+    }
+
+    if (['scheduled_posts', 'broadcast_edit_post', 'settings'].includes(callbackData)) {
+      await ctx.reply('This feature is under construction 🚧');
       return;
     }
 
@@ -387,7 +391,32 @@ You can register via: \`\\{unlock\\_link\\}\`
         await ctx.answerCbQuery(
           this.escapeMarkdown(`Message pin status: ${selectedMessage.isPinned ? 'ON' : 'OFF'}`),
         );
-        await this.displayMessageWithActions(ctx, index, selectedMessage);
+
+        if (selectedMessage.messageId && ctx.chat?.id) {
+          const inlineKeyboard: InlineKeyboardButton[][] = [
+            ...selectedMessage.urlButtons.map((btn) => [{ text: btn.text, url: btn.url }]),
+            [
+              { text: 'Attach Media', callback_data: `msg_media_${index}` },
+              { text: 'Add URL Buttons', callback_data: `msg_url_${index}` },
+            ],
+            [
+              {
+                text: `Pin the Message: ${selectedMessage.isPinned ? 'ON' : 'OFF'}`,
+                callback_data: `msg_pin_${index}`,
+              },
+            ],
+            [{ text: 'Delete Message', callback_data: `msg_delete_${index}` }],
+          ];
+
+          await ctx.telegram.editMessageReplyMarkup(
+            ctx.chat.id,
+            selectedMessage.messageId,
+            undefined,
+            { inline_keyboard: inlineKeyboard },
+          );
+        } else {
+          await this.displayMessageWithActions(ctx, index, selectedMessage);
+        }
         break;
       }
 
@@ -465,59 +494,23 @@ You can register via: \`\\{unlock\\_link\\}\`
 
   private async previewMessages(ctx: Context, session: IBroadcastSession) {
     try {
-      const accessInfo = await this.getUserAccessInfo(ctx);
-      if (!accessInfo) return;
-
-      const { userAccess } = accessInfo;
-      let cityData: {
-        city_name: string;
-        group_id?: string | null;
-        telegram_link?: string | null;
-      }[] = [];
-
-      if (Array.isArray(userAccess)) {
-        cityData = userAccess
-          .flatMap((access) => access.city_data || [])
-          .map((city: { city_name: string; group_id?: string | null }) => ({
-            city_name: city.city_name,
-            group_id: city.group_id,
-          }));
-      } else if (userAccess !== null) {
-        cityData = userAccess.city_data.map((city) => ({
-          city_name: city.city_name,
-          group_id: city.group_id,
-          telegram_link: city.telegram_link,
-        }));
-      }
-
-      if (cityData.length === 0) {
-        await ctx.reply('❌ No cities found in your access data.', {
-          parse_mode: 'MarkdownV2',
-        });
-        return;
-      }
-
-      const previewCity = cityData[0];
-
-      const currentYear = new Date().getFullYear();
-      const eventDetails = previewCity.group_id
-        ? await this.eventDetailService.getEventByYear(currentYear)
-        : null;
+      const previewCity = {
+        city_name: 'Berlin',
+        group_id: '-1001751302723',
+        telegram_link: 'https://t.me/+cPd97vNeP6AxMzFi',
+      };
+      const countryName = 'Germany';
 
       await ctx.reply(`🔍 *Preview for ${previewCity.city_name}:*`, {
         parse_mode: 'MarkdownV2',
       });
 
-      const countryName = previewCity.group_id
-        ? await this.countryService.getCountryByGroupId(previewCity.group_id)
-        : null;
-
       for (const [index, message] of session.messages.entries()) {
-        const processedText = this.replaceVars(
+        const processedText = await this.replaceVars(
           message.text ?? '',
-          eventDetails,
           countryName,
           previewCity,
+          true,
         );
 
         const urlButtons: InlineKeyboardButton[][] = message.urlButtons.map((btn) => [
@@ -612,7 +605,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       }
 
       await ctx.reply(
-        `This post will be sent to *${cityData.length > 1 ? cityData.length + '* ' + 'cities' : cityData[0].city_name + '*'}\\. Use the Send button to distribute it\\.\n\nNOTE: This is just a preview using ${this.escapeMarkdown(previewCity.city_name)} as an example city\\. The actual messages will have the appropriate city name for each group\\.`,
+        `This post will be sent to *${previewCity.city_name}*\\. Use the Send button to distribute it\\.\n\nNOTE: This is just a preview using ${this.escapeMarkdown(previewCity.city_name)} as an example city\\. The actual messages will have the appropriate city name for each group\\.`,
         {
           parse_mode: 'MarkdownV2',
           reply_markup: this.getKeyboardMarkup(),
@@ -678,23 +671,18 @@ You can register via: \`\\{unlock\\_link\\}\`
           ? await this.countryService.getCountryByGroupId(city.group_id)
           : null;
 
-        const currentYear = new Date().getFullYear();
-        const eventDetails = city.group_id
-          ? await this.eventDetailService.getEventByYear(currentYear)
-          : null;
-
         try {
           for (const message of session.messages) {
-            const processedText = this.replaceVars(
-              message.text ?? '',
-              eventDetails,
-              countryName,
-              city,
-            );
+            const processedText = this.replaceVars(message.text ?? '', countryName, city);
 
-            const urlButtons: InlineKeyboardButton[][] = message.urlButtons.map((btn) => [
-              { text: btn.text, url: btn.url },
-            ]);
+            const urlButtons: InlineKeyboardButton[][] = await Promise.all(
+              message.urlButtons.map(async (btn) => [
+                {
+                  text: await this.replaceVars(btn.text, countryName, city),
+                  url: await this.replaceVars(btn.url, countryName, city),
+                },
+              ]),
+            );
 
             const replyMarkup = urlButtons.length > 0 ? { inline_keyboard: urlButtons } : undefined;
 
@@ -708,7 +696,7 @@ You can register via: \`\\{unlock\\_link\\}\`
                     (city.group_id || ctx.chat?.id) ?? 0,
                     message.mediaUrl,
                     {
-                      caption: this.escapeMarkdown(processedText ?? ''),
+                      caption: this.escapeMarkdown((await processedText) ?? ''),
                       parse_mode: 'MarkdownV2',
                       reply_markup: replyMarkup,
                     },
@@ -719,7 +707,7 @@ You can register via: \`\\{unlock\\_link\\}\`
                     (city.group_id || ctx.chat?.id) ?? 0,
                     message.mediaUrl,
                     {
-                      caption: this.escapeMarkdown(processedText ?? ''),
+                      caption: this.escapeMarkdown((await processedText) ?? ''),
                       parse_mode: 'MarkdownV2',
                       reply_markup: replyMarkup,
                     },
@@ -730,7 +718,7 @@ You can register via: \`\\{unlock\\_link\\}\`
                     (city.group_id || ctx.chat?.id) ?? 0,
                     message.mediaUrl,
                     {
-                      caption: this.escapeMarkdown(processedText ?? ''),
+                      caption: this.escapeMarkdown((await processedText) ?? ''),
                       parse_mode: 'MarkdownV2',
                       reply_markup: replyMarkup,
                     },
@@ -741,7 +729,7 @@ You can register via: \`\\{unlock\\_link\\}\`
                     (city.group_id || ctx.chat?.id) ?? 0,
                     message.mediaUrl,
                     {
-                      caption: this.escapeMarkdown(processedText ?? ''),
+                      caption: this.escapeMarkdown((await processedText) ?? ''),
                       parse_mode: 'MarkdownV2',
                       reply_markup: replyMarkup,
                     },
@@ -751,7 +739,7 @@ You can register via: \`\\{unlock\\_link\\}\`
             } else {
               sentMessage = await ctx.telegram.sendMessage(
                 (city.group_id || ctx.chat?.id) ?? 0,
-                this.escapeMarkdown(processedText ?? ''),
+                this.escapeMarkdown((await processedText) ?? ''),
                 {
                   parse_mode: 'MarkdownV2',
                   reply_markup: replyMarkup,
@@ -1080,14 +1068,23 @@ You can register via: \`\\{unlock\\_link\\}\`
       .filter((line) => line);
 
     for (const buttonText of buttonTexts) {
-      const match = buttonText.match(/^(.*?)\s*-\s*(https?:\/\/.*)$/i);
+      const match = buttonText.match(/^(.*?)\s*-\s*([^\s|]+)$/i);
       if (match && match.length === 3) {
-        const [, text, url] = match;
-        try {
-          new URL(url);
-          buttons.push({ text: text.trim(), url: url.trim() });
-        } catch {
-          // Invalid URL, do not add to buttons
+        const btnText = match[1].trim();
+        let rawUrl = match[2].trim();
+
+        if (rawUrl === '{unlock_link}') {
+          rawUrl = 'https://app.unlock-protocol.com/event/{slug}';
+          buttons.push({ text: btnText, url: rawUrl });
+        } else if (/^https?:\/\/.+/i.test(rawUrl)) {
+          try {
+            new URL(rawUrl);
+            buttons.push({ text: btnText, url: rawUrl });
+          } catch {
+            // Invalid URL, do not add to buttons
+          }
+        } else {
+          // Invalid URL, do not add to buttons;
         }
       }
     }
@@ -1254,14 +1251,42 @@ You can register via: \`\\{unlock\\_link\\}\`
     return text.replace(/([_*[\]()~`>#+\-=|{}.!\\])/g, '\\$1');
   }
 
-  private replaceVars(
+  private async replaceVars(
     text: string,
-    event: IEventDetail | null | undefined,
-    country: string | null,
-    city: ICityForVars,
-  ): string {
+    country?: string | null,
+    city?: ICityForVars,
+    hardcoded: boolean = false,
+  ): Promise<string> {
+    let event: any;
+
+    if (hardcoded) {
+      // Use hardcoded event details for preview
+      event = {
+        id: 'a591cf21-bec6-4a6d-909e-c89a84430de3',
+        group_id: '-1001751302723',
+        is_one_person: false,
+        image_url: 'https://storage.unlock-protocol.com/9816d29f-e6a7-43c3-96b6-b9f1708fc81c',
+        name: 'Berlin Bitcoin Pizza Party ',
+        start_date: '2025-05-22',
+        end_date: '2025-05-22',
+        start_time: '18:00',
+        end_time: '21:00',
+        timezone: 'Europe/Berlin',
+        location: 'Berlin, Germany',
+        address: 'Berlin, Germany',
+        year: 2025,
+        slug: 'berlin-bitcoin-pizza-party-1',
+      };
+    } else {
+      const currentYear = new Date().getFullYear();
+      event = await this.eventDetailService.getEventByYearAndGroupId(
+        currentYear,
+        city?.group_id ?? '',
+      );
+    }
+
     let result = text
-      .replace(/{city}/gi, city.city_name)
+      .replace(/{city}/gi, city?.city_name ?? '')
       .replace(/{country}/gi, country ?? '')
       .replace(/{event_name}/gi, event?.name ?? '')
       .replace(/{start_date}/gi, event?.start_date ?? '')
@@ -1271,7 +1296,9 @@ You can register via: \`\\{unlock\\_link\\}\`
       .replace(/{timezone}/gi, event?.timezone ?? '')
       .replace(/{location}/gi, event?.location ?? '')
       .replace(/{address}/gi, event?.address ?? '')
-      .replace(/{year}/gi, event?.year?.toString() ?? '');
+      .replace(/{year}/gi, event?.year?.toString() ?? '')
+      .replace(/\$\{slug\}/gi, event?.slug ?? '')
+      .replace(/{slug}/gi, event?.slug ?? '');
 
     // Handle unlock_link replacement with slug if available
     if (event?.slug) {
