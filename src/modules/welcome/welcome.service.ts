@@ -160,7 +160,11 @@ export class WelcomeService {
       if (await this.userService.isUserRegistered(userId)) {
         await this.handleProfile(ctx);
       } else {
-        await ctx.sendPhoto('https://i.imgur.com/WIUrVic.png', {
+        if (!process.env.WELCOME_VIDEO_ID) {
+          await ctx.reply('❌ Welcome video is not available.');
+          return;
+        }
+        await ctx.telegram.sendVideo(ctx.chat?.id ?? 0, process.env.WELCOME_VIDEO_ID, {
           caption:
             `Welcome to PizzaDAO's 5th annual *Global Pizza Party* in honor of Bitcoin Pizza Day\\.\n` +
             `It's been 15 years since May 22, 2010, when Laszlo Hanyecz bought two pizzas for 10,000 bitcoin\\. Today, 10,000 bitcoin buys a lot more than two pizzas\\! \n\n` +
@@ -180,6 +184,40 @@ export class WelcomeService {
       }
     }
   }
+
+  // @On('video')
+  // async handleVideo(ctx: Context) {
+  //   try {
+  //     if (!ctx.message || !('video' in ctx.message)) {
+  //       await ctx.reply('❌ No video found in the message.');
+  //       return;
+  //     }
+
+  //     const video = ctx.message.video;
+
+  //     const fileId = video.file_id;
+  //     const fileName = video.file_name || 'Unknown';
+  //     const fileSize = video.file_size
+  //       ? `${(video.file_size / 1024 / 1024).toFixed(2)}MB`
+  //       : 'Unknown';
+  //     const duration = video.duration ? `${video.duration}s` : 'Unknown';
+
+  //     await ctx.reply(
+  //       `📹 *Video Information*\n\n` +
+  //         `🆔 File ID: \`${fileId}\`\n` +
+  //         `📄 File Name: \`${fileName}\`\n` +
+  //         `📦 File Size: \`${fileSize}\`\n` +
+  //         `⏱️ Duration: \`${duration}\`\n\n` +
+  //         `_Copy the File ID to use this video later_`,
+  //       {
+  //         parse_mode: 'MarkdownV2',
+  //       },
+  //     );
+  //   } catch (error) {
+  //     console.error('Error handling video:', error);
+  //     await ctx.reply('❌ Error processing video. Please try again.');
+  //   }
+  // }
 
   @Command('profile')
   async handleProfile(ctx: Context) {

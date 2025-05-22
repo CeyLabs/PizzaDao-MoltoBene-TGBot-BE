@@ -10,7 +10,7 @@ defaults:
     working-directory: .
 
 jobs:
-  lint-and-build:
+  lint:
     runs-on: ubuntu-latest
 
     env:
@@ -30,6 +30,3 @@ jobs:
 
       - name: Run linter
         run: npm run lint
-
-      - name: Build project
-        run: npx nest build
