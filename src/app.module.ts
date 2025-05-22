@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { TelegrafModule } from 'nestjs-telegraf';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { config } from 'dotenv';
-
 import { AppService } from './app.service';
 import { AppController } from './app.controller';
 import { KnexModule } from './modules/knex/knex.module';
@@ -12,6 +11,8 @@ import { CountryModule } from './modules/country/country.module';
 import { CityModule } from './modules/city/city.module';
 import { CommonModule } from './modules/common/common.module';
 import { PrivateChatMiddleware } from './middleware/chat-type.middleware';
+import { BroadcastModule } from './modules/broadcast/broadcast.module';
+import { EventDetailModule } from './modules/event-detail/event-detail.module';
 
 // Load environment variables
 config();
@@ -42,13 +43,17 @@ config();
       },
       inject: [ConfigService],
     }),
-    KnexModule,
+
     UserModule,
     WelcomeModule,
+    BroadcastModule,
+    CommonModule,
+    KnexModule,
     CountryModule,
     CityModule,
-    CommonModule,
+    EventDetailModule,
   ],
+
   controllers: [AppController],
   providers: [AppService],
 })

@@ -9,6 +9,7 @@ export class PrivateChatMiddleware {
       if (!ctx.chat && ctx.inlineQuery) {
         return next(); // allow inline mode
       }
+
       // Allow "new_chat_members" in any chat
       if (
         'message' in ctx &&
@@ -23,6 +24,7 @@ export class PrivateChatMiddleware {
         return next();
       }
       // Block everything else (like group text/commands)
+
       return;
     };
   }
