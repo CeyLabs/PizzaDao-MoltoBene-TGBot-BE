@@ -185,39 +185,39 @@ export class WelcomeService {
     }
   }
 
-  @On('video')
-  async handleVideo(ctx: Context) {
-    try {
-      if (!ctx.message || !('video' in ctx.message)) {
-        await ctx.reply('❌ No video found in the message.');
-        return;
-      }
+  // @On('video')
+  // async handleVideo(ctx: Context) {
+  //   try {
+  //     if (!ctx.message || !('video' in ctx.message)) {
+  //       await ctx.reply('❌ No video found in the message.');
+  //       return;
+  //     }
 
-      const video = ctx.message.video;
+  //     const video = ctx.message.video;
 
-      const fileId = video.file_id;
-      const fileName = video.file_name || 'Unknown';
-      const fileSize = video.file_size
-        ? `${(video.file_size / 1024 / 1024).toFixed(2)}MB`
-        : 'Unknown';
-      const duration = video.duration ? `${video.duration}s` : 'Unknown';
+  //     const fileId = video.file_id;
+  //     const fileName = video.file_name || 'Unknown';
+  //     const fileSize = video.file_size
+  //       ? `${(video.file_size / 1024 / 1024).toFixed(2)}MB`
+  //       : 'Unknown';
+  //     const duration = video.duration ? `${video.duration}s` : 'Unknown';
 
-      await ctx.reply(
-        `📹 *Video Information*\n\n` +
-          `🆔 File ID: \`${fileId}\`\n` +
-          `📄 File Name: \`${fileName}\`\n` +
-          `📦 File Size: \`${fileSize}\`\n` +
-          `⏱️ Duration: \`${duration}\`\n\n` +
-          `_Copy the File ID to use this video later_`,
-        {
-          parse_mode: 'MarkdownV2',
-        },
-      );
-    } catch (error) {
-      console.error('Error handling video:', error);
-      await ctx.reply('❌ Error processing video. Please try again.');
-    }
-  }
+  //     await ctx.reply(
+  //       `📹 *Video Information*\n\n` +
+  //         `🆔 File ID: \`${fileId}\`\n` +
+  //         `📄 File Name: \`${fileName}\`\n` +
+  //         `📦 File Size: \`${fileSize}\`\n` +
+  //         `⏱️ Duration: \`${duration}\`\n\n` +
+  //         `_Copy the File ID to use this video later_`,
+  //       {
+  //         parse_mode: 'MarkdownV2',
+  //       },
+  //     );
+  //   } catch (error) {
+  //     console.error('Error handling video:', error);
+  //     await ctx.reply('❌ Error processing video. Please try again.');
+  //   }
+  // }
 
   @Command('profile')
   async handleProfile(ctx: Context) {
