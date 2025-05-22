@@ -745,6 +745,11 @@ You can register via: \`\\{unlock\\_link\\}\`
                   reply_markup: replyMarkup,
                 },
               );
+
+              await ctx.telegram.deleteMessage(
+                city.group_id ? city.group_id : ctx.chat?.id || 0,
+                sentMessage.message_id,
+              );
             }
 
             successCount++;
