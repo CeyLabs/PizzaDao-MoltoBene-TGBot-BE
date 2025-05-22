@@ -86,7 +86,7 @@ You can register via: \`\\{unlock\\_link\\}\`
             [{ text: '📝 Create Post', callback_data: 'create_post' }],
             [
               { text: '⏰ Scheduled Posts', callback_data: 'scheduled_posts' },
-              { text: '✏️ Edit Post', callback_data: 'edit_post' },
+              { text: '✏️ Edit Post', callback_data: 'broadcast_edit_post' },
             ],
             [{ text: '⚙️ Settings', callback_data: 'settings' }],
           ],
@@ -111,6 +111,11 @@ You can register via: \`\\{unlock\\_link\\}\`
 
     if (callbackData === 'create_post') {
       await this.handleCreatePost(ctx);
+      return;
+    }
+
+    if (['scheduled_posts', 'broadcast_edit_post', 'settings'].includes(callbackData)) {
+      await ctx.reply('This feature is under construction 🚧');
       return;
     }
 
