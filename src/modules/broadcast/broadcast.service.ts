@@ -1146,7 +1146,7 @@ You can register via: \`\\{unlock\\_link\\}\`
 
       if (variableIncluded) {
         await ctx.reply(
-          '🔎 _Variables detected\\! Use "Preview" to see how they'll be filled in the final broadcast\\._',
+          '🔎 _Variables detected\\! Use "Preview" to see how they’ll be filled in the final broadcast\\._',
           {
             parse_mode: 'MarkdownV2',
           },
