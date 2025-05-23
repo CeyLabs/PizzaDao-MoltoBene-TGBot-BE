@@ -22,6 +22,7 @@ import { EventDetailService } from '../event-detail/event-detail.service';
 
 import { IUserAccessInfo, IBroadcastSession, IPostMessage } from './broadcast.type';
 import { ICityForVars } from '../city/city.interface';
+import { IEventDetail } from '../event-detail/event-detail.interface';
 
 /**
  * Service for managing message broadcasting functionality
@@ -1188,8 +1189,6 @@ You can register via: \`\\{unlock\\_link\\}\`
           } catch {
             // Invalid URL, do not add to buttons
           }
-        } else {
-          // Invalid URL, do not add to buttons;
         }
       }
     }
@@ -1409,7 +1408,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     city?: ICityForVars,
     hardcoded: boolean = false,
   ): Promise<string> {
-    let event: any;
+    let event: IEventDetail | null;
 
     if (hardcoded) {
       // Use hardcoded event details for preview
@@ -1426,6 +1425,8 @@ You can register via: \`\\{unlock\\_link\\}\`
         timezone: 'Europe/Berlin',
         location: 'Berlin, Germany',
         address: 'Berlin, Germany',
+        country: 'Germany',
+        unlock_link: `app.unlock-protocol.com/event/berlin-bitcoin-pizza-party-1`,
         year: 2025,
         slug: 'berlin-bitcoin-pizza-party-1',
       };

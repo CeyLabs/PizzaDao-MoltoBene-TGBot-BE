@@ -56,16 +56,17 @@ export class PrivateChatMiddleware {
       if (
         ctx.chat?.type !== 'private' &&
         ctx.message &&
-        typeof (ctx.message as any).text === 'string' &&
-        ((ctx.message as any).text === '/start' ||
-          (ctx.message as any).text === '/start@MoltoBeneBot')
+        typeof ctx.message === 'object' &&
+        'text' in ctx.message &&
+        typeof ctx.message.text === 'string' &&
+        (ctx.message.text === '/start' || ctx.message.text === '/start@MoltoBeneBot')
       ) {
         await ctx.reply(`MoltoBene Bot here!
-Configuration looks perfect – I’m able to detect new users and greet them with their pizza names when I have admin access.
+Configuration looks perfect – I'm able to detect new users and greet them with their pizza names when I have admin access.
 
 If you're seeing this message, that means I'm already in the group – just doing a quick check to confirm I have admin rights.
 
-No need to run any commands here. I’ll handle the greetings and updates automatically from now on.
+No need to run any commands here. I'll handle the greetings and updates automatically from now on.
 
 Stay saucy! 
 
