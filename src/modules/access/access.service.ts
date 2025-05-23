@@ -1,7 +1,20 @@
+/**
+ * @fileoverview Service for managing access control
+ * @module access.service
+ */
+
 import { Injectable } from '@nestjs/common';
 import { KnexService } from '../knex/knex.service';
 import { ICityAccess, ICountryAccess, IRegionAccess } from './access.interface';
 
+/**
+ * Type definition for city data
+ * @typedef {Object} CityData
+ * @property {string} city_id - Unique identifier for the city
+ * @property {string} city_name - Name of the city
+ * @property {string | null} group_id - Telegram group ID for the city
+ * @property {string | null} telegram_link - Telegram link for the city's group
+ */
 type CityData = {
   city_id: string;
   city_name: string;
@@ -9,6 +22,18 @@ type CityData = {
   telegram_link: string | null;
 };
 
+/**
+ * Type definition for region data
+ * @typedef {Object} RegionData
+ * @property {string} region_id - Unique identifier for the region
+ * @property {string} region_name - Name of the region
+ * @property {string} country_id - ID of the country the region belongs to
+ * @property {string} country_name - Name of the country
+ * @property {string} city_id - ID of the city in the region
+ * @property {string} city_name - Name of the city
+ * @property {string | null} group_id - Telegram group ID for the city
+ * @property {string | null} telegram_link - Telegram link for the city's group
+ */
 type RegionData = {
   region_id: string;
   region_name: string;
@@ -20,6 +45,14 @@ type RegionData = {
   telegram_link: string | null;
 };
 
+/**
+ * Type definition for admin access result
+ * @typedef {Object} AdminAccessResult
+ * @property {'admin'} role - Role identifier for admin
+ * @property {CityData[]} city_data - Array of city data
+ * @property {RegionData[]} region_data - Array of region data
+ * @property {Object[]} country_data - Array of country data with associated cities
+ */
 type AdminAccessResult = {
   role: 'admin';
   city_data: CityData[];
@@ -31,6 +64,14 @@ type AdminAccessResult = {
   }[];
 };
 
+/**
+ * Type definition for region access result
+ * @typedef {Object} RegionAccessResult
+ * @property {string} region_id - ID of the region
+ * @property {string} region_name - Name of the region
+ * @property {'underboss'} role - Role identifier for underboss
+ * @property {RegionData[]} region_data - Array of region data
+ */
 type RegionAccessResult = {
   region_id: string;
   region_name: string;
@@ -38,6 +79,14 @@ type RegionAccessResult = {
   region_data: RegionData[];
 };
 
+/**
+ * Type definition for country access result
+ * @typedef {Object} CountryAccessResult
+ * @property {string} country_id - ID of the country
+ * @property {string} country_name - Name of the country
+ * @property {'caporegime'} role - Role identifier for caporegime
+ * @property {CityData[]} city_data - Array of city data
+ */
 type CountryAccessResult = {
   country_id: string;
   country_name: string;
@@ -45,11 +94,23 @@ type CountryAccessResult = {
   city_data: CityData[];
 };
 
+/**
+ * Type definition for city access result
+ * @typedef {Object} CityAccessResult
+ * @property {'host'} role - Role identifier for host
+ * @property {CityData[]} city_data - Array of city data
+ */
 type CityAccessResult = {
   role: 'host';
   city_data: CityData[];
 };
 
+/**
+ * Type definition for region access
+ * @typedef {Object} regionAccess
+ * @property {string} telegram_id - Telegram ID of the user
+ * @property {string} region_id - ID of the region
+ */
 type regionAccess = {
   telegram_id: string;
   region_id: string;
@@ -57,13 +118,23 @@ type regionAccess = {
 
 type AccessEntry = AdminAccessResult | RegionAccessResult | CountryAccessResult | CityAccessResult;
 type AccessResult = AccessEntry[] | null;
-
 type Role = 'admin' | 'underboss' | 'caporegime' | 'host' | null;
 
+/**
+ * Service for managing access control
+ * @class AccessService
+ * @description Handles user access control at different levels (city, country, region)
+ * and provides methods to check and retrieve user roles and access permissions
+ */
 @Injectable()
 export class AccessService {
   constructor(private readonly knexService: KnexService) {}
 
+  /**
+   * Gets the role of a user based on their Telegram ID
+   * @param {string} telegram_id - The Telegram ID of the user
+   * @returns {Promise<Role>} The user's role or null if no role is assigned
+   */
   async getAccessRole(telegram_id: string): Promise<Role> {
     const adminIds: string[] = process.env.ADMIN_IDS
       ? process.env.ADMIN_IDS.split(',').map((id) => id.trim())
@@ -106,6 +177,11 @@ export class AccessService {
     return null;
   }
 
+  /**
+   * Gets detailed access information for a user
+   * @param {string} telegram_id - The Telegram ID of the user
+   * @returns {Promise<AccessResult>} Detailed access information including cities, regions, and countries
+   */
   async getUserAccess(telegram_id: string): Promise<AccessResult> {
     const adminIds: string[] = process.env.ADMIN_IDS
       ? process.env.ADMIN_IDS.split(',').map((id) => id.trim())
@@ -260,6 +336,7 @@ export class AccessService {
         city_data: cities,
       });
     }
+
     return accessEntries.length > 0 ? accessEntries : null;
   }
 }
