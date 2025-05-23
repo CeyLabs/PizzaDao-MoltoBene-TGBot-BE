@@ -1,16 +1,40 @@
+/**
+ * @fileoverview Middleware for handling chat type restrictions
+ * @module chat-type.middleware
+ */
+
 import { Context, MiddlewareFn } from 'telegraf';
 import { Injectable } from '@nestjs/common';
 
+/**
+ * Interface for new chat members message
+ * @interface NewChatMembersMessage
+ * @description Defines the structure of a message containing new chat members
+ */
 interface NewChatMembersMessage {
+  /** Array of new chat members */
   new_chat_members: Array<{
+    /** Unique identifier for the user */
     id: number;
+    /** Whether the user is a bot */
     is_bot: boolean;
+    /** First name of the user */
     first_name: string;
   }>;
 }
 
+/**
+ * Middleware for handling private chat restrictions
+ * @class PrivateChatMiddleware
+ * @description Restricts bot commands and text messages to private chats only,
+ * while allowing specific exceptions like inline queries and new member notifications
+ */
 @Injectable()
 export class PrivateChatMiddleware {
+  /**
+   * Creates a middleware function that enforces chat type restrictions
+   * @returns {MiddlewareFn<Context>} Middleware function that handles chat type restrictions
+   */
   use(): MiddlewareFn<Context> {
     return async (ctx, next) => {
       // Allow all non-message updates (inline queries, callback queries, etc.)
@@ -32,16 +56,17 @@ export class PrivateChatMiddleware {
       if (
         ctx.chat?.type !== 'private' &&
         ctx.message &&
-        typeof (ctx.message as any).text === 'string' &&
-        ((ctx.message as any).text === '/start' ||
-          (ctx.message as any).text === '/start@MoltoBeneBot')
+        typeof ctx.message === 'object' &&
+        'text' in ctx.message &&
+        typeof ctx.message.text === 'string' &&
+        (ctx.message.text === '/start' || ctx.message.text === '/start@MoltoBeneBot')
       ) {
         await ctx.reply(`MoltoBene Bot here!
-Configuration looks perfect – I’m able to detect new users and greet them with their pizza names when I have admin access.
+Configuration looks perfect – I'm able to detect new users and greet them with their pizza names when I have admin access.
 
 If you're seeing this message, that means I'm already in the group – just doing a quick check to confirm I have admin rights.
 
-No need to run any commands here. I’ll handle the greetings and updates automatically from now on.
+No need to run any commands here. I'll handle the greetings and updates automatically from now on.
 
 Stay saucy! 
 
