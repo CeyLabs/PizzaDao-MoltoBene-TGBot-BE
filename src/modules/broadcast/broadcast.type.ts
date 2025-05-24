@@ -1,3 +1,5 @@
+import { ICity } from '../city/city.interface';
+
 export interface IUserAccess {
   role: string;
   city_data?: { city_name: string }[];
@@ -50,10 +52,15 @@ export interface IPostMessage {
   messageId?: number;
 }
 
+interface ISelectedCity extends ICity {
+  country_name: string;
+}
+
 export interface IBroadcastSession {
   step: 'awaiting_message' | 'creating_post' | 'idle';
   selectedAction?: string;
   messages: IPostMessage[];
   currentAction?: 'attach_media' | 'add_url_buttons';
   currentMessageIndex?: number;
+  selectedCity?: ISelectedCity[];
 }

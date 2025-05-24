@@ -14,8 +14,8 @@ export class PrivateChatMiddleware {
   use(): MiddlewareFn<Context> {
     return async (ctx, next) => {
       // Allow all non-message updates (inline queries, callback queries, etc.)
-      if (!ctx.chat && ctx.inlineQuery) {
-        return next(); // allow inline mode
+      if (!ctx.chat && (ctx.inlineQuery || ctx.callbackQuery)) {
+        return next();
       }
 
       // Allow "new_chat_members" in any chat
@@ -32,9 +32,9 @@ export class PrivateChatMiddleware {
       if (
         ctx.chat?.type !== 'private' &&
         ctx.message &&
-        typeof (ctx.message as any).text === 'string' &&
-        ((ctx.message as any).text === '/start' ||
-          (ctx.message as any).text === '/start@MoltoBeneBot')
+        'text' in ctx.message &&
+        typeof ctx.message.text === 'string' &&
+        (ctx.message.text === '/start' || ctx.message.text === '/start@MoltoBeneBot')
       ) {
         await ctx.reply(`MoltoBene Bot here!
 Configuration looks perfect – I’m able to detect new users and greet them with their pizza names when I have admin access.

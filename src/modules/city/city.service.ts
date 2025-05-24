@@ -6,6 +6,10 @@ import { ICity } from './city.interface';
 export class CityService {
   constructor(private readonly knexService: KnexService) {}
 
+  async getAllCities(): Promise<ICity[]> {
+    return this.knexService.knex('city').select('id', 'name', 'group_id', 'country_id');
+  }
+
   async getCitiesByCountry(countryId: string): Promise<ICity[]> {
     return this.knexService
       .knex('city')
