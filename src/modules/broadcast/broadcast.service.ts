@@ -178,6 +178,12 @@ You can register via: \`\\{unlock\\_link\\}\`
       return;
     }
 
+    if (callbackData.startsWith('select_region_')) {
+      const regionId = callbackData.split('_')[2];
+      await this.handleRegionSelection(ctx, regionId);
+      return;
+    }
+
     await ctx.answerCbQuery();
   }
 
@@ -355,6 +361,16 @@ You can register via: \`\\{unlock\\_link\\}\`
             reply_markup: this.getKeyboardMarkup(),
           },
         );
+      } else if (callbackData === 'broadcast_specific_region') {
+        const regions = await this.accessService.getAllRegions();
+        if (regions.length === 0) {
+          await ctx.reply('No regions found.');
+          return;
+        }
+        const inlineKeyboard = this.createRegionButtons(regions);
+        await ctx.reply('Select a region to broadcast to:', {
+          reply_markup: { inline_keyboard: inlineKeyboard },
+        });
       }
     } catch (error) {
       console.log(error);
@@ -393,6 +409,30 @@ You can register via: \`\\{unlock\\_link\\}\`
       buttons.push(row);
     }
     return buttons;
+  }
+
+  private async handleRegionSelection(ctx: Context, regionId: string) {
+    if (!ctx.from?.id) {
+      await ctx.answerCbQuery('User ID not found');
+      return;
+    }
+    const userId = ctx.from.id;
+    const region = await this.accessService.getRegionById(regionId);
+    const regionName = region ? region.name : 'Unknown Region';
+    const message = this.escapeMarkdown(
+      `You have selected region: ${regionName}. Now, send me the messages to broadcast to all cities in this region.`,
+    );
+    this.commonService.setUserState(userId, {
+      flow: 'broadcast',
+      step: 'creating_post',
+      messages: [],
+      targetType: 'region',
+      targetId: regionId,
+    });
+    await ctx.reply(message, {
+      parse_mode: 'MarkdownV2',
+      reply_markup: this.getKeyboardMarkup(),
+    });
   }
 
   /**
@@ -717,7 +757,7 @@ You can register via: \`\\{unlock\\_link\\}\`
   }
 
   /**
-   * Sends messages to all cities in the user's access list
+   * Sends messages to all cities based on the session's target type and user access
    * @param {Context} ctx - The Telegraf context
    * @param {IBroadcastSession} session - The current broadcast session
    * @returns {Promise<void>}
@@ -727,29 +767,70 @@ You can register via: \`\\{unlock\\_link\\}\`
     const logs: string[] = [];
 
     try {
-      const accessInfo = await this.getUserAccessInfo(ctx);
-      if (!accessInfo) return;
+      const userId = ctx.from?.id;
+      if (!userId) {
+        await ctx.reply(this.escapeMarkdown('❌ User ID not found.'), {
+          parse_mode: 'MarkdownV2',
+        });
+        return;
+      }
 
-      const { userAccess } = accessInfo;
+      if (!session || !session.messages) {
+        await ctx.reply(this.escapeMarkdown('❌ No messages to process.'), {
+          parse_mode: 'MarkdownV2',
+        });
+        return;
+      }
+
       let cityData: {
         city_name: string;
         group_id?: string | null;
         telegram_link?: string | null;
       }[] = [];
 
-      if (Array.isArray(userAccess)) {
-        cityData = userAccess
-          .flatMap((access) => access.city_data || [])
-          .map((city: { city_name: string; group_id?: string | null }) => ({
+      if (session.targetType === 'all') {
+        const accessInfo = await this.getUserAccessInfo(ctx);
+        if (!accessInfo) return;
+        const { userAccess } = accessInfo;
+        if (Array.isArray(userAccess)) {
+          cityData = userAccess
+            .flatMap((access) => access.city_data || [])
+            .map((city: { city_name: string; group_id?: string | null }) => ({
+              city_name: city.city_name,
+              group_id: city.group_id,
+            }));
+        } else if (userAccess !== null) {
+          cityData = userAccess.city_data.map((city) => ({
             city_name: city.city_name,
             group_id: city.group_id,
+            telegram_link: city.telegram_link,
           }));
-      } else if (userAccess !== null) {
-        cityData = userAccess.city_data.map((city) => ({
+        }
+      } else if (session.targetType === 'region' && session.targetId) {
+        const cities = await this.accessService.getCitiesByRegion(session.targetId);
+        cityData = cities.map((city) => ({
           city_name: city.city_name,
           group_id: city.group_id,
           telegram_link: city.telegram_link,
         }));
+      } else {
+        const accessInfo = await this.getUserAccessInfo(ctx);
+        if (!accessInfo) return;
+        const { userAccess } = accessInfo;
+        if (Array.isArray(userAccess)) {
+          cityData = userAccess
+            .flatMap((access) => access.city_data || [])
+            .map((city: { city_name: string; group_id?: string | null }) => ({
+              city_name: city.city_name,
+              group_id: city.group_id,
+            }));
+        } else if (userAccess !== null) {
+          cityData = userAccess.city_data.map((city) => ({
+            city_name: city.city_name,
+            group_id: city.group_id,
+            telegram_link: city.telegram_link,
+          }));
+        }
       }
 
       if (cityData.length === 0) {
@@ -778,7 +859,7 @@ You can register via: \`\\{unlock\\_link\\}\`
 
         try {
           for (const message of session.messages) {
-            const processedText = this.replaceVars(message.text ?? '', countryName, city);
+            const processedText = await this.replaceVars(message.text ?? '', countryName, city);
 
             const urlButtons: InlineKeyboardButton[][] = await Promise.all(
               message.urlButtons.map(async (btn) => [
@@ -800,7 +881,7 @@ You can register via: \`\\{unlock\\_link\\}\`
                     (city.group_id || ctx.chat?.id) ?? 0,
                     message.mediaUrl,
                     {
-                      caption: this.escapeMarkdown((await processedText) ?? ''),
+                      caption: this.escapeMarkdown(processedText ?? ''),
                       parse_mode: 'MarkdownV2',
                       reply_markup: replyMarkup,
                     },
@@ -811,7 +892,7 @@ You can register via: \`\\{unlock\\_link\\}\`
                     (city.group_id || ctx.chat?.id) ?? 0,
                     message.mediaUrl,
                     {
-                      caption: this.escapeMarkdown((await processedText) ?? ''),
+                      caption: this.escapeMarkdown(processedText ?? ''),
                       parse_mode: 'MarkdownV2',
                       reply_markup: replyMarkup,
                     },
@@ -822,7 +903,7 @@ You can register via: \`\\{unlock\\_link\\}\`
                     (city.group_id || ctx.chat?.id) ?? 0,
                     message.mediaUrl,
                     {
-                      caption: this.escapeMarkdown((await processedText) ?? ''),
+                      caption: this.escapeMarkdown(processedText ?? ''),
                       parse_mode: 'MarkdownV2',
                       reply_markup: replyMarkup,
                     },
@@ -833,7 +914,7 @@ You can register via: \`\\{unlock\\_link\\}\`
                     (city.group_id || ctx.chat?.id) ?? 0,
                     message.mediaUrl,
                     {
-                      caption: this.escapeMarkdown((await processedText) ?? ''),
+                      caption: this.escapeMarkdown(processedText ?? ''),
                       parse_mode: 'MarkdownV2',
                       reply_markup: replyMarkup,
                     },
@@ -843,7 +924,7 @@ You can register via: \`\\{unlock\\_link\\}\`
             } else {
               sentMessage = await ctx.telegram.sendMessage(
                 (city.group_id || ctx.chat?.id) ?? 0,
-                this.escapeMarkdown((await processedText) ?? ''),
+                this.escapeMarkdown(processedText ?? ''),
                 {
                   parse_mode: 'MarkdownV2',
                   reply_markup: replyMarkup,
@@ -928,9 +1009,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       await ctx.replyWithDocument({ source: logFilePath, filename: 'broadcast-log.txt' });
       fs.unlinkSync(logFilePath);
 
-      if (accessInfo.userId !== undefined) {
-        this.commonService.clearUserState(accessInfo.userId);
-      }
+      this.commonService.clearUserState(userId);
     } catch {
       await ctx.reply(
         this.escapeMarkdown('❌ Error sending messages. Please check the logs and try again.'),

@@ -112,6 +112,7 @@ export interface IBroadcastSession {
   /** Current action being performed */
   currentAction?: 'attach_media' | 'add_url_buttons';
   targetType?: 'all' | 'region' | 'country' | 'city';
+  targetId?: string;
   /** Index of the current message being edited */
   currentMessageIndex?: number;
 }
