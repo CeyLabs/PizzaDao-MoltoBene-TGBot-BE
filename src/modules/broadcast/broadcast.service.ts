@@ -891,6 +891,13 @@ You can register via: \`\\{unlock\\_link\\}\`
 
       if (session.selectedCity) {
         // Send only to the selected city
+        if (!Array.isArray(session.selectedCity) || session.selectedCity.length === 0) {
+          await ctx.reply(this.escapeMarkdown('❌ Invalid selected city data.'), {
+            parse_mode: 'MarkdownV2',
+          });
+          return;
+        }
+
         const city = session.selectedCity[0];
 
         cityData = [
