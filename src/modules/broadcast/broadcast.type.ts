@@ -1,3 +1,5 @@
+import { ICity } from '../city/city.interface';
+
 /**
  * @fileoverview Type definitions for the broadcast module
  * @module broadcast.type
@@ -96,6 +98,10 @@ export interface IPostMessage {
   messageId?: number;
 }
 
+interface ISelectedCity extends ICity {
+  country_name: string;
+}
+
 /**
  * Interface representing a broadcast session
  * @interface IBroadcastSession
@@ -113,4 +119,5 @@ export interface IBroadcastSession {
   currentAction?: 'attach_media' | 'add_url_buttons';
   /** Index of the current message being edited */
   currentMessageIndex?: number;
+  selectedCity?: ISelectedCity[];
 }

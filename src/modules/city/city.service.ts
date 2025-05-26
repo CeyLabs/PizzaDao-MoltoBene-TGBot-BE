@@ -19,6 +19,14 @@ export class CityService {
   constructor(private readonly knexService: KnexService) {}
 
   /**
+   * Retrieves all cities from the database
+   * @returns {Promise<ICity[]>} Array of all cities
+   */
+  async getAllCities(): Promise<ICity[]> {
+    return this.knexService.knex('city').select('id', 'name', 'group_id', 'country_id');
+  }
+
+  /**
    * Retrieves all cities in a specific country
    * @param {string} countryId - The ID of the country
    * @returns {Promise<ICity[]>} Array of cities in the country
