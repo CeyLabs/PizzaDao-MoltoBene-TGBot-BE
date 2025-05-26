@@ -59,7 +59,7 @@ export class PrivateChatMiddleware {
         typeof ctx.message === 'object' &&
         'text' in ctx.message &&
         typeof ctx.message.text === 'string' &&
-        (ctx.message.text === '/start' || ctx.message.text === '/start@MoltoBeneBot')
+        ctx.message.text.startsWith('/start')
       ) {
         await ctx.reply(`MoltoBene Bot here!
 Configuration looks perfect – I'm able to detect new users and greet them with their pizza names when I have admin access.
