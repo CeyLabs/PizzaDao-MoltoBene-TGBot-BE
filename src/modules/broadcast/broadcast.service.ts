@@ -289,7 +289,7 @@ You can register via: \`\\{unlock\\_link\\}\`
 
       await ctx.telegram.sendMessage(
         ctx.from.id,
-        `📢 You are assigned as admin to *Pizza DAO* for a specific city\\.\n\n` +
+        `📢 You are assigned as admin to *Pizza DAO*\\.\n\n` +
           `City Name: *${selectedCity[0]?.name}*\n\n` +
           `Send me one or multiple messages you want to include in the post\\. It can be anything — a text, photo, video, even a sticker\\.\n\n` +
           `You can use variables with below format within curly brackets\\.\n\n` +
