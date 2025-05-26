@@ -15,6 +15,14 @@ export async function seed(knex: Knex): Promise<void> {
 
   // Insert cities with their group IDs
   await knex(tableName).insert([
+    // Test Groups
+    {
+      name: 'PizzaDAO Group [Test]',
+      country_id: countryMap['Sri Lanka'],
+      group_id: -1002537156394,
+      telegram_link: 'https://t.me/+AUSqVVJAh8E3N2Y1',
+    },
+
     // Abidjan
     {
       name: 'Ivory Coast',
