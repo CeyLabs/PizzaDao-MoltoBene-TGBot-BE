@@ -367,9 +367,10 @@ You can register via: \`\\{unlock\\_link\\}\`
           await ctx.reply('No regions found.');
           return;
         }
-        const inlineKeyboard = this.createRegionButtons(regions);
+        const regionButtons = this.createRegionButtons(regions);
+        await ctx.deleteMessage();
         await ctx.reply('Select a region to broadcast to:', {
-          reply_markup: { inline_keyboard: inlineKeyboard },
+          reply_markup: { inline_keyboard: regionButtons },
         });
       }
     } catch (error) {
@@ -416,6 +417,8 @@ You can register via: \`\\{unlock\\_link\\}\`
       await ctx.answerCbQuery('User ID not found');
       return;
     }
+    // delete the previous message
+    await ctx.deleteMessage();
     const userId = ctx.from.id;
     const region = await this.accessService.getRegionById(regionId);
     const regionName = region ? region.name : 'Unknown Region';
