@@ -93,7 +93,7 @@ export class BroadcastService {
       this.commonService.setUserState(userId, session);
     }
 
-    if (!query || query === '<city_name>') {
+    if (!query || query === '') {
       await ctx.answerInlineQuery(
         [
           {
@@ -518,7 +518,7 @@ You can register via: \`\\{unlock\\_link\\}\`
                 [
                   {
                     text: '🔍 Search City',
-                    switch_inline_query_current_chat: '<city_name>',
+                    switch_inline_query_current_chat: '',
                   },
                 ],
               ],
