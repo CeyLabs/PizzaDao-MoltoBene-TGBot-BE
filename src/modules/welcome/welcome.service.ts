@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Service for handling welcome-related functionality in the Telegram bot
+ * @module welcome.service
+ */
+
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { Context } from 'telegraf';
 import { Command, On, Start, Update } from 'nestjs-telegraf';
@@ -12,11 +17,19 @@ import OpenAI from 'openai';
 import { getContextTelegramUserId } from 'src/utils/context';
 import axios from 'axios';
 
+/**
+ * Service class that handles all welcome-related functionality
+ * @class WelcomeService
+ * @description Manages user onboarding, registration, and welcome messages
+ * including pizza name generation, city selection, and user verification
+ */
 @Update()
 @Injectable()
 export class WelcomeService {
+  /** OpenAI instance for generating pizza names */
   private readonly openAi: OpenAI;
 
+  /** Collection of welcome messages with placeholders for pizza name and group name */
   private readonly welcomeMessages: string[] = [
     '🍕 Welcome <pizza_name> to <group_name> Chat! The crust is strong with this one.',
     '🔥 Say hello to <pizza_name> — fresh outta the oven and straight into <group_name>.',
@@ -45,6 +58,17 @@ export class WelcomeService {
     '🔥 It’s gettin’ spicy in here. <pizza_name> just joined <group_name>.',
   ];
 
+  /** Map to store user registration data during the registration process */
+  private userGroupMap = new Map<string, IUserRegistrationData>();
+
+  /**
+   * Creates an instance of WelcomeService
+   * @param {UserService} userService - Service for user management
+   * @param {CountryService} countryService - Service for country management
+   * @param {CityService} cityService - Service for city management
+   * @param {MembershipService} membershipService - Service for membership management
+   * @param {CommonService} commonService - Service for common functionality
+   */
   constructor(
     private readonly userService: UserService,
     private readonly countryService: CountryService,
@@ -58,8 +82,13 @@ export class WelcomeService {
     });
   }
 
-  private userGroupMap = new Map<string, IUserRegistrationData>();
-
+  /**
+   * Handles the /start command from users
+   * @param {Context} ctx - The Telegraf context object
+   * @returns {Promise<void>}
+   * @description Processes the start command, including handling deep links for registration
+   * and displaying welcome messages or user profiles
+   */
   @Start()
   async handleStartCommand(ctx: Context) {
     const userId = getContextTelegramUserId(ctx);
@@ -219,6 +248,12 @@ export class WelcomeService {
   //   }
   // }
 
+  /**
+   * Handles user profile display
+   * @param {Context} ctx - The Telegraf context object
+   * @returns {Promise<void>}
+   * @description Shows the user's profile information and available actions
+   */
   @Command('profile')
   async handleProfile(ctx: Context) {
     const userId = getContextTelegramUserId(ctx);
@@ -258,6 +293,12 @@ export class WelcomeService {
     );
   }
 
+  /**
+   * Handles new user registration process
+   * @param {Context} ctx - The Telegraf context object
+   * @returns {Promise<void>}
+   * @description Initiates the user registration flow, collecting necessary information
+   */
   @Command('register')
   async handleUserRegistration(ctx: Context) {
     const userId = ctx.message?.from?.id.toString() ?? 0;
@@ -274,6 +315,12 @@ export class WelcomeService {
     await this.handleRegionSelection(ctx);
   }
 
+  /**
+   * Handles new member join events in groups
+   * @param {Context} ctx - The Telegraf context object
+   * @returns {Promise<void>}
+   * @description Processes new member joins, sends welcome messages, and initiates verification
+   */
   @On('new_chat_members')
   async handleNewMember(ctx: Context) {
     const { message } = ctx;
@@ -358,6 +405,13 @@ export class WelcomeService {
     }
   }
 
+  /**
+   * Handles callback queries from inline keyboards
+   * @param {Context} ctx - The Telegraf context object
+   * @returns {Promise<void>}
+   * @description Processes various callback queries for user interactions like
+   * pizza name generation, city selection, and registration confirmation
+   */
   async handleCallbackQuery(ctx: Context) {
     const callbackData =
       ctx.callbackQuery && 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : undefined;
@@ -559,6 +613,12 @@ export class WelcomeService {
     }
   }
 
+  /**
+   * Handles member leave events in groups
+   * @param {Context} ctx - The Telegraf context object
+   * @returns {Promise<void>}
+   * @description Processes when a member leaves a group
+   */
   @On('left_chat_member')
   // Handle left chat member
   async handleLeftChatMember(ctx: Context) {
@@ -570,6 +630,13 @@ export class WelcomeService {
     }
   }
 
+  /**
+   * Handles the user registration process
+   * @param {Context} ctx - The Telegraf context object
+   * @returns {Promise<void>}
+   * @description Manages the complete user registration flow including data collection
+   * and verification
+   */
   async handleUserRegister(ctx: Context) {
     const userId = getContextTelegramUserId(ctx);
     if (!userId) return;
@@ -604,6 +671,12 @@ export class WelcomeService {
     this.userGroupMap.delete(userId);
   }
 
+  /**
+   * Handles ninja turtle selection messages
+   * @param {Context} ctx - The Telegraf context object
+   * @returns {Promise<void>}
+   * @description Processes user messages for selecting ninja turtle characters
+   */
   async handleNinjaTurtleMessage(ctx: Context) {
     const userId = getContextTelegramUserId(ctx);
     if (!userId) return;
@@ -697,7 +770,13 @@ export class WelcomeService {
     }
   }
 
-  // Handle Ninja Turtle selection
+  /**
+   * Handles ninja turtle character selection
+   * @param {Context} ctx - The Telegraf context object
+   * @param {string} callbackData - The callback data from the selection
+   * @returns {Promise<void>}
+   * @description Processes the selection of ninja turtle characters during registration
+   */
   async handleNinjaTurtleSelection(ctx: Context, callbackData: string) {
     const userId = getContextTelegramUserId(ctx);
     if (!userId) return;
@@ -796,7 +875,12 @@ export class WelcomeService {
     );
   }
 
-  // Handle Ninja Turtle confirmation
+  /**
+   * Handles ninja turtle selection confirmation
+   * @param {Context} ctx - The Telegraf context object
+   * @returns {Promise<void>}
+   * @description Confirms the user's ninja turtle character selection
+   */
   async handleNinjaTurtleConfirm(ctx: Context) {
     const userId = getContextTelegramUserId(ctx);
     if (!userId) return false;
@@ -873,11 +957,25 @@ export class WelcomeService {
     }
   }
 
+  /**
+   * Generates a random welcome message for new members
+   * @param {string} pizzaName - The user's pizza name
+   * @param {string} groupName - The name of the group
+   * @param {string} userId - The user's Telegram ID
+   * @returns {string} A randomly selected welcome message with placeholders replaced
+   * @private
+   */
   private getRandomWelcomeMessage(pizzaName: string, groupName: string, userId: string): string {
     const msg = this.welcomeMessages[Math.floor(Math.random() * this.welcomeMessages.length)];
     return `${msg.replace(/<pizza_name>/g, `[${pizzaName}](tg://user?id=${userId})`).replace(/<group_name>/g, `*${groupName}*`)}`;
   }
 
+  /**
+   * Populates user registration data from the database
+   * @param {string} userId - The user's Telegram ID
+   * @returns {Promise<IUserRegistrationData | null>} The user's registration data or null if not found
+   * @private
+   */
   private async populateUserData(userId: string): Promise<IUserRegistrationData | null> {
     // Check if the user is already in userGroupMap
     let userData = this.userGroupMap.get(userId);
@@ -911,7 +1009,13 @@ export class WelcomeService {
     return userData;
   }
 
-  // Method to send user data to Google Apps Script
+  /**
+   * Sends user data to Google Script for external processing
+   * @param {IUser | IUserRegistrationData} userData - The user data to send
+   * @param {'create' | 'update'} action - The action to perform (create or update)
+   * @returns {Promise<void>}
+   * @private
+   */
   private async sendUserDataToGoogleScript(
     userData: IUser | IUserRegistrationData,
     action: 'create' | 'update',
@@ -930,7 +1034,15 @@ export class WelcomeService {
     }
   }
 
-  // Method to call ChatGPT API
+  /**
+   * Generates a pizza name using OpenAI
+   * @param {string} pizzaTopping - The user's preferred pizza topping
+   * @param {string} mafiaMovie - The user's favorite mafia movie
+   * @param {string} [existingPizzaName] - Optional existing pizza name to avoid duplicates
+   * @param {number} [attempt=1] - Current attempt number for name generation
+   * @returns {Promise<string | null>} The generated pizza name or null if generation fails
+   * @private
+   */
   private async generatePizzaName(
     pizzaTopping: string,
     mafiaMovie: string,
@@ -974,71 +1086,12 @@ export class WelcomeService {
     }
   }
 
-  // Method to handle pizza name generation and save it
-  async handlePizzaNameGeneration(ctx: Context) {
-    const userId = getContextTelegramUserId(ctx);
-    if (!userId) return;
-
-    const userData = this.userGroupMap.get(userId);
-    if (!userData) return;
-
-    const { tg_first_name, pizza_topping, mafia_movie } = userData;
-
-    if (!tg_first_name || !pizza_topping || !mafia_movie) {
-      await ctx.reply('❌ Missing required information to generate a pizza name.');
-      return;
-    }
-
-    const generatingMessage = await ctx.reply('🤖 Generating your pizza name...');
-
-    // Generate the pizza name
-    const pizzaName = await this.generatePizzaName(pizza_topping, mafia_movie);
-
-    if (!pizzaName) {
-      await ctx.telegram.deleteMessage(ctx.chat?.id || 0, generatingMessage.message_id);
-      await ctx.reply(
-        '❌ Failed to generate a unique pizza name. Please try again with another topping or mafia movie.',
-      );
-      this.commonService.setUserState(Number(userId), {
-        flow: 'welcome',
-        step: 'pizza_topping',
-      });
-      await ctx.reply('🍕 *What is your favorite pizza topping?*', {
-        reply_markup: {
-          force_reply: true,
-        },
-        parse_mode: 'MarkdownV2',
-      });
-      return;
-    }
-
-    // Save the pizza name in the user data
-    userData.pizza_name = pizzaName;
-
-    // Send the pizza name message
-    await ctx.telegram.deleteMessage(ctx.chat?.id || 0, generatingMessage.message_id);
-    const message = await ctx.reply(
-      `🍕 Here's your AI-generated Pizza Name by Molto Benne:\n\n` + `Pizza Name: *${pizzaName}*`,
-      {
-        parse_mode: 'Markdown',
-      },
-    );
-
-    // Pin the message in the chat
-    try {
-      await ctx.telegram.pinChatMessage(ctx.chat?.id || 0, message.message_id, {
-        disable_notification: true, // Set to false if you want to notify users
-      });
-    } catch (error) {
-      console.error('Failed to pin the message:', error);
-    }
-
-    // Delay the call to handleNinjaTurtleMessage by 3 seconds
-    setTimeout(() => {
-      void this.handleNinjaTurtleMessage(ctx);
-    }, 3000);
-  }
-
+  /**
+   * Validates if a movie name is a valid mafia movie
+   * @param {string} movieName - The movie name to validate
+   * @returns {Promise<boolean>} True if the movie is valid, false otherwise
+   * @private
+   */
   private async validateMafiaMovie(movieName: string): Promise<boolean> {
     const prompt = `is ${movieName} a mafia movie, output only 'yes' or 'no'`;
 
@@ -1059,6 +1112,12 @@ export class WelcomeService {
     }
   }
 
+  /**
+   * Validates if a pizza topping is valid
+   * @param {string} pizzaTopping - The pizza topping to validate
+   * @returns {Promise<boolean>} True if the topping is valid, false otherwise
+   * @private
+   */
   private async validatePizzaTopping(pizzaTopping: string): Promise<boolean> {
     const prompt = `is ${pizzaTopping} a pizza topping, output only 'yes' or 'no'`;
 
@@ -1079,6 +1138,12 @@ export class WelcomeService {
     }
   }
 
+  /**
+   * Handles region selection
+   * @param {Context} ctx - The Telegraf context object
+   * @returns {Promise<void>}
+   * @description Manages the selection of regions during registration
+   */
   async handleRegionSelection(ctx: Context) {
     // Fetch regions from the database
     const regions = await this.userService.getAllRegions();
@@ -1107,6 +1172,13 @@ export class WelcomeService {
     );
   }
 
+  /**
+   * Handles country selection
+   * @param {Context} ctx - The Telegraf context object
+   * @param {string} [regionId] - Optional region ID to filter countries
+   * @returns {Promise<void>}
+   * @description Manages the selection of countries during registration
+   */
   async handleCountrySelection(ctx: Context, regionId?: string) {
     if (!regionId) {
       return;
@@ -1142,7 +1214,12 @@ export class WelcomeService {
     );
   }
 
-  // Handle private chat messages
+  /**
+   * Handles private chat messages
+   * @param {Context} ctx - The Telegraf context object
+   * @returns {Promise<void>}
+   * @description Processes messages received in private chats
+   */
   async handlePrivateChat(ctx: Context) {
     const userId = getContextTelegramUserId(ctx);
     if (!userId) return;
@@ -1265,5 +1342,75 @@ export class WelcomeService {
         return;
       }
     }
+  }
+
+  /**
+   * Handles pizza name generation process
+   * @param {Context} ctx - The Telegraf context object
+   * @returns {Promise<void>}
+   * @description Manages the generation of pizza names using OpenAI
+   */
+  async handlePizzaNameGeneration(ctx: Context) {
+    const userId = getContextTelegramUserId(ctx);
+    if (!userId) return;
+
+    const userData = this.userGroupMap.get(userId);
+    if (!userData) return;
+
+    const { tg_first_name, pizza_topping, mafia_movie } = userData;
+
+    if (!tg_first_name || !pizza_topping || !mafia_movie) {
+      await ctx.reply('❌ Missing required information to generate a pizza name.');
+      return;
+    }
+
+    const generatingMessage = await ctx.reply('🤖 Generating your pizza name...');
+
+    // Generate the pizza name
+    const pizzaName = await this.generatePizzaName(pizza_topping, mafia_movie);
+
+    if (!pizzaName) {
+      await ctx.telegram.deleteMessage(ctx.chat?.id || 0, generatingMessage.message_id);
+      await ctx.reply(
+        '❌ Failed to generate a unique pizza name. Please try again with another topping or mafia movie.',
+      );
+      this.commonService.setUserState(Number(userId), {
+        flow: 'welcome',
+        step: 'pizza_topping',
+      });
+      await ctx.reply('🍕 *What is your favorite pizza topping?*', {
+        reply_markup: {
+          force_reply: true,
+        },
+        parse_mode: 'MarkdownV2',
+      });
+      return;
+    }
+
+    // Save the pizza name in the user data
+    userData.pizza_name = pizzaName;
+
+    // Send the pizza name message
+    await ctx.telegram.deleteMessage(ctx.chat?.id || 0, generatingMessage.message_id);
+    const message = await ctx.reply(
+      `🍕 Here's your AI-generated Pizza Name by Molto Benne:\n\n` + `Pizza Name: *${pizzaName}*`,
+      {
+        parse_mode: 'Markdown',
+      },
+    );
+
+    // Pin the message in the chat
+    try {
+      await ctx.telegram.pinChatMessage(ctx.chat?.id || 0, message.message_id, {
+        disable_notification: true, // Set to false if you want to notify users
+      });
+    } catch (error) {
+      console.error('Failed to pin the message:', error);
+    }
+
+    // Delay the call to handleNinjaTurtleMessage by 3 seconds
+    setTimeout(() => {
+      void this.handleNinjaTurtleMessage(ctx);
+    }, 3000);
   }
 }

@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Service for managing message broadcasting functionality
+ * @module broadcast.service
+ */
+
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -23,9 +28,16 @@ import { CityService } from '../city/city.service';
 import { ICountry } from '../country/country.interface';
 import { IEventDetail } from '../event-detail/event-detail.interface';
 
+/**
+ * Service for managing message broadcasting functionality
+ * @class BroadcastService
+ * @description Handles broadcasting messages to different channels and groups,
+ * including message creation, media handling, and access control
+ */
 @Update()
 @Injectable()
 export class BroadcastService {
+  /** Array of super admin Telegram IDs */
   private readonly SUPER_ADMIN_IDS: string[] = process.env.ADMIN_IDS
     ? process.env.ADMIN_IDS.split(',').map((id) => id.trim())
     : [];
@@ -39,6 +51,11 @@ export class BroadcastService {
     private readonly commonService: CommonService,
   ) {}
 
+  /**
+   * Handles the /broadcast command
+   * @param {Context} ctx - The Telegraf context
+   * @returns {Promise<void>}
+   */
   @Command('broadcast')
   async onBroadcast(@Ctx() ctx: Context) {
     if (!ctx.from?.id) {
@@ -167,6 +184,13 @@ export class BroadcastService {
     await ctx.answerInlineQuery(results, { cache_time: 0 });
   }
 
+  /**
+   * Displays the broadcast menu with available options
+   * @param {Context} ctx - The Telegraf context
+   * @param {string} role - The user's role
+   * @returns {Promise<void>}
+   * @private
+   */
   private async showBroadcastMenu(ctx: Context, role: string) {
     try {
       const welcomeMessage = `Hello there *${role.charAt(0).toUpperCase() + role.slice(1)}* 👋
@@ -214,6 +238,11 @@ You can register via: \`\\{unlock\\_link\\}\`
     }
   }
 
+  /**
+   * Handles callback queries from inline keyboards
+   * @param {Context} ctx - The Telegraf context
+   * @returns {Promise<void>}
+   */
   async handleCallbackQuery(ctx: Context) {
     const callbackData =
       ctx.callbackQuery && 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : undefined;
@@ -303,6 +332,12 @@ You can register via: \`\\{unlock\\_link\\}\`
     await ctx.answerCbQuery();
   }
 
+  /**
+   * Gets user access information
+   * @param {Context} ctx - The Telegraf context
+   * @returns {Promise<IUserAccessInfo | null>} User access information or null if not found
+   * @private
+   */
   private async getUserAccessInfo(ctx: Context): Promise<IUserAccessInfo | null> {
     if (!ctx.from?.id) {
       await ctx.reply(this.escapeMarkdown('❌ User ID is undefined.'), {
@@ -324,6 +359,12 @@ You can register via: \`\\{unlock\\_link\\}\`
     return { userAccess, role, userId };
   }
 
+  /**
+   * Handles the create post action
+   * @param {Context} ctx - The Telegraf context
+   * @returns {Promise<void>}
+   * @private
+   */
   private async handleCreatePost(ctx: Context) {
     const accessInfo = await this.getUserAccessInfo(ctx);
     if (!accessInfo) return;
@@ -427,6 +468,13 @@ You can register via: \`\\{unlock\\_link\\}\`
     });
   }
 
+  /**
+   * Handles broadcast selection based on user role and callback data
+   * @param {Context} ctx - The Telegraf context
+   * @param {string} callbackData - The callback data from the inline keyboard
+   * @returns {Promise<void>}
+   * @private
+   */
   private async handleBroadcastSelection(ctx: Context, callbackData: string) {
     try {
       if (!ctx.from?.id) {
@@ -484,6 +532,11 @@ You can register via: \`\\{unlock\\_link\\}\`
     }
   }
 
+  /**
+   * Gets the keyboard markup for message actions
+   * @returns {Object} Keyboard markup configuration
+   * @private
+   */
   private getKeyboardMarkup() {
     return {
       keyboard: [
@@ -495,6 +548,13 @@ You can register via: \`\\{unlock\\_link\\}\`
     };
   }
 
+  /**
+   * Handles message actions based on callback data
+   * @param {Context} ctx - The Telegraf context
+   * @param {string} callbackData - The callback data from the inline keyboard
+   * @returns {Promise<void>}
+   * @private
+   */
   private async handleMessageAction(ctx: Context, callbackData: string) {
     if (!ctx.from?.id) {
       await ctx.answerCbQuery(this.escapeMarkdown('❌ User ID not found'));
@@ -606,6 +666,11 @@ You can register via: \`\\{unlock\\_link\\}\`
     }
   }
 
+  /**
+   * Gets a keyboard markup with a cancel button
+   * @returns {Object} Keyboard markup configuration with cancel button
+   * @private
+   */
   private getCancelKeyboard() {
     return {
       keyboard: [[{ text: 'Cancel' }]],
@@ -614,6 +679,13 @@ You can register via: \`\\{unlock\\_link\\}\`
     };
   }
 
+  /**
+   * Handles post actions such as preview, send, delete all, and cancel
+   * @param {Context} ctx - The Telegraf context
+   * @param {string} action - The action to perform
+   * @returns {Promise<void>}
+   * @private
+   */
   private async handlePostActions(ctx: Context, action: string) {
     if (!ctx.from?.id) return;
 
@@ -664,6 +736,13 @@ You can register via: \`\\{unlock\\_link\\}\`
     }
   }
 
+  /**
+   * Previews messages with variables replaced for a test city
+   * @param {Context} ctx - The Telegraf context
+   * @param {IBroadcastSession} session - The current broadcast session
+   * @returns {Promise<void>}
+   * @private
+   */
   private async previewMessages(ctx: Context, session: IBroadcastSession) {
     try {
       const previewCity = {
@@ -790,6 +869,13 @@ You can register via: \`\\{unlock\\_link\\}\`
     }
   }
 
+  /**
+   * Sends messages to all cities in the user's access list
+   * @param {Context} ctx - The Telegraf context
+   * @param {IBroadcastSession} session - The current broadcast session
+   * @returns {Promise<void>}
+   * @private
+   */
   private async sendMessages(ctx: Context, session: IBroadcastSession) {
     const logs: string[] = [];
 
@@ -874,7 +960,6 @@ You can register via: \`\\{unlock\\_link\\}\`
 
             let sentMessage: Message;
 
-            // Simulate sending (replace with actual Telegram API call to group_id)
             if (message.mediaType && message.mediaUrl) {
               switch (message.mediaType) {
                 case 'photo':
@@ -1023,6 +1108,11 @@ You can register via: \`\\{unlock\\_link\\}\`
     }
   }
 
+  /**
+   * Handles broadcast messages and processes them based on the current session state
+   * @param {Context} ctx - The Telegraf context
+   * @returns {Promise<void>}
+   */
   async handleBroadcatsMessages(ctx: Context) {
     if (!ctx.from?.id || !ctx.message || !('text' in ctx.message)) return;
 
@@ -1134,6 +1224,15 @@ You can register via: \`\\{unlock\\_link\\}\`
     }
   }
 
+  /**
+   * Displays a message with action buttons for editing
+   * @param {Context} ctx - The Telegraf context
+   * @param {number} index - The index of the message in the session
+   * @param {IPostMessage} messageObj - The message object to display
+   * @param {boolean} [variableIncluded] - Whether the message includes variables
+   * @returns {Promise<void>}
+   * @private
+   */
   private async displayMessageWithActions(
     ctx: Context,
     index: number,
@@ -1246,6 +1345,12 @@ You can register via: \`\\{unlock\\_link\\}\`
     }
   }
 
+  /**
+   * Parses URL buttons from text input
+   * @param {string} text - The text containing URL button definitions
+   * @returns {Array<{text: string, url: string}>} Array of parsed button objects
+   * @private
+   */
   private parseUrlButtons(text: string): { text: string; url: string }[] {
     const buttons: { text: string; url: string }[] = [];
     const buttonTexts = text
@@ -1269,14 +1374,17 @@ You can register via: \`\\{unlock\\_link\\}\`
           } catch {
             // Invalid URL, do not add to buttons
           }
-        } else {
-          // Invalid URL, do not add to buttons;
         }
       }
     }
     return buttons;
   }
 
+  /**
+   * Handles the creation of a new post
+   * @param {Context} ctx - The Telegraf context
+   * @returns {Promise<void>}
+   */
   async onCreatePost(@Ctx() ctx: Context) {
     try {
       await ctx.reply(
@@ -1295,26 +1403,53 @@ You can register via: \`\\{unlock\\_link\\}\`
     }
   }
 
+  /**
+   * Handles photo messages
+   * @param {Context} ctx - The Telegraf context
+   * @returns {Promise<void>}
+   */
   @On('photo')
   async onPhoto(@Ctx() ctx: Context) {
     await this.handleMedia(ctx, 'photo');
   }
 
+  /**
+   * Handles video messages
+   * @param {Context} ctx - The Telegraf context
+   * @returns {Promise<void>}
+   */
   @On('video')
   async onVideo(@Ctx() ctx: Context) {
     await this.handleMedia(ctx, 'video');
   }
 
+  /**
+   * Handles document messages
+   * @param {Context} ctx - The Telegraf context
+   * @returns {Promise<void>}
+   */
   @On('document')
   async onDocument(@Ctx() ctx: Context) {
     await this.handleMedia(ctx, 'document');
   }
 
+  /**
+   * Handles animation messages
+   * @param {Context} ctx - The Telegraf context
+   * @returns {Promise<void>}
+   */
   @On('animation')
   async onAnimation(@Ctx() ctx: Context) {
     await this.handleMedia(ctx, 'animation');
   }
 
+  /**
+   * Handles media messages (photo, video, document, animation)
+   * @param {Context} ctx - The Telegraf context
+   * @param {('photo'|'video'|'document'|'animation')} mediaType - The type of media being handled
+   * @returns {Promise<void>}
+   * @private
+   */
   private async handleMedia(ctx: Context, mediaType: 'photo' | 'video' | 'document' | 'animation') {
     if (!ctx.from?.id) return;
 
@@ -1433,10 +1568,25 @@ You can register via: \`\\{unlock\\_link\\}\`
     }
   }
 
+  /**
+   * Escapes special characters in text for MarkdownV2 formatting
+   * @param {string} text - The text to escape
+   * @returns {string} The escaped text
+   * @private
+   */
   private escapeMarkdown(text: string): string {
     return text.replace(/([_*[\]()~`>#+\-=|{}.!\\])/g, '\\$1');
   }
 
+  /**
+   * Replaces variables in text with actual values
+   * @param {string} text - The text containing variables to replace
+   * @param {string|null} country - The country name
+   * @param {ICityForVars} city - The city information
+   * @param {boolean} [hardcoded=false] - Whether to use hardcoded values for preview
+   * @returns {Promise<string>} The text with variables replaced
+   * @private
+   */
   private async replaceVars(
     text: string,
     country?: string | null,
@@ -1460,10 +1610,10 @@ You can register via: \`\\{unlock\\_link\\}\`
         timezone: 'Europe/Berlin',
         location: 'Berlin, Germany',
         address: 'Berlin, Germany',
+        country: 'Germany',
+        unlock_link: `app.unlock-protocol.com/event/berlin-bitcoin-pizza-party-1`,
         year: 2025,
         slug: 'berlin-bitcoin-pizza-party-1',
-        country: 'Germany',
-        unlock_link: 'https://app.unlock-protocol.com/event/berlin-bitcoin-pizza-party-1',
       };
     } else {
       const currentYear = new Date().getFullYear();

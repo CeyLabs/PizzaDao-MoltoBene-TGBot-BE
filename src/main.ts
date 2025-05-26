@@ -1,9 +1,21 @@
+/**
+ * @fileoverview Main application entry point for the PizzaDao MoltoBene Telegram Bot
+ * @module main
+ */
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { getBotToken } from 'nestjs-telegraf';
 import { Telegraf } from 'telegraf';
 import { json } from 'express';
 
+/**
+ * Bootstraps the NestJS application and configures the Telegram bot
+ * @async
+ * @function bootstrap
+ * @returns {Promise<void>}
+ * @throws {Error} If there's an error during application bootstrap
+ */
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
