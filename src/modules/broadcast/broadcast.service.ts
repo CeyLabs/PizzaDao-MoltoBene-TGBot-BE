@@ -83,7 +83,11 @@ export class BroadcastService {
     if (!userId) return ctx.answerInlineQuery([], { cache_time: 1 });
 
     // Fetch and cache all cities in session if not already cached
-    let allCities: ICity[] = (this.commonService.getUserState(userId)?.allCities as ICity[]) || [];
+    const currentSession = this.commonService.getUserState(userId);
+    let allCities: ICity[] =
+      currentSession?.allCities && Array.isArray(currentSession.allCities)
+        ? (currentSession.allCities as ICity[])
+        : [];
     if (allCities.length <= 0) {
       allCities = await this.cityService.getAllCities();
       const session: { allCities?: ICity[]; [key: string]: any } =
