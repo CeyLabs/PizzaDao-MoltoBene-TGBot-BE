@@ -145,7 +145,7 @@ export class BroadcastService {
             [
               {
                 text: '✅ Confirm',
-                callback_data: `confirm_city_${city.group_id?.replace(/^-/, '')}`,
+                callback_data: `confirm_city_${city.group_id ? city.group_id.replace(/^-/, '') : 'confirm_city_none'}`,
               },
               {
                 text: '❌ Cancel',
@@ -509,8 +509,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         await ctx.deleteMessage();
         await ctx.reply(
           `You can use the inline mode to search for a city and send a message directly\\.\n\n` +
-            `For example, type \`@MoltoBeneBot\` and the city name in the message field\\.`,
-
+            `For example, type \`@${this.escapeMarkdown(process.env.BOT_USERNAME || 'MoltoBeneBot')}\` and the city name in the message field\\.`,
           {
             parse_mode: 'MarkdownV2',
             reply_markup: {
