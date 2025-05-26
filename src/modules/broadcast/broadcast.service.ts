@@ -235,7 +235,7 @@ You can register via: \`\\{unlock\\_link\\}\`
             // { text: '🏙️ Specific City', callback_data: 'broadcast_specific_city' },
           ],
           [
-            // { text: '📍 Specific Region', callback_data: 'broadcast_specific_region' },
+            { text: '📍 Specific Region', callback_data: 'broadcast_specific_region' },
             // { text: '🌐 Specific Country', callback_data: 'broadcast_specific_country' },
           ],
         ];
@@ -338,6 +338,7 @@ You can register via: \`\\{unlock\\_link\\}\`
           flow: 'broadcast',
           step: `creating_post`,
           messages: [] as IPostMessage[],
+          targetType: 'all',
         });
 
         await ctx.reply(
@@ -375,6 +376,23 @@ You can register via: \`\\{unlock\\_link\\}\`
       resize_keyboard: true,
       one_time_keyboard: true,
     };
+  }
+
+  private createRegionButtons(regions: { id: string; name: string }[]): InlineKeyboardButton[][] {
+    const buttons: InlineKeyboardButton[][] = [];
+    for (let i = 0; i < regions.length; i += 2) {
+      const row: InlineKeyboardButton[] = [
+        { text: regions[i].name, callback_data: `select_region_${regions[i].id}` },
+      ];
+      if (i + 1 < regions.length) {
+        row.push({
+          text: regions[i + 1].name,
+          callback_data: `select_region_${regions[i + 1].id}`,
+        });
+      }
+      buttons.push(row);
+    }
+    return buttons;
   }
 
   /**

@@ -130,6 +130,27 @@ type Role = 'admin' | 'underboss' | 'caporegime' | 'host' | null;
 export class AccessService {
   constructor(private readonly knexService: KnexService) {}
 
+  async getAllRegions(): Promise<{ id: string; name: string }[]> {
+    return this.knexService.knex('region').select('id', 'name');
+  }
+
+  async getRegionById(regionId: string): Promise<{ id: string; name: string } | undefined> {
+    return this.knexService.knex('region').where('id', regionId).first();
+  }
+
+  async getCitiesByRegion(regionId: string): Promise<CityData[]> {
+    return this.knexService
+      .knex('city')
+      .join('country', 'city.country_id', 'country.id')
+      .where('country.region_id', regionId)
+      .select(
+        'city.id as city_id',
+        'city.name as city_name',
+        'city.group_id',
+        'city.telegram_link',
+      );
+  }
+
   /**
    * Gets the role of a user based on their Telegram ID
    * @param {string} telegram_id - The Telegram ID of the user
@@ -144,7 +165,7 @@ export class AccessService {
       return 'admin';
     }
 
-    // Check region_access for underboss role
+    // Check region_access for underboss role\
     const regionAccess = await this.knexService
       .knex<IRegionAccess>('region_access')
       .where('user_telegram_id', telegram_id)

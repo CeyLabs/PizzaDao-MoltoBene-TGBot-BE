@@ -111,6 +111,7 @@ export interface IBroadcastSession {
   messages: IPostMessage[];
   /** Current action being performed */
   currentAction?: 'attach_media' | 'add_url_buttons';
+  targetType?: 'all' | 'region' | 'country' | 'city';
   /** Index of the current message being edited */
   currentMessageIndex?: number;
 }
