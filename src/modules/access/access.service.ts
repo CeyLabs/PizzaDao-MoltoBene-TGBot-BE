@@ -131,6 +131,41 @@ export class AccessService {
   constructor(private readonly knexService: KnexService) {}
 
   /**
+   * Retrieves all regions from the database
+   * @returns {Promise<Array<{id: string, name: string}>>} Array of regions with their IDs and names
+   */
+  async getAllRegions(): Promise<{ id: string; name: string }[]> {
+    return this.knexService.knex('region').select('id', 'name');
+  }
+
+  /**
+   * Retrieves a specific region by its ID
+   * @param {string} regionId - The unique identifier of the region
+   * @returns {Promise<{id: string, name: string} | undefined>} Region data or undefined if not found
+   */
+  async getRegionById(regionId: string): Promise<{ id: string; name: string } | undefined> {
+    return this.knexService.knex('region').where('id', regionId).first();
+  }
+
+  /**
+   * Gets all cities belonging to a specific region
+   * @param {string} regionId - The unique identifier of the region
+   * @returns {Promise<CityData[]>} Array of cities with their details
+   */
+  async getCitiesByRegion(regionId: string): Promise<CityData[]> {
+    return this.knexService
+      .knex('city')
+      .join('country', 'city.country_id', 'country.id')
+      .where('country.region_id', regionId)
+      .select(
+        'city.id as city_id',
+        'city.name as city_name',
+        'city.group_id',
+        'city.telegram_link',
+      );
+  }
+
+  /**
    * Gets the role of a user based on their Telegram ID
    * @param {string} telegram_id - The Telegram ID of the user
    * @returns {Promise<Role>} The user's role or null if no role is assigned
