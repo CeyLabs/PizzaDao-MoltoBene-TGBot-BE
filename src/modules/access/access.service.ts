@@ -130,14 +130,28 @@ type Role = 'admin' | 'underboss' | 'caporegime' | 'host' | null;
 export class AccessService {
   constructor(private readonly knexService: KnexService) {}
 
+  /**
+   * Retrieves all regions from the database
+   * @returns {Promise<Array<{id: string, name: string}>>} Array of regions with their IDs and names
+   */
   async getAllRegions(): Promise<{ id: string; name: string }[]> {
     return this.knexService.knex('region').select('id', 'name');
   }
 
+  /**
+   * Retrieves a specific region by its ID
+   * @param {string} regionId - The unique identifier of the region
+   * @returns {Promise<{id: string, name: string} | undefined>} Region data or undefined if not found
+   */
   async getRegionById(regionId: string): Promise<{ id: string; name: string } | undefined> {
     return this.knexService.knex('region').where('id', regionId).first();
   }
 
+  /**
+   * Gets all cities belonging to a specific region
+   * @param {string} regionId - The unique identifier of the region
+   * @returns {Promise<CityData[]>} Array of cities with their details
+   */
   async getCitiesByRegion(regionId: string): Promise<CityData[]> {
     return this.knexService
       .knex('city')

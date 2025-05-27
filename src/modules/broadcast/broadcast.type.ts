@@ -99,6 +99,17 @@ export interface IPostMessage {
   messageId?: number;
 }
 
+/**
+ * Represents a selected city with additional information.
+ * Extends the `ICity` interface and includes details about the country
+ * and a list of related cities.
+ *
+ * @interface ISelectedCity
+ * @extends ICity
+ *
+ * @property {ICity[]} cities - An array of cities related to the selected city.
+ * @property {string} country_name - The name of the country to which the city belongs.
+ */
 interface ISelectedCity extends ICity {
   cities: ICity[];
   country_name: string;
@@ -128,8 +139,14 @@ export interface IBroadcastSession {
   allCountries?: ICountry[];
   searchType?: 'city' | 'country';
 }
+/**
+ * Represents a selected country with its associated details.
+ */
 export interface ISelectedCountry {
+  /** The unique identifier of the country.*/
   id: string;
+  /** The name of the country.*/
   name: string;
+  /** An optional list of cities within the country.*/
   cities?: ICity[];
 }
