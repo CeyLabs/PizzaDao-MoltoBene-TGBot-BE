@@ -1,4 +1,5 @@
 import { ICity } from '../city/city.interface';
+import { ICountry } from '../country/country.interface';
 
 /**
  * @fileoverview Type definitions for the broadcast module
@@ -122,4 +123,11 @@ export interface IBroadcastSession {
   /** Index of the current message being edited */
   currentMessageIndex?: number;
   selectedCity?: ISelectedCity[];
+  allCountries?: ICountry[];
+  searchType?: 'city' | 'country';
+}
+export interface ISelectedCountry {
+  id: string;
+  name: string;
+  cities?: ICity[];
 }
