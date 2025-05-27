@@ -76,6 +76,11 @@ export class BroadcastService {
     await this.showBroadcastMenu(ctx, accessRole);
   }
 
+  /**
+   * Handles inline query for city/country search
+   * @param {Context} ctx - The Telegraf context
+   * @returns {Promise<void>}
+   */
   @On('inline_query')
   async handleInlineQuery(@Ctx() ctx: Context) {
     const query = ctx.inlineQuery?.query?.trim();
@@ -507,6 +512,13 @@ You can register via: \`\\{unlock\\_link\\}\`
     await ctx.answerCbQuery();
   }
 
+  /**
+   * Handles region selection from inline keyboard
+   * @param {Context} ctx - The Telegraf context
+   * @param {string} regionId - ID of the selected region
+   * @returns {Promise<void>}
+   * @private
+   */
   private async handleRegionSelection(ctx: Context, regionId: string) {
     if (!ctx.from?.id) {
       await ctx.answerCbQuery('User ID not found');
@@ -856,6 +868,12 @@ You can register via: \`\\{unlock\\_link\\}\`
     };
   }
 
+  /**
+   * Creates region keyboard buttons in a grid layout
+   * @param {Array<{id: string, name: string}>} regions - Array of region objects
+   * @returns {Array<Array<InlineKeyboardButton>>} Grid of keyboard buttons
+   * @private
+   */
   private createRegionButtons(regions: { id: string; name: string }[]): InlineKeyboardButton[][] {
     const buttons: InlineKeyboardButton[][] = [];
     for (let i = 0; i < regions.length; i += 2) {

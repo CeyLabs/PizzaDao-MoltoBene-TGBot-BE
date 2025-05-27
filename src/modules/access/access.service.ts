@@ -165,7 +165,7 @@ export class AccessService {
       return 'admin';
     }
 
-    // Check region_access for underboss role\
+    // Check region_access for underboss role
     const regionAccess = await this.knexService
       .knex<IRegionAccess>('region_access')
       .where('user_telegram_id', telegram_id)
