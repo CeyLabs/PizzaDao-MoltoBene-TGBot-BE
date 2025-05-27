@@ -325,7 +325,12 @@ export class WelcomeService {
   async handleNewMember(ctx: Context) {
     const { message } = ctx;
 
-    if (!message || !('new_chat_members' in message) || !('chat' in message)) {
+    if (
+      !message ||
+      !('new_chat_members' in message) ||
+      !('chat' in message) ||
+      message.new_chat_members.some((member) => member.is_bot)
+    ) {
       return;
     }
 

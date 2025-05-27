@@ -11,6 +11,8 @@ import { Context } from 'telegraf';
 import { Command, Ctx, On, Update } from 'nestjs-telegraf';
 import {
   InlineKeyboardButton,
+  InlineQueryResultArticle,
+  InputTextMessageContent,
   KeyboardButton,
   Message,
 } from 'telegraf/typings/core/types/typegram';
@@ -21,7 +23,9 @@ import { CommonService } from '../common/common.service';
 import { EventDetailService } from '../event-detail/event-detail.service';
 
 import { IUserAccessInfo, IBroadcastSession, IPostMessage } from './broadcast.type';
-import { ICityForVars } from '../city/city.interface';
+import { ICity, ICityForVars } from '../city/city.interface';
+import { CityService } from '../city/city.service';
+import { ICountry } from '../country/country.interface';
 import { IEventDetail } from '../event-detail/event-detail.interface';
 
 /**
@@ -42,6 +46,7 @@ export class BroadcastService {
     private readonly accessService: AccessService,
     private readonly eventDetailService: EventDetailService,
     private readonly countryService: CountryService,
+    private readonly cityService: CityService,
     @Inject(forwardRef(() => CommonService))
     private readonly commonService: CommonService,
   ) {}
@@ -69,6 +74,118 @@ export class BroadcastService {
     }
 
     await this.showBroadcastMenu(ctx, accessRole);
+  }
+
+  @On('inline_query')
+  async handleInlineQuery(@Ctx() ctx: Context) {
+    const query = ctx.inlineQuery?.query?.trim();
+    const userId = ctx.from?.id;
+    if (!userId) return ctx.answerInlineQuery([], { cache_time: 1 });
+
+    // Fetch and cache all cities in session if not already cached
+    const currentSession = this.commonService.getUserState(userId);
+    let allCities: ICity[] =
+      currentSession?.allCities && Array.isArray(currentSession.allCities)
+        ? (currentSession.allCities as ICity[])
+        : [];
+    if (allCities.length <= 0) {
+      allCities = await this.cityService.getAllCities();
+      const session: { allCities?: ICity[]; [key: string]: any } =
+        this.commonService.getUserState(userId) || {};
+      session.flow = 'broadcast';
+      session.allCities = allCities;
+      this.commonService.setUserState(userId, session);
+    }
+
+    if (!query || query === '') {
+      await ctx.answerInlineQuery(
+        [
+          {
+            type: 'article',
+            id: 'search_city',
+            title: 'Type your city name',
+            description: 'Start typing to search for a city',
+            input_message_content: {
+              message_text: 'Please type your city name to search.',
+            },
+          },
+        ],
+        { cache_time: 1 },
+      );
+      return;
+    }
+
+    // Filter cities from session cache
+    const cities: ICity[] = query
+      ? allCities.filter((city: ICity) => city.name.toLowerCase().includes(query.toLowerCase()))
+      : [];
+
+    // Fetch country names for each city
+    const countryNames: string[] = await Promise.all(
+      cities.map(async (city: ICity) => {
+        if (city.country_id) {
+          const country: ICountry | null = await this.countryService.getCountryById(
+            city.country_id,
+          );
+          return country?.name || '';
+        }
+        return '';
+      }),
+    );
+
+    const results: InlineQueryResultArticle[] = cities.map(
+      (city: ICity, idx: number): InlineQueryResultArticle => ({
+        type: 'article',
+        id: city.id || city.name,
+        title: city.name,
+        description: countryNames[idx] || '',
+        thumbnail_url: process.env.EVENT_IMAGE_URL,
+        input_message_content: {
+          message_text: `You selected *${this.escapeMarkdown(city.name)}*\\.\n\nPlease confirm your selection\\.`,
+          parse_mode: 'MarkdownV2',
+        } as InputTextMessageContent,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: '✅ Confirm',
+                callback_data: `confirm_city_${city.group_id ? city.group_id.replace(/^-/, '') : 'confirm_city_none'}`,
+              },
+              {
+                text: '❌ Cancel',
+                callback_data: `cancel`,
+              },
+            ],
+          ],
+        },
+      }),
+    );
+
+    // Save selected city details in selectedCity array in session
+    const selectedCity = results.map((result) => ({
+      id: result.id,
+      name: result.title,
+      country_name: result.description,
+      group_id: (() => {
+        const btn = result.reply_markup?.inline_keyboard?.[0]?.[0];
+        if (
+          btn &&
+          typeof btn === 'object' &&
+          'callback_data' in btn &&
+          typeof btn.callback_data === 'string'
+        ) {
+          return '-' + (btn.callback_data.split('_')[2] || '');
+        }
+        return '';
+      })(),
+    }));
+
+    this.commonService.setUserState(userId, {
+      ...this.commonService.getUserState(userId),
+      selectedCity,
+    });
+
+    await ctx.answerInlineQuery(results, { cache_time: 0 });
   }
 
   /**
@@ -154,6 +271,44 @@ You can register via: \`\\{unlock\\_link\\}\`
       return;
     }
 
+    if (callbackData.startsWith('confirm_city_')) {
+      const session = this.commonService.getUserState(ctx.from.id);
+      if (!session) {
+        await ctx.answerCbQuery('❌ No active session found\\.');
+        return;
+      }
+
+      const selectedCity = session.selectedCity as Array<{ name?: string }>;
+
+      if (!selectedCity || !Array.isArray(selectedCity)) {
+        await ctx.answerCbQuery(this.escapeMarkdown('❌ City not found in session.'));
+        return;
+      }
+
+      this.commonService.setUserState(ctx.from.id, {
+        step: 'creating_post',
+        ...session,
+        selectedCity: selectedCity,
+      });
+
+      await ctx.telegram.sendMessage(
+        ctx.from.id,
+        `📢 You are assigned as admin to *Pizza DAO*\\.\n\n` +
+          `City Name: *${selectedCity[0]?.name}*\n\n` +
+          `Send me one or multiple messages you want to include in the post\\. It can be anything — a text, photo, video, even a sticker\\.\n\n` +
+          `You can use variables with below format within curly brackets\\.\n\n` +
+          `*Eg:*\n` +
+          `Hello \`\\{city\\}\` Pizza DAO members,\n` +
+          `We have Upcoming Pizza Day on \`\\{location\\}\` at \`\\{start\\_time\\}\`\\.\n\n` +
+          `You can register via \\- \`\\{unlock\\_link\\}\``,
+        {
+          parse_mode: 'MarkdownV2',
+          reply_markup: this.getKeyboardMarkup(),
+        },
+      );
+      return;
+    }
+
     if (
       callbackData === 'host_specific_city' ||
       callbackData === 'host_specific_country' ||
@@ -185,6 +340,32 @@ You can register via: \`\\{unlock\\_link\\}\`
     }
 
     await ctx.answerCbQuery();
+  }
+
+  private async handleRegionSelection(ctx: Context, regionId: string) {
+    if (!ctx.from?.id) {
+      await ctx.answerCbQuery('User ID not found');
+      return;
+    }
+    // delete the previous message
+    await ctx.deleteMessage();
+    const userId = ctx.from.id;
+    const region = await this.accessService.getRegionById(regionId);
+    const regionName = region ? region.name : 'Unknown Region';
+    const message = this.escapeMarkdown(
+      `You have selected region: ${regionName}. Now, send me the messages to broadcast to all cities in this region.`,
+    );
+    this.commonService.setUserState(userId, {
+      flow: 'broadcast',
+      step: 'creating_post',
+      messages: [],
+      targetType: 'region',
+      targetId: regionId,
+    });
+    await ctx.reply(message, {
+      parse_mode: 'MarkdownV2',
+      reply_markup: this.getKeyboardMarkup(),
+    });
   }
 
   /**
@@ -238,11 +419,11 @@ You can register via: \`\\{unlock\\_link\\}\`
         inline_keyboard = [
           [
             { text: '🌍 All City Chats', callback_data: 'broadcast_all_cities' },
-            // { text: '🏙️ Specific City', callback_data: 'broadcast_specific_city' },
+            { text: '📍 Specific Region', callback_data: 'broadcast_specific_region' },
           ],
           [
-            { text: '📍 Specific Region', callback_data: 'broadcast_specific_region' },
             // { text: '🌐 Specific Country', callback_data: 'broadcast_specific_country' },
+            { text: '🏙️ Specific City', callback_data: 'broadcast_specific_city' },
           ],
         ];
         break;
@@ -344,7 +525,6 @@ You can register via: \`\\{unlock\\_link\\}\`
           flow: 'broadcast',
           step: `creating_post`,
           messages: [] as IPostMessage[],
-          targetType: 'all',
         });
 
         await ctx.reply(
@@ -359,6 +539,25 @@ You can register via: \`\\{unlock\\_link\\}\`
           {
             parse_mode: 'MarkdownV2',
             reply_markup: this.getKeyboardMarkup(),
+          },
+        );
+      } else if (callbackData === 'broadcast_specific_city') {
+        await ctx.deleteMessage();
+        await ctx.reply(
+          `You can use the inline mode to search for a city and send a message directly\\.\n\n` +
+            `For example, type \`@${this.escapeMarkdown(process.env.BOT_USERNAME || 'MoltoBeneBot')}\` and the city name in the message field\\.`,
+          {
+            parse_mode: 'MarkdownV2',
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {
+                    text: '🔍 Search City',
+                    switch_inline_query_current_chat: '',
+                  },
+                ],
+              ],
+            },
           },
         );
       } else if (callbackData === 'broadcast_specific_region') {
@@ -410,32 +609,6 @@ You can register via: \`\\{unlock\\_link\\}\`
       buttons.push(row);
     }
     return buttons;
-  }
-
-  private async handleRegionSelection(ctx: Context, regionId: string) {
-    if (!ctx.from?.id) {
-      await ctx.answerCbQuery('User ID not found');
-      return;
-    }
-    // delete the previous message
-    await ctx.deleteMessage();
-    const userId = ctx.from.id;
-    const region = await this.accessService.getRegionById(regionId);
-    const regionName = region ? region.name : 'Unknown Region';
-    const message = this.escapeMarkdown(
-      `You have selected region: ${regionName}. Now, send me the messages to broadcast to all cities in this region.`,
-    );
-    this.commonService.setUserState(userId, {
-      flow: 'broadcast',
-      step: 'creating_post',
-      messages: [],
-      targetType: 'region',
-      targetId: regionId,
-    });
-    await ctx.reply(message, {
-      parse_mode: 'MarkdownV2',
-      reply_markup: this.getKeyboardMarkup(),
-    });
   }
 
   /**
@@ -746,7 +919,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       }
 
       await ctx.reply(
-        `This post will be sent to *${previewCity.city_name}*\\. Use the Send button to distribute it\\.\n\nNOTE: This is just a preview using ${this.escapeMarkdown(previewCity.city_name)} as an example city\\. The actual messages will have the appropriate city name for each group\\.`,
+        `This post will be sent to your city or cities\\. Use the Send button to distribute it\\.\n\nNOTE: This is just a preview using ${this.escapeMarkdown(previewCity.city_name)} as an example city\\. The actual messages will have the appropriate city name for each group\\.`,
         {
           parse_mode: 'MarkdownV2',
           reply_markup: this.getKeyboardMarkup(),
@@ -760,7 +933,7 @@ You can register via: \`\\{unlock\\_link\\}\`
   }
 
   /**
-   * Sends messages to all cities based on the session's target type and user access
+   * Sends messages to all cities in the user's access list
    * @param {Context} ctx - The Telegraf context
    * @param {IBroadcastSession} session - The current broadcast session
    * @returns {Promise<void>}
@@ -770,28 +943,20 @@ You can register via: \`\\{unlock\\_link\\}\`
     const logs: string[] = [];
 
     try {
-      const userId = ctx.from?.id;
-      if (!userId) {
-        await ctx.reply(this.escapeMarkdown('❌ User ID not found.'), {
-          parse_mode: 'MarkdownV2',
-        });
-        return;
-      }
-
-      if (!session || !session.messages) {
-        await ctx.reply(this.escapeMarkdown('❌ No messages to process.'), {
-          parse_mode: 'MarkdownV2',
-        });
-        return;
-      }
-
       let cityData: {
         city_name: string;
         group_id?: string | null;
         telegram_link?: string | null;
       }[] = [];
 
-      if (session.targetType === 'all') {
+      if (session.targetType === 'region' && session.targetId) {
+        const cities = await this.accessService.getCitiesByRegion(session.targetId);
+        cityData = cities.map((city) => ({
+          city_name: city.city_name,
+          group_id: city.group_id,
+          telegram_link: city.telegram_link,
+        }));
+      } else if (session.targetType === 'all') {
         const accessInfo = await this.getUserAccessInfo(ctx);
         if (!accessInfo) return;
         const { userAccess } = accessInfo;
@@ -809,13 +974,22 @@ You can register via: \`\\{unlock\\_link\\}\`
             telegram_link: city.telegram_link,
           }));
         }
-      } else if (session.targetType === 'region' && session.targetId) {
-        const cities = await this.accessService.getCitiesByRegion(session.targetId);
-        cityData = cities.map((city) => ({
-          city_name: city.city_name,
-          group_id: city.group_id,
-          telegram_link: city.telegram_link,
-        }));
+      } else if (session.selectedCity) {
+        if (!Array.isArray(session.selectedCity) || session.selectedCity.length === 0) {
+          await ctx.reply(this.escapeMarkdown('❌ Invalid selected city data.'), {
+            parse_mode: 'MarkdownV2',
+          });
+          return;
+        }
+
+        const city = session.selectedCity[0];
+        cityData = [
+          {
+            city_name: city.name,
+            group_id: city.group_id,
+            telegram_link: city.telegram_link,
+          },
+        ];
       } else {
         const accessInfo = await this.getUserAccessInfo(ctx);
         if (!accessInfo) return;
@@ -862,7 +1036,7 @@ You can register via: \`\\{unlock\\_link\\}\`
 
         try {
           for (const message of session.messages) {
-            const processedText = await this.replaceVars(message.text ?? '', countryName, city);
+            const processedText = this.replaceVars(message.text ?? '', countryName, city);
 
             const urlButtons: InlineKeyboardButton[][] = await Promise.all(
               message.urlButtons.map(async (btn) => [
@@ -884,7 +1058,7 @@ You can register via: \`\\{unlock\\_link\\}\`
                     (city.group_id || ctx.chat?.id) ?? 0,
                     message.mediaUrl,
                     {
-                      caption: this.escapeMarkdown(processedText ?? ''),
+                      caption: this.escapeMarkdown((await processedText) ?? ''),
                       parse_mode: 'MarkdownV2',
                       reply_markup: replyMarkup,
                     },
@@ -895,7 +1069,7 @@ You can register via: \`\\{unlock\\_link\\}\`
                     (city.group_id || ctx.chat?.id) ?? 0,
                     message.mediaUrl,
                     {
-                      caption: this.escapeMarkdown(processedText ?? ''),
+                      caption: this.escapeMarkdown((await processedText) ?? ''),
                       parse_mode: 'MarkdownV2',
                       reply_markup: replyMarkup,
                     },
@@ -906,7 +1080,7 @@ You can register via: \`\\{unlock\\_link\\}\`
                     (city.group_id || ctx.chat?.id) ?? 0,
                     message.mediaUrl,
                     {
-                      caption: this.escapeMarkdown(processedText ?? ''),
+                      caption: this.escapeMarkdown((await processedText) ?? ''),
                       parse_mode: 'MarkdownV2',
                       reply_markup: replyMarkup,
                     },
@@ -917,7 +1091,7 @@ You can register via: \`\\{unlock\\_link\\}\`
                     (city.group_id || ctx.chat?.id) ?? 0,
                     message.mediaUrl,
                     {
-                      caption: this.escapeMarkdown(processedText ?? ''),
+                      caption: this.escapeMarkdown((await processedText) ?? ''),
                       parse_mode: 'MarkdownV2',
                       reply_markup: replyMarkup,
                     },
@@ -927,7 +1101,7 @@ You can register via: \`\\{unlock\\_link\\}\`
             } else {
               sentMessage = await ctx.telegram.sendMessage(
                 (city.group_id || ctx.chat?.id) ?? 0,
-                this.escapeMarkdown(processedText ?? ''),
+                this.escapeMarkdown((await processedText) ?? ''),
                 {
                   parse_mode: 'MarkdownV2',
                   reply_markup: replyMarkup,
@@ -1012,7 +1186,9 @@ You can register via: \`\\{unlock\\_link\\}\`
       await ctx.replyWithDocument({ source: logFilePath, filename: 'broadcast-log.txt' });
       fs.unlinkSync(logFilePath);
 
-      this.commonService.clearUserState(userId);
+      if (ctx.from?.id !== undefined) {
+        this.commonService.clearUserState(ctx.from?.id);
+      }
     } catch {
       await ctx.reply(
         this.escapeMarkdown('❌ Error sending messages. Please check the logs and try again.'),

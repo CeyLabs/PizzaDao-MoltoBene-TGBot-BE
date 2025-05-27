@@ -16,6 +16,8 @@ export interface ICity {
   name: string;
   /** ID of the country the city belongs to */
   country_id: string;
+  /** Optional ID of the Telegram group associated with the city */
+  group_id?: string;
   /** Optional Telegram group link for the city */
   telegram_link?: string;
 }
