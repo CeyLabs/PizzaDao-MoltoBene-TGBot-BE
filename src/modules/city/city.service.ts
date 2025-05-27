@@ -35,7 +35,7 @@ export class CityService {
     return this.knexService
       .knex('city')
       .where({ country_id: countryId })
-      .select('id', 'name', 'telegram_link');
+      .select('id', 'name', 'group_id', 'telegram_link', 'country_id');
   }
 
   /**

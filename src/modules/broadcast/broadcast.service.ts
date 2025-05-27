@@ -1211,14 +1211,35 @@ You can register via: \`\\{unlock\\_link\\}\`
         telegram_link?: string | null;
       }[] = [];
 
-      if (session.targetType === 'country' && session.targetId) {
-        // Fetch all cities for the selected country
-        const cities = await this.cityService.getCitiesByCountry(session.targetId);
-        cityData = cities.map((city) => ({
-          city_name: city.name,
-          group_id: city.group_id,
-          telegram_link: city.telegram_link,
-        }));
+      if (session.targetType === 'country') {
+        // Check if we have selectedCountry with cities already fetched
+        if (session.selectedCountry && session.selectedCountry.length > 0) {
+          const selectedCountry = session.selectedCountry[0];
+          if (selectedCountry.cities) {
+            // Use cities from selectedCountry if already fetched
+            cityData = selectedCountry.cities.map((city) => ({
+              city_name: city.name,
+              group_id: city.group_id,
+              telegram_link: city.telegram_link,
+            }));
+          } else if (session.targetId) {
+            // Fetch cities if not already in selectedCountry
+            const cities = await this.cityService.getCitiesByCountry(session.targetId);
+            cityData = cities.map((city) => ({
+              city_name: city.name,
+              group_id: city.group_id,
+              telegram_link: city.telegram_link,
+            }));
+          }
+        } else if (session.targetId) {
+          // Fetch all cities for the selected country using
+          const cities = await this.cityService.getCitiesByCountry(session.targetId);
+          cityData = cities.map((city) => ({
+            city_name: city.name,
+            group_id: city.group_id,
+            telegram_link: city.telegram_link,
+          }));
+        }
       } else if (session.targetType === 'region' && session.targetId) {
         const cities = await this.accessService.getCitiesByRegion(session.targetId);
         cityData = cities.map((city) => ({
@@ -1233,10 +1254,17 @@ You can register via: \`\\{unlock\\_link\\}\`
         if (Array.isArray(userAccess)) {
           cityData = userAccess
             .flatMap((access) => access.city_data || [])
-            .map((city: { city_name: string; group_id?: string | null }) => ({
-              city_name: city.city_name,
-              group_id: city.group_id,
-            }));
+            .map(
+              (city: {
+                city_name: string;
+                group_id?: string | null;
+                telegram_link?: string | null;
+              }) => ({
+                city_name: city.city_name,
+                group_id: city.group_id,
+                telegram_link: city.telegram_link,
+              }),
+            );
         } else if (userAccess !== null) {
           cityData = userAccess.city_data.map((city) => ({
             city_name: city.city_name,
@@ -1261,16 +1289,24 @@ You can register via: \`\\{unlock\\_link\\}\`
           },
         ];
       } else {
+        // Default case: use user's access data
         const accessInfo = await this.getUserAccessInfo(ctx);
         if (!accessInfo) return;
         const { userAccess } = accessInfo;
         if (Array.isArray(userAccess)) {
           cityData = userAccess
             .flatMap((access) => access.city_data || [])
-            .map((city: { city_name: string; group_id?: string | null }) => ({
-              city_name: city.city_name,
-              group_id: city.group_id,
-            }));
+            .map(
+              (city: {
+                city_name: string;
+                group_id?: string | null;
+                telegram_link?: string | null;
+              }) => ({
+                city_name: city.city_name,
+                group_id: city.group_id,
+                telegram_link: city.telegram_link,
+              }),
+            );
         } else if (userAccess !== null) {
           cityData = userAccess.city_data.map((city) => ({
             city_name: city.city_name,
@@ -1280,8 +1316,11 @@ You can register via: \`\\{unlock\\_link\\}\`
         }
       }
 
+      // Filter out cities without group_id
+      cityData = cityData.filter((city) => city.group_id);
+
       if (cityData.length === 0) {
-        await ctx.reply(this.escapeMarkdown('❌ No cities found in your access data.'), {
+        await ctx.reply(this.escapeMarkdown('❌ No cities with valid group IDs found.'), {
           parse_mode: 'MarkdownV2',
         });
         return;
@@ -1300,9 +1339,15 @@ You can register via: \`\\{unlock\\_link\\}\`
 
       for (let i = 0; i < cityData.length; i++) {
         const city = cityData[i];
-        const countryName = city.group_id
-          ? await this.countryService.getCountryByGroupId(city.group_id)
-          : null;
+
+        // Skip cities without group_id (double-check)
+        if (!city.group_id) {
+          failureCount++;
+          logs.push(`❌ Failed: ${city.city_name} - No group ID`);
+          continue;
+        }
+
+        const countryName = await this.countryService.getCountryByGroupId(city.group_id);
 
         try {
           for (const message of session.messages) {
@@ -1324,52 +1369,36 @@ You can register via: \`\\{unlock\\_link\\}\`
             if (message.mediaType && message.mediaUrl) {
               switch (message.mediaType) {
                 case 'photo':
-                  sentMessage = await ctx.telegram.sendPhoto(
-                    (city.group_id || ctx.chat?.id) ?? 0,
-                    message.mediaUrl,
-                    {
-                      caption: this.escapeMarkdown((await processedText) ?? ''),
-                      parse_mode: 'MarkdownV2',
-                      reply_markup: replyMarkup,
-                    },
-                  );
+                  sentMessage = await ctx.telegram.sendPhoto(city.group_id, message.mediaUrl, {
+                    caption: this.escapeMarkdown((await processedText) ?? ''),
+                    parse_mode: 'MarkdownV2',
+                    reply_markup: replyMarkup,
+                  });
                   break;
                 case 'video':
-                  sentMessage = await ctx.telegram.sendVideo(
-                    (city.group_id || ctx.chat?.id) ?? 0,
-                    message.mediaUrl,
-                    {
-                      caption: this.escapeMarkdown((await processedText) ?? ''),
-                      parse_mode: 'MarkdownV2',
-                      reply_markup: replyMarkup,
-                    },
-                  );
+                  sentMessage = await ctx.telegram.sendVideo(city.group_id, message.mediaUrl, {
+                    caption: this.escapeMarkdown((await processedText) ?? ''),
+                    parse_mode: 'MarkdownV2',
+                    reply_markup: replyMarkup,
+                  });
                   break;
                 case 'document':
-                  sentMessage = await ctx.telegram.sendDocument(
-                    (city.group_id || ctx.chat?.id) ?? 0,
-                    message.mediaUrl,
-                    {
-                      caption: this.escapeMarkdown((await processedText) ?? ''),
-                      parse_mode: 'MarkdownV2',
-                      reply_markup: replyMarkup,
-                    },
-                  );
+                  sentMessage = await ctx.telegram.sendDocument(city.group_id, message.mediaUrl, {
+                    caption: this.escapeMarkdown((await processedText) ?? ''),
+                    parse_mode: 'MarkdownV2',
+                    reply_markup: replyMarkup,
+                  });
                   break;
                 case 'animation':
-                  sentMessage = await ctx.telegram.sendAnimation(
-                    (city.group_id || ctx.chat?.id) ?? 0,
-                    message.mediaUrl,
-                    {
-                      caption: this.escapeMarkdown((await processedText) ?? ''),
-                      parse_mode: 'MarkdownV2',
-                      reply_markup: replyMarkup,
-                    },
-                  );
+                  sentMessage = await ctx.telegram.sendAnimation(city.group_id, message.mediaUrl, {
+                    caption: this.escapeMarkdown((await processedText) ?? ''),
+                    parse_mode: 'MarkdownV2',
+                    reply_markup: replyMarkup,
+                  });
                   break;
                 default:
                   sentMessage = await ctx.telegram.sendMessage(
-                    (city.group_id || ctx.chat?.id) ?? 0,
+                    city.group_id,
                     this.escapeMarkdown((await processedText) ?? ''),
                     {
                       parse_mode: 'MarkdownV2',
@@ -1379,7 +1408,7 @@ You can register via: \`\\{unlock\\_link\\}\`
               }
             } else {
               sentMessage = await ctx.telegram.sendMessage(
-                (city.group_id || ctx.chat?.id) ?? 0,
+                city.group_id,
                 this.escapeMarkdown((await processedText) ?? ''),
                 {
                   parse_mode: 'MarkdownV2',
@@ -1392,13 +1421,9 @@ You can register via: \`\\{unlock\\_link\\}\`
 
             if (message.isPinned) {
               try {
-                await ctx.telegram.pinChatMessage(
-                  (city.group_id || ctx.chat?.id) ?? 0,
-                  sentMessage.message_id ?? 0,
-                  {
-                    disable_notification: true,
-                  },
-                );
+                await ctx.telegram.pinChatMessage(city.group_id, sentMessage.message_id ?? 0, {
+                  disable_notification: true,
+                });
               } catch (error) {
                 logs.push(
                   `☑️ Message delivered to ${city.city_name} (${city.group_id}), but pinning failed: ${error}`,
@@ -1468,7 +1493,8 @@ You can register via: \`\\{unlock\\_link\\}\`
       if (ctx.from?.id !== undefined) {
         this.commonService.clearUserState(ctx.from?.id);
       }
-    } catch {
+    } catch (error) {
+      console.error('Error in sendMessages:', error);
       await ctx.reply(
         this.escapeMarkdown('❌ Error sending messages. Please check the logs and try again.'),
         {

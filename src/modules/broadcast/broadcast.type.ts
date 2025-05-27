@@ -100,6 +100,7 @@ export interface IPostMessage {
 }
 
 interface ISelectedCity extends ICity {
+  cities: ICity[];
   country_name: string;
 }
 
@@ -123,6 +124,7 @@ export interface IBroadcastSession {
   /** Index of the current message being edited */
   currentMessageIndex?: number;
   selectedCity?: ISelectedCity[];
+  selectedCountry?: ISelectedCountry[];
   allCountries?: ICountry[];
   searchType?: 'city' | 'country';
 }
