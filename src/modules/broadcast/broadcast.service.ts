@@ -85,6 +85,9 @@ export class BroadcastService {
   async handleInlineQuery(@Ctx() ctx: Context) {
     const query = ctx.inlineQuery?.query?.trim();
     const userId = ctx.from?.id;
+    const offset = parseInt(ctx.inlineQuery?.offset || '0', 10);
+    const itemsPerPage = 10;
+
     if (!userId) return ctx.answerInlineQuery([], { cache_time: 1 });
 
     const currentSession = this.commonService.getUserState(userId);
@@ -137,32 +140,21 @@ export class BroadcastService {
         this.commonService.setUserState(userId, session);
       }
 
-      if (!query || query === '') {
-        await ctx.answerInlineQuery(
-          [
-            {
-              type: 'article',
-              id: 'search_country',
-              title: 'Type your country name',
-              description: 'Start typing to search for a country',
-              input_message_content: {
-                message_text: 'Please type your country name to search.',
-              },
-            },
-          ],
-          { cache_time: 1 },
-        );
-        return;
-      }
-
-      // Filter countries
-      const countries: ICountry[] = query
+      // Filter countries - if no query, show all accessible countries
+      const filteredCountries: ICountry[] = query
         ? allCountries.filter((country: ICountry) =>
             country.name.toLowerCase().includes(query.toLowerCase()),
           )
-        : [];
+        : allCountries;
 
-      const results: InlineQueryResultArticle[] = countries.map(
+      // Apply pagination
+      const startIndex = offset;
+      const endIndex = startIndex + itemsPerPage;
+      const paginatedCountries = filteredCountries.slice(startIndex, endIndex);
+      const hasMore = endIndex < filteredCountries.length;
+      const nextOffset = hasMore ? endIndex.toString() : '';
+
+      const results: InlineQueryResultArticle[] = paginatedCountries.map(
         (country: ICountry): InlineQueryResultArticle => ({
           type: 'article',
           id: String(country.id) || country.name,
@@ -191,9 +183,9 @@ export class BroadcastService {
       );
 
       // Save selected country details in session
-      const selectedCountry = results.map((result) => ({
-        id: result.id,
-        name: result.title,
+      const selectedCountry = paginatedCountries.map((country) => ({
+        id: String(country.id),
+        name: country.name,
       }));
 
       this.commonService.setUserState(userId, {
@@ -201,10 +193,14 @@ export class BroadcastService {
         selectedCountry,
       });
 
-      await ctx.answerInlineQuery(results, { cache_time: 0 });
+      await ctx.answerInlineQuery(results, {
+        cache_time: 0,
+        next_offset: nextOffset,
+      });
       return;
     }
 
+    // Handle city search
     let allCities: ICity[] =
       currentSession?.allCities && Array.isArray(currentSession.allCities)
         ? (currentSession.allCities as ICity[])
@@ -265,32 +261,21 @@ export class BroadcastService {
       this.commonService.setUserState(userId, session);
     }
 
-    if (!query || query === '') {
-      await ctx.answerInlineQuery(
-        [
-          {
-            type: 'article',
-            id: 'search_city',
-            title: 'Type your city name',
-            description: 'Start typing to search for a city',
-            input_message_content: {
-              message_text: 'Please type your city name to search.',
-            },
-          },
-        ],
-        { cache_time: 1 },
-      );
-      return;
-    }
-
-    // Filter cities from session cache
-    const cities: ICity[] = query
+    // Filter cities - if no query, show all accessible cities
+    const filteredCities: ICity[] = query
       ? allCities.filter((city: ICity) => city.name.toLowerCase().includes(query.toLowerCase()))
-      : [];
+      : allCities;
 
-    // Fetch country names for each city
+    // Apply pagination
+    const startIndex = offset;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedCities = filteredCities.slice(startIndex, endIndex);
+    const hasMore = endIndex < filteredCities.length;
+    const nextOffset = hasMore ? endIndex.toString() : '';
+
+    // Fetch country names for each paginated city
     const countryNames: string[] = await Promise.all(
-      cities.map(async (city: ICity) => {
+      paginatedCities.map(async (city: ICity) => {
         if (city.country_id) {
           const country: ICountry | null = await this.countryService.getCountryById(
             city.country_id,
@@ -301,7 +286,7 @@ export class BroadcastService {
       }),
     );
 
-    const results: InlineQueryResultArticle[] = cities.map(
+    const results: InlineQueryResultArticle[] = paginatedCities.map(
       (city: ICity, idx: number): InlineQueryResultArticle => ({
         type: 'article',
         id: city.id || city.name,
@@ -330,22 +315,15 @@ export class BroadcastService {
     );
 
     // Save selected city details in selectedCity array in session
-    const selectedCity = results.map((result) => ({
-      id: result.id,
-      name: result.title,
-      country_name: result.description,
-      group_id: (() => {
-        const btn = result.reply_markup?.inline_keyboard?.[0]?.[0];
-        if (
-          btn &&
-          typeof btn === 'object' &&
-          'callback_data' in btn &&
-          typeof btn.callback_data === 'string'
-        ) {
-          return '-' + (btn.callback_data.split('_')[2] || '');
-        }
-        return '';
-      })(),
+    const selectedCity = paginatedCities.map((city, idx) => ({
+      id: city.id || city.name,
+      name: city.name,
+      country_name: countryNames[idx] || '',
+      group_id: city.group_id
+        ? city.group_id.startsWith('-')
+          ? city.group_id
+          : '-' + city.group_id
+        : '',
     }));
 
     this.commonService.setUserState(userId, {
@@ -353,7 +331,10 @@ export class BroadcastService {
       selectedCity,
     });
 
-    await ctx.answerInlineQuery(results, { cache_time: 0 });
+    await ctx.answerInlineQuery(results, {
+      cache_time: 0,
+      next_offset: nextOffset,
+    });
   }
 
   /**
