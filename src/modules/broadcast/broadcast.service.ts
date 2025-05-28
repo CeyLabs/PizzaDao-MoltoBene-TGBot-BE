@@ -799,10 +799,11 @@ You can register via: \`\\{unlock\\_link\\}\`
         callbackData === 'broadcast_underboss_city' ||
         callbackData === 'broadcast_caporegime_city'
       ) {
-        // Set search type back to city
+        // Set search type back to city and clear cached cities to force re-fetch based on user role
         this.commonService.setUserState(userId, {
           ...this.commonService.getUserState(userId),
           searchType: 'city',
+          allCities: [], // Clear cached cities
         });
 
         await ctx.deleteMessage();
