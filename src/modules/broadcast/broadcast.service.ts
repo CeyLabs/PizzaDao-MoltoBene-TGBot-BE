@@ -209,8 +209,55 @@ export class BroadcastService {
       currentSession?.allCities && Array.isArray(currentSession.allCities)
         ? (currentSession.allCities as ICity[])
         : [];
+
     if (allCities.length <= 0) {
-      allCities = await this.cityService.getAllCities();
+      // Fetch cities based on user access and role
+      const accessInfo = await this.getUserAccessInfo(ctx);
+      if (!accessInfo) return ctx.answerInlineQuery([], { cache_time: 1 });
+
+      const { userAccess, role } = accessInfo;
+
+      if (role === 'admin') {
+        // Admin can access all cities
+        allCities = await this.cityService.getAllCities();
+      } else if (role === 'underboss' && Array.isArray(userAccess)) {
+        // Underboss can only access cities in their regions
+        const regionIds = userAccess.map((access) => (access as any).region_id).filter(Boolean);
+        const cityPromises = regionIds.map((regionId) =>
+          this.accessService.getCitiesByRegion(regionId),
+        );
+        const citiesArrays = await Promise.all(cityPromises);
+        const regionCities = citiesArrays.flat();
+
+        // Convert to ICity format
+        allCities = regionCities.map((city) => ({
+          id: city.city_id,
+          name: city.city_name,
+          group_id: city.group_id,
+          telegram_link: city.telegram_link,
+        })) as ICity[];
+      } else if (role === 'caporegime' && Array.isArray(userAccess)) {
+        // Caporegime can access cities in their countries
+        const countryIds = userAccess.map((access) => (access as any).country_id).filter(Boolean);
+        const cityPromises = countryIds.map((countryId) =>
+          this.cityService.getCitiesByCountry(countryId),
+        );
+        const citiesArrays = await Promise.all(cityPromises);
+        allCities = citiesArrays.flat();
+      } else if (role === 'host' && Array.isArray(userAccess)) {
+        // Host can only access their assigned cities
+        const cityData = userAccess.flatMap((access) => (access as any).city_data || []);
+        allCities = cityData.map((city: any) => ({
+          id: city.city_id,
+          name: city.city_name,
+          group_id: city.group_id,
+          telegram_link: city.telegram_link,
+        })) as ICity[];
+      } else {
+        // Fallback for non-array userAccess (single access object)
+        allCities = await this.cityService.getAllCities();
+      }
+
       const session: { allCities?: ICity[]; [key: string]: any } =
         this.commonService.getUserState(userId) || {};
       session.flow = 'broadcast';
