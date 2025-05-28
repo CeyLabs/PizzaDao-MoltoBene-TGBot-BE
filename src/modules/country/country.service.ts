@@ -56,4 +56,8 @@ export class CountryService {
       .first();
     return country ? country.name : null;
   }
+
+  async getAllCountries(): Promise<ICountry[]> {
+    return this.knexService.knex('country').select('id', 'name', 'region_id');
+  }
 }
