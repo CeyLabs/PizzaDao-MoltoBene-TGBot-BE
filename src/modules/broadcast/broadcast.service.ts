@@ -21,8 +21,9 @@ import { CountryService } from '../country/country.service';
 import { AccessService } from '../access/access.service';
 import { CommonService } from '../common/common.service';
 import { EventDetailService } from '../event-detail/event-detail.service';
+import { KnexService } from '../knex/knex.service';
 
-import { IUserAccessInfo, IBroadcastSession, IPostMessage } from './broadcast.type';
+import { IUserAccessInfo, IBroadcastSession, IPostMessage, IBroadcast } from './broadcast.type';
 import { ICity, ICityForVars } from '../city/city.interface';
 import { CityService } from '../city/city.service';
 import { ICountry } from '../country/country.interface';
@@ -47,6 +48,7 @@ export class BroadcastService {
     private readonly eventDetailService: EventDetailService,
     private readonly countryService: CountryService,
     private readonly cityService: CityService,
+    private readonly knexService: KnexService,
     @Inject(forwardRef(() => CommonService))
     private readonly commonService: CommonService,
   ) {}
@@ -881,6 +883,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    */
   private async sendMessages(ctx: Context, session: IBroadcastSession) {
     const logs: string[] = [];
+    const broadcastIds: string[] = [];
 
     try {
       let cityData: {
@@ -947,28 +950,58 @@ You can register via: \`\\{unlock\\_link\\}\`
       let failureCount = 0;
       let progressMsgId: number | undefined = undefined;
 
-      for (let i = 0; i < cityData.length; i++) {
-        const city = cityData[i];
-        const countryName = city.group_id
-          ? await this.countryService.getCountryByGroupId(city.group_id)
-          : null;
+      for (const message of session.messages) {
+        // Create a single broadcast record outside the city loop
+        const mediaType = message.mediaType || 'text';
+        const broadcastRecord: IBroadcast = {
+          message_type: mediaType,
+          message_text: message.text,
+          button_detail:
+            message.urlButtons.length > 0
+              ? {
+                  inline_keyboard: message.urlButtons.map((btn) => [
+                    { text: btn.text, url: btn.url },
+                  ]),
+                }
+              : undefined,
+          attachment_detail: message.mediaUrl ? { url: message.mediaUrl } : undefined,
+          sender_id: ctx.from?.id,
+        };
 
-        try {
-          for (const message of session.messages) {
-            const processedText = this.replaceVars(message.text ?? '', countryName, city);
+        // Insert the broadcast record ONCE and get its ID
+        const insertedBroadcasts = await this.knexService
+          .knex<IBroadcast>('broadcast')
+          .insert(broadcastRecord)
+          .returning('*');
 
-            const urlButtons: InlineKeyboardButton[][] = await Promise.all(
-              message.urlButtons.map(async (btn) => [
-                {
-                  text: await this.replaceVars(btn.text, countryName, city),
-                  url: await this.replaceVars(btn.url, countryName, city),
-                },
-              ]),
-            );
+        const broadcastId = insertedBroadcasts[0]?.id || '';
+        broadcastIds.push(broadcastId);
 
-            const replyMarkup = urlButtons.length > 0 ? { inline_keyboard: urlButtons } : undefined;
+        if (!broadcastId) {
+          continue; // Skip this message if we couldn't create the broadcast record
+        }
 
-            let sentMessage: Message;
+        for (let i = 0; i < cityData.length; i++) {
+          const city = cityData[i];
+          const countryName = city.group_id
+            ? await this.countryService.getCountryByGroupId(city.group_id)
+            : null;
+
+          const processedText = await this.replaceVars(message.text ?? '', countryName, city);
+
+          const urlButtons: InlineKeyboardButton[][] = await Promise.all(
+            message.urlButtons.map(async (btn) => [
+              {
+                text: await this.replaceVars(btn.text, countryName, city),
+                url: await this.replaceVars(btn.url, countryName, city),
+              },
+            ]),
+          );
+
+          const replyMarkup = urlButtons.length > 0 ? { inline_keyboard: urlButtons } : undefined;
+
+          try {
+            let sentMessage: Message | undefined;
 
             if (message.mediaType && message.mediaUrl) {
               switch (message.mediaType) {
@@ -977,7 +1010,7 @@ You can register via: \`\\{unlock\\_link\\}\`
                     (city.group_id || ctx.chat?.id) ?? 0,
                     message.mediaUrl,
                     {
-                      caption: this.escapeMarkdown((await processedText) ?? ''),
+                      caption: this.escapeMarkdown(processedText ?? ''),
                       parse_mode: 'MarkdownV2',
                       reply_markup: replyMarkup,
                     },
@@ -988,7 +1021,7 @@ You can register via: \`\\{unlock\\_link\\}\`
                     (city.group_id || ctx.chat?.id) ?? 0,
                     message.mediaUrl,
                     {
-                      caption: this.escapeMarkdown((await processedText) ?? ''),
+                      caption: this.escapeMarkdown(processedText ?? ''),
                       parse_mode: 'MarkdownV2',
                       reply_markup: replyMarkup,
                     },
@@ -999,7 +1032,7 @@ You can register via: \`\\{unlock\\_link\\}\`
                     (city.group_id || ctx.chat?.id) ?? 0,
                     message.mediaUrl,
                     {
-                      caption: this.escapeMarkdown((await processedText) ?? ''),
+                      caption: this.escapeMarkdown(processedText ?? ''),
                       parse_mode: 'MarkdownV2',
                       reply_markup: replyMarkup,
                     },
@@ -1010,7 +1043,7 @@ You can register via: \`\\{unlock\\_link\\}\`
                     (city.group_id || ctx.chat?.id) ?? 0,
                     message.mediaUrl,
                     {
-                      caption: this.escapeMarkdown((await processedText) ?? ''),
+                      caption: this.escapeMarkdown(processedText ?? ''),
                       parse_mode: 'MarkdownV2',
                       reply_markup: replyMarkup,
                     },
@@ -1020,7 +1053,7 @@ You can register via: \`\\{unlock\\_link\\}\`
             } else {
               sentMessage = await ctx.telegram.sendMessage(
                 (city.group_id || ctx.chat?.id) ?? 0,
-                this.escapeMarkdown((await processedText) ?? ''),
+                this.escapeMarkdown(processedText ?? ''),
                 {
                   parse_mode: 'MarkdownV2',
                   reply_markup: replyMarkup,
@@ -1034,7 +1067,7 @@ You can register via: \`\\{unlock\\_link\\}\`
               try {
                 await ctx.telegram.pinChatMessage(
                   (city.group_id || ctx.chat?.id) ?? 0,
-                  sentMessage.message_id ?? 0,
+                  sentMessage?.message_id ?? 0,
                   {
                     disable_notification: true,
                   },
@@ -1047,38 +1080,43 @@ You can register via: \`\\{unlock\\_link\\}\`
             }
 
             logs.push(`✅ Success: ${city.city_name} (${city.group_id})`);
-          }
-        } catch (error) {
-          failureCount++;
-          logs.push(`❌ Failed: ${city.city_name} (${city.group_id}) - ${error}`);
-        }
 
-        // Progress update every 10 cities or at the end
-        if ((i + 1) % 10 === 0 || i === cityData.length - 1) {
-          const progressText = this.escapeMarkdown(
-            `📊 Progress: ${i + 1}/${cityData.length} cities\n` +
-              `✅ Success: ${successCount}\n❌ Failed: ${failureCount}`,
-          );
-          if (progressMsgId) {
-            try {
-              await ctx.telegram.editMessageText(
-                ctx.chat?.id ?? 0,
-                progressMsgId,
-                undefined,
-                progressText,
-                { parse_mode: 'MarkdownV2' },
-              );
-            } catch {
-              // If edit fails (e.g., message deleted), send a new one
+            await this.saveMessageDetail(broadcastId, sentMessage, city, true);
+          } catch (error) {
+            failureCount++;
+            logs.push(`❌ Failed: ${city.city_name} (${city.group_id}) - ${error}`);
+
+            // Save the failure in the message detail
+            await this.saveMessageDetail(broadcastId, undefined, city, false);
+          }
+
+          // Progress update every 10 cities or at the end
+          if ((i + 1) % 10 === 0 || i === cityData.length - 1) {
+            const progressText = this.escapeMarkdown(
+              `📊 Progress: ${i + 1}/${cityData.length} cities\n` +
+                `✅ Success: ${successCount}\n❌ Failed: ${failureCount}`,
+            );
+            if (progressMsgId) {
+              try {
+                await ctx.telegram.editMessageText(
+                  ctx.chat?.id ?? 0,
+                  progressMsgId,
+                  undefined,
+                  progressText,
+                  { parse_mode: 'MarkdownV2' },
+                );
+              } catch {
+                // If edit fails (e.g., message deleted), send a new one
+                const sent = await ctx.reply(progressText, { parse_mode: 'MarkdownV2' });
+                if ('message_id' in sent) {
+                  progressMsgId = sent.message_id;
+                }
+              }
+            } else {
               const sent = await ctx.reply(progressText, { parse_mode: 'MarkdownV2' });
               if ('message_id' in sent) {
                 progressMsgId = sent.message_id;
               }
-            }
-          } else {
-            const sent = await ctx.reply(progressText, { parse_mode: 'MarkdownV2' });
-            if ('message_id' in sent) {
-              progressMsgId = sent.message_id;
             }
           }
         }
@@ -1100,9 +1138,15 @@ You can register via: \`\\{unlock\\_link\\}\`
         },
       );
 
-      const logFilePath = path.join(__dirname, `broadcast-log-${Date.now()}.txt`);
+      const logFilePath = path.join(
+        __dirname,
+        `broadcast-log-${broadcastIds.join('-')}-${Date.now()}.txt`,
+      );
       fs.writeFileSync(logFilePath, logs.join('\n'), 'utf8');
-      await ctx.replyWithDocument({ source: logFilePath, filename: 'broadcast-log.txt' });
+      await ctx.replyWithDocument({
+        source: logFilePath,
+        filename: `${broadcastIds.join(' - ')}.txt`,
+      });
       fs.unlinkSync(logFilePath);
 
       if (ctx.from?.id !== undefined) {
@@ -1115,6 +1159,33 @@ You can register via: \`\\{unlock\\_link\\}\`
           parse_mode: 'MarkdownV2',
         },
       );
+    }
+  }
+
+  /**
+   * Save broadcast message detail to the database
+   * @param {string} broadcastId - The ID of the existing broadcast record
+   * @param {Message} sentMessage - The sent Telegram message
+   * @param {Object} city - The city the message was sent to
+   * @param {boolean} isSent - Whether the message was successfully sent
+   * @private
+   */
+  private async saveMessageDetail(
+    broadcastId: string,
+    sentMessage: Message | undefined,
+    city: { city_name: string; group_id?: string | null },
+    isSent: boolean,
+  ): Promise<void> {
+    try {
+      // Insert only the broadcast message detail
+      await this.knexService.knex('broadcast_message_detail').insert({
+        broadcast_id: broadcastId,
+        message_id: sentMessage?.message_id?.toString() || '',
+        group_id: city.group_id || '',
+        is_sent: isSent,
+      });
+    } catch (error) {
+      console.error(`Error saving broadcast detail: ${error}`);
     }
   }
 

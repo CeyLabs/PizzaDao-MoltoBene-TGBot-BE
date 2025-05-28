@@ -6,6 +6,23 @@ import { ICity } from '../city/city.interface';
  */
 
 /**
+ * Interface defining the supported media types for broadcast messages
+ * @interface IMediaType
+ * @description Defines all available media types that can be used in broadcasts
+ */
+export type IMediaType =
+  | 'text'
+  | 'photo'
+  | 'video'
+  | 'audio'
+  | 'document'
+  | 'animation'
+  | 'voice'
+  | 'location'
+  | 'contact'
+  | 'sticker';
+
+/**
  * Interface representing a user's access level and associated data
  * @interface IUserAccess
  * @description Defines the structure of user access data, including role
@@ -93,7 +110,7 @@ export interface IPostMessage {
   /** URL of the media to be attached */
   mediaUrl: string | null;
   /** Type of media to be attached */
-  mediaType?: 'photo' | 'video' | 'document' | 'animation';
+  mediaType?: IMediaType;
   /** ID of the message in Telegram */
   messageId?: number;
 }
@@ -120,4 +137,24 @@ export interface IBroadcastSession {
   /** Index of the current message being edited */
   currentMessageIndex?: number;
   selectedCity?: ISelectedCity[];
+}
+
+/**
+ * Interface representing a broadcast entry in the database
+ * @interface IBroadcast
+ * @description Defines the structure of a broadcast record in the database
+ */
+export interface IBroadcast {
+  /** Unique identifier of the broadcast */
+  id?: string;
+  /** Type of message being broadcast */
+  message_type: IMediaType;
+  /** Text content of the message */
+  message_text?: string | null;
+  /** JSON data for buttons attached to the message */
+  button_detail?: Record<string, any>;
+  /** JSON data for any attachments */
+  attachment_detail?: Record<string, any>;
+  /** ID of the user who sent the broadcast */
+  sender_id: number | undefined;
 }
