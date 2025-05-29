@@ -7,6 +7,23 @@ import { ICountry } from '../country/country.interface';
  */
 
 /**
+ * Interface defining the supported media types for broadcast messages
+ * @interface IMediaType
+ * @description Defines all available media types that can be used in broadcasts
+ */
+export type IMediaType =
+  | 'text'
+  | 'photo'
+  | 'video'
+  | 'audio'
+  | 'document'
+  | 'animation'
+  | 'voice'
+  | 'location'
+  | 'contact'
+  | 'sticker';
+
+/**
  * Interface representing a user's access level and associated data
  * @interface IUserAccess
  * @description Defines the structure of user access data, including role
@@ -94,7 +111,7 @@ export interface IPostMessage {
   /** URL of the media to be attached */
   mediaUrl: string | null;
   /** Type of media to be attached */
-  mediaType?: 'photo' | 'video' | 'document' | 'animation';
+  mediaType?: IMediaType;
   /** ID of the message in Telegram */
   messageId?: number;
 }
@@ -150,3 +167,43 @@ export interface ISelectedCountry {
   /** An optional list of cities within the country.*/
   cities?: ICity[];
 }
+
+/**
+ * Interface representing a broadcast entry in the database
+ * @interface IBroadcast
+ * @description Defines the structure of a broadcast record in the database
+ */
+export interface IBroadcast {
+  /** Unique identifier of the broadcast */
+  id?: string;
+  /** Type of message being broadcast */
+  message_type: IMediaType;
+  /** Text content of the message */
+  message_text?: string | null;
+  /** JSON data for buttons attached to the message */
+  button_detail?: string | undefined;
+  /** JSON data for any attachments */
+  attachment_detail?: Record<string, any>;
+  /** ID of the user who sent the broadcast */
+  sender_id: number | undefined;
+}
+
+/**
+ * Interface for broadcast message detail records
+ * @interface IBroadcastMessageDetail
+ * @description Represents a single broadcast message sent to a specific group
+ */
+export interface IBroadcastMessageDetail {
+  /** Unique identifier for the broadcast message detail */
+  id: string;
+  /** Reference to the parent broadcast record */
+  broadcast_id: string;
+  /** Telegram message ID of the sent message */
+  message_id?: string;
+  /** Reference to the target group's ID */
+  group_id: string;
+  /** Whether the message has been sent */
+  is_sent: boolean;
+  /** Timestamp when the message was sent */
+  sent_at?: Date;
+} 
