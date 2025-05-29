@@ -641,7 +641,7 @@ You can register via: \`\\{unlock\\_link\\}\`
 
       case 'underboss': {
         const regionNames = accessInfo.region_data.map(region => region.region_name).join(', ');
-        message = `You're assigned as *Underboss* to all the *${this.escapeMarkdown(regionNames)}* Pizza DAO chat(s)\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
+        message = `You're assigned as *Underboss* to all the *${this.escapeMarkdown(regionNames)}* Pizza DAO chat\\(s\\)\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
         inline_keyboard = [
           [
             { text: '🏙️ Specific City', callback_data: 'broadcast_underboss_city' },
@@ -666,7 +666,7 @@ You can register via: \`\\{unlock\\_link\\}\`
           messages: [] as IPostMessage[],
         });
 
-        message = `You're assigned as *Host* to *${this.escapeMarkdown(citynames)}* Pizza DAO chat(s)\\. Select an option below
+        message = `You're assigned as *Host* to *${this.escapeMarkdown(citynames)}* Pizza DAO chat\\(s\\)\\. Select an option below
 \nSend me one or multiple messages you want to include in the post\\. It can be anything — a text, photo, video, even a sticker\\.`;
         default_keyboard = this.getKeyboardMarkup().keyboard;
         break;
@@ -674,7 +674,7 @@ You can register via: \`\\{unlock\\_link\\}\`
 
       case 'caporegime': {
         const countryNames = accessInfo.country_data.map(region => region.country_name).join(', ');
-        message = `You're assigned as *Caporegime* to *${this.escapeMarkdown(countryNames)}* Pizza DAO chat(s)\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
+        message = `You're assigned as *Caporegime* to *${this.escapeMarkdown(countryNames)}* Pizza DAO chat\\(s\\)\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
         inline_keyboard = [
           [
             { text: '🏙️ Specific City', callback_data: 'broadcast_caporegime_city' },
