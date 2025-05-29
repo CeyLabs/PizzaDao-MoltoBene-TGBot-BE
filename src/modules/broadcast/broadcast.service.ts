@@ -154,12 +154,35 @@ export class BroadcastService {
       const hasMore = endIndex < filteredCountries.length;
       const nextOffset = hasMore ? endIndex.toString() : '';
 
+      // Fetch region names for each paginated country
+      const regionNames: string[] = await Promise.all(
+        paginatedCountries.map(async (country: ICountry) => {
+          try {
+            if (country.region_id) {
+              const region = await this.accessService.getRegionById(String(country.region_id));
+              return region?.name || '';
+            }
+
+            const fullCountry = await this.countryService.getCountryById(String(country.id));
+            if (fullCountry && fullCountry.region_id) {
+              const region = await this.accessService.getRegionById(String(fullCountry.region_id));
+              return region?.name || '';
+            }
+
+            return '';
+          } catch (error) {
+            console.error('Error fetching region for country:', country.name, error);
+            return '';
+          }
+        }),
+      );
+
       const results: InlineQueryResultArticle[] = paginatedCountries.map(
-        (country: ICountry): InlineQueryResultArticle => ({
+        (country: ICountry, idx: number): InlineQueryResultArticle => ({
           type: 'article',
           id: String(country.id) || country.name,
           title: country.name,
-          description: 'Click to select this country',
+          description: regionNames[idx] || 'Select this country',
           thumbnail_url: process.env.EVENT_IMAGE_URL,
           input_message_content: {
             message_text: `You selected *${this.escapeMarkdown(country.name)}*\\.\n\nPlease confirm your selection\\.`,
@@ -231,6 +254,7 @@ export class BroadcastService {
           name: city.city_name,
           group_id: city.group_id,
           telegram_link: city.telegram_link,
+          country_id: '', // Will be fetched if needed
         })) as ICity[];
       } else if (role === 'caporegime' && Array.isArray(userAccess)) {
         // Caporegime can access cities in their countries
@@ -248,6 +272,7 @@ export class BroadcastService {
           name: city.city_name,
           group_id: city.group_id,
           telegram_link: city.telegram_link,
+          country_id: '', // Will be fetched if needed
         })) as ICity[];
       } else {
         // Fallback for non-array userAccess (single access object)
@@ -276,12 +301,20 @@ export class BroadcastService {
     // Fetch country names for each paginated city
     const countryNames: string[] = await Promise.all(
       paginatedCities.map(async (city: ICity) => {
+        // First try to get country_id from the city object
         if (city.country_id) {
           const country: ICountry | null = await this.countryService.getCountryById(
             city.country_id,
           );
           return country?.name || '';
         }
+
+        // If country_id is not available, try to get it using group_id
+        if (city.group_id) {
+          const countryName = await this.countryService.getCountryByGroupId(city.group_id);
+          return countryName || '';
+        }
+
         return '';
       }),
     );
