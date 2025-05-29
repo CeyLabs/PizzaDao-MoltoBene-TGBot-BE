@@ -5,11 +5,11 @@
 
 /**
  * Type representing the possible user flows in the application
- * @typedef {('welcome' | 'broadcast' | 'idle')} UserFlow
+ * @typedef {('welcome' | 'broadcast' | 'idle')} TUserFlow
  * @description Defines the different states a user can be in during their interaction
  * with the bot: welcome flow, broadcast flow, or idle state
  */
-export type UserFlow = 'welcome' | 'broadcast' | 'idle';
+export type TUserFlow = 'welcome' | 'broadcast' | 'idle';
 
 /**
  * Interface representing a user's state in the application
@@ -19,7 +19,7 @@ export type UserFlow = 'welcome' | 'broadcast' | 'idle';
  */
 export interface IUserState {
   /** The current flow the user is in */
-  flow: UserFlow;
+  flow: TUserFlow;
   /** Optional array of messages associated with the state */
   messages?: any[];
   /** Optional step identifier within the current flow */

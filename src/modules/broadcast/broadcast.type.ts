@@ -7,11 +7,11 @@ import { ICountry } from '../country/country.interface';
  */
 
 /**
- * Interface defining the supported media types for broadcast messages
- * @interface IMediaType
+ * Type defining the supported media types for broadcast messages
+ * @type TMediaType
  * @description Defines all available media types that can be used in broadcasts
  */
-export type IMediaType =
+export type TMediaType =
   | 'text'
   | 'photo'
   | 'video'
@@ -111,7 +111,7 @@ export interface IPostMessage {
   /** URL of the media to be attached */
   mediaUrl: string | null;
   /** Type of media to be attached */
-  mediaType?: IMediaType;
+  mediaType?: TMediaType;
   /** ID of the message in Telegram */
   messageId?: number;
 }
@@ -177,7 +177,7 @@ export interface IBroadcast {
   /** Unique identifier of the broadcast */
   id?: string;
   /** Type of message being broadcast */
-  message_type: IMediaType;
+  message_type: TMediaType;
   /** Text content of the message */
   message_text?: string | null;
   /** JSON data for buttons attached to the message */
