@@ -17,7 +17,7 @@ export interface ICountry {
   /** ID of the region the country belongs to */
   region_id: string;
   /** Timestamp when the country record was created */
-  created_at: Date;
+  created_at?: Date;
   /** Timestamp when the country record was last updated */
-  updated_at: Date;
+  updated_at?: Date;
 }

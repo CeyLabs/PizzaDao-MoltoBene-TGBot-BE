@@ -128,8 +128,6 @@ export class AccessService {
         .join('country', 'country.id', 'city.country_id')
         .select('city.id as city_id', 'city.name as city_name', 'city.group_id as group_id', 'city.telegram_link as telegram_link', 'city.country_id as country_id', 'country.region_id as region_id');
 
-        console.log(allRegions[0], allCountries[0], allCities[0])
-
       return {
         role: 'admin',
         city_data: allCities,
