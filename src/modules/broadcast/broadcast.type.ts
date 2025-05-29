@@ -181,7 +181,7 @@ export interface IBroadcast {
   /** Text content of the message */
   message_text?: string | null;
   /** JSON data for buttons attached to the message */
-  button_detail?: Record<string, any>;
+  button_detail?: string | undefined;
   /** JSON data for any attachments */
   attachment_detail?: Record<string, any>;
   /** ID of the user who sent the broadcast */
