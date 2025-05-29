@@ -8,10 +8,10 @@ import { KnexModule } from '../knex/knex.module';
 import { RegionService } from './region.service';
 
 /**
- * Module for managing country data and operations
+ * Module for managing region data and operations
  * @class RegionModule
- * @description Handles country-related operations, including retrieving
- * countries by region and managing country data
+ * @description Handles region-related operations, including retrieving
+ * countries by region and managing region data
  */
 @Module({
   imports: [KnexModule],

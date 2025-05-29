@@ -38,11 +38,20 @@ export class CityService {
       .select('id', 'name', 'group_id', 'telegram_link', 'country_id');
   }
 
-
+  /**
+   * Retrieves cities by multiple country IDs
+   * @param {string[]} country_ids - Array of country IDs to filter cities by
+   * @returns {Promise<ICity[]>} Array of cities matching the country IDs
+   */
   async getCitiesByCountryIds(country_ids: string[]): Promise<ICity[]> {
     return this.knexService.knex('city').whereIn('country_id', country_ids);
   }
 
+  /**
+   * Retrieves cities by multiple city IDs
+   * @param {string[]} city_ids - Array of city IDs to retrieve
+   * @returns {Promise<ICity[]>} Array of cities matching the provided IDs
+   */
   async getCitiesByCityIds(city_ids: string[]): Promise<ICity[]> {
     return this.knexService.knex('city').whereIn('id', city_ids);
   }

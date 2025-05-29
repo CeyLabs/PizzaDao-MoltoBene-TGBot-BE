@@ -42,11 +42,20 @@ export class CountryService {
     return country ?? null;
   }
 
-
+  /**
+   * Retrieves countries by multiple region IDs
+   * @param {string[]} region_ids - Array of region IDs to filter countries by
+   * @returns {Promise<ICountry[]>} Array of countries matching the region IDs
+   */
   async getCountriesByRegionIds(region_ids: string[]): Promise<ICountry[]> {
     return this.knexService.knex('country').whereIn('region_id', region_ids);
   }
 
+  /**
+   * Retrieves countries by multiple country IDs
+   * @param {string[]} country_ids - Array of country IDs to retrieve
+   * @returns {Promise<ICountry[]>} Array of countries matching the provided IDs
+   */
   async getCountriesByCountryIds(country_ids: string[]): Promise<ICountry[]> {
     return this.knexService.knex('country').whereIn('id', country_ids);
   }
@@ -66,6 +75,10 @@ export class CountryService {
     return country ? country.name : null;
   }
 
+  /**
+   * Retrieves all countries from the database
+   * @returns {Promise<ICountry[]>} Array of all countries with their basic information
+   */
   async getAllCountries(): Promise<ICountry[]> {
     return this.knexService.knex('country').select('id', 'name', 'region_id');
   }
