@@ -89,8 +89,8 @@ export interface IAdminAccessResult {
 export interface IUserAccessInfo {
   /** User's access data */
   userAccess: IUserAccess[] | IAdminAccessResult | null;
-  /** User's role */
-  role: string;
+  /** User's role (admin - everything, underboss - region, caporegime - country, host - city) */
+  role: 'admin' | 'underboss' | 'caporegime' | 'host';
   /** User's Telegram ID */
   userId: number | undefined;
 }
