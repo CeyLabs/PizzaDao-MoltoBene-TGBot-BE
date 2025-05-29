@@ -1620,7 +1620,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       }
     } catch (error) {
       await ctx.reply(
-        this.escapeMarkdown('❌ There were error(s) processing some of your message. Please try again.'),
+        this.escapeMarkdown('❌ There were error(s) processing some of your message. Please check logs attached.'),
         {
           parse_mode: 'MarkdownV2',
         },
@@ -1765,7 +1765,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       const messageIndex = session.messages.length - 1;
       await this.displayMessageWithActions(ctx, messageIndex, messageObj, variableIncluded);
     } catch {
-      await ctx.reply(this.escapeMarkdown('❌ There were error(s) processing some of your message. Please try again.'), {
+      await ctx.reply(this.escapeMarkdown('❌ There were error(s) processing some of your message. Please check logs attached.'), {
         parse_mode: 'MarkdownV2',
       });
     }
