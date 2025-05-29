@@ -67,15 +67,15 @@ export class BroadcastService {
       return;
     }
 
-    const accessRole = await this.accessService.getAccessRole(String(ctx.from.id));
-    if (!accessRole) {
+    const accessRole = await this.accessService.getUserAccess(String(ctx.from.id));
+    if (!accessRole || !accessRole.role) {
       await ctx.reply(this.escapeMarkdown('❌ You do not have access to broadcast messages.'), {
         parse_mode: 'MarkdownV2',
       });
       return;
     }
 
-    await this.showBroadcastMenu(ctx, accessRole);
+    await this.showBroadcastMenu(ctx, accessRole.role);
   }
 
   /**

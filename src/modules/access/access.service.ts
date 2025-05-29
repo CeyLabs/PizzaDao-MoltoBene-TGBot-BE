@@ -62,53 +62,6 @@ type AccessResult = {
 export class AccessService {
   constructor(private readonly knexService: KnexService, private readonly regionService: RegionService, private readonly countryService: CountryService, private readonly cityService: CityService) {}
 
-  /**
-   * Gets the role of a user based on their Telegram ID
-   * @param {string} telegram_id - The Telegram ID of the user
-   * @returns {Promise<Role>} The user's role or null if no role is assigned
-   */
-  async getAccessRole(telegram_id: string): Promise<Role | null> {
-    const adminIds: string[] = process.env.ADMIN_IDS
-      ? process.env.ADMIN_IDS.split(',').map((id) => id.trim())
-      : [];
-
-    if (adminIds.includes(telegram_id)) {
-      return 'admin';
-    }
-
-    // Check region_access for underboss role
-    const regionAccess = await this.knexService
-      .knex<IRegionAccess>('region_access')
-      .where('user_telegram_id', telegram_id)
-      .first();
-
-    if (regionAccess) {
-      return 'underboss';
-    }
-
-    // Check country_access for caporegime role
-    const countryAccess = await this.knexService
-      .knex<ICountryAccess>('country_access')
-      .where('user_telegram_id', telegram_id)
-      .first();
-
-    if (countryAccess) {
-      return 'caporegime';
-    }
-
-    // Check user table for host role
-    const cityAccess = await this.knexService
-      .knex<ICityAccess>('city_access')
-      .where('user_telegram_id', telegram_id)
-      .first();
-
-    if (cityAccess) {
-      return 'host';
-    }
-
-    return null;
-  }
-
   async getRegionAccess(telegram_id: string): Promise<IRegionAccess[]> {
     return this.knexService.knex('region_access').where('user_telegram_id', telegram_id);
   }
