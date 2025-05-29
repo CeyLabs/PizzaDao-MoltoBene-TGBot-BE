@@ -187,3 +187,23 @@ export interface IBroadcast {
   /** ID of the user who sent the broadcast */
   sender_id: number | undefined;
 }
+
+/**
+ * Interface for broadcast message detail records
+ * @interface IBroadcastMessageDetail
+ * @description Represents a single broadcast message sent to a specific group
+ */
+export interface IBroadcastMessageDetail {
+  /** Unique identifier for the broadcast message detail */
+  id: string;
+  /** Reference to the parent broadcast record */
+  broadcast_id: string;
+  /** Telegram message ID of the sent message */
+  message_id?: string;
+  /** Reference to the target group's ID */
+  group_id: string;
+  /** Whether the message has been sent */
+  is_sent: boolean;
+  /** Timestamp when the message was sent */
+  sent_at?: Date;
+} 
