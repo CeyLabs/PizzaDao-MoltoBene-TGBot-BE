@@ -27,6 +27,7 @@ import { ICity, ICityForVars } from '../city/city.interface';
 import { CityService } from '../city/city.service';
 import { ICountry } from '../country/country.interface';
 import { IEventDetail } from '../event-detail/event-detail.interface';
+import { RegionService } from '../region/region.service';
 
 /**
  * Service for managing message broadcasting functionality
@@ -46,6 +47,7 @@ export class BroadcastService {
     private readonly accessService: AccessService,
     private readonly eventDetailService: EventDetailService,
     private readonly countryService: CountryService,
+    private readonly regionService: RegionService,
     private readonly cityService: CityService,
     @Inject(forwardRef(() => CommonService))
     private readonly commonService: CommonService,
@@ -159,13 +161,13 @@ export class BroadcastService {
         paginatedCountries.map(async (country: ICountry) => {
           try {
             if (country.region_id) {
-              const region = await this.accessService.getRegionById(String(country.region_id));
+              const region = await this.regionService.getRegionById(String(country.region_id));
               return region?.name || '';
             }
 
             const fullCountry = await this.countryService.getCountryById(String(country.id));
             if (fullCountry && fullCountry.region_id) {
-              const region = await this.accessService.getRegionById(String(fullCountry.region_id));
+              const region = await this.regionService.getRegionById(String(fullCountry.region_id));
               return region?.name || '';
             }
 
@@ -243,15 +245,15 @@ export class BroadcastService {
         // Underboss can only access cities in their regions
         const regionIds = userAccess.map((access) => (access as any).region_id).filter(Boolean);
         const cityPromises = regionIds.map((regionId) =>
-          this.accessService.getCitiesByRegion(regionId),
+          this.cityService.getCitiesByRegionId(regionId),
         );
         const citiesArrays = await Promise.all(cityPromises);
         const regionCities = citiesArrays.flat();
 
         // Convert to ICity format
         allCities = regionCities.map((city) => ({
-          id: city.city_id,
-          name: city.city_name,
+          id: city.id,
+          name: city.name,
           group_id: city.group_id,
           telegram_link: city.telegram_link,
           country_id: '', // Will be fetched if needed
@@ -588,7 +590,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     // delete the previous message
     await ctx.deleteMessage();
     const userId = ctx.from.id;
-    const region = await this.accessService.getRegionById(regionId);
+    const region = await this.regionService.getRegionById(regionId);
     const regionName = region ? region.name : 'Unknown Region';
     const message = this.escapeMarkdown(
       `You have selected region: ${regionName}. Now, send me the messages to broadcast to all cities in this region.`,
@@ -839,7 +841,7 @@ You can register via: \`\\{unlock\\_link\\}\`
           },
         );
       } else if (callbackData === 'broadcast_specific_region') {
-        const regions = await this.accessService.getAllRegions();
+        const regions = await this.regionService.getAllRegions();
         if (regions.length === 0) {
           await ctx.reply('No regions found.');
           return;
@@ -880,7 +882,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         );
       } else if (callbackData === 'broadcast_all_caporegime_cities') {
         const userAccess = await this.accessService.getUserAccess(String(userId));
-        if (!userAccess || !Array.isArray(userAccess)) return;
+        if (!userAccess) return;
 
         const countryId = (userAccess[0] as any).country_id;
         if (!countryId) return;
@@ -1321,9 +1323,9 @@ You can register via: \`\\{unlock\\_link\\}\`
           }));
         }
       } else if (session.targetType === 'region' && session.targetId) {
-        const cities = await this.accessService.getCitiesByRegion(session.targetId);
+        const cities = await this.cityService.getCitiesByRegionId(session.targetId);
         cityData = cities.map((city) => ({
-          city_name: city.city_name,
+          city_name: city.name,
           group_id: city.group_id,
           telegram_link: city.telegram_link,
         }));

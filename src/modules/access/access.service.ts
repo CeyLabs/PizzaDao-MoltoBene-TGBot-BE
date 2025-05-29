@@ -6,9 +6,12 @@
 import { Injectable } from '@nestjs/common';
 import { KnexService } from '../knex/knex.service';
 import { ICityAccess, ICountryAccess, IRegionAccess } from './access.interface';
-import { IRegion } from '../region/city.interface';
+import { IRegion } from '../region/region.interface';
 import { ICountry } from '../country/country.interface';
 import { ICity } from '../city/city.interface';
+import { RegionService } from '../region/region.service';
+import { CountryService } from '../country/country.service';
+import { CityService } from '../city/city.service';
 
 type Role = 'admin' | 'underboss' | 'caporegime' | 'host';
 
@@ -57,42 +60,7 @@ type AccessResult = {
  */
 @Injectable()
 export class AccessService {
-  constructor(private readonly knexService: KnexService) {}
-
-  /**
-   * Retrieves all regions from the database
-   * @returns {Promise<Array<{id: string, name: string}>>} Array of regions with their IDs and names
-   */
-  async getAllRegions(): Promise<{ id: string; name: string }[]> {
-    return this.knexService.knex('region').select('id', 'name');
-  }
-
-  /**
-   * Retrieves a specific region by its ID
-   * @param {string} regionId - The unique identifier of the region
-   * @returns {Promise<{id: string, name: string} | undefined>} Region data or undefined if not found
-   */
-  async getRegionById(regionId: string): Promise<{ id: string; name: string } | undefined> {
-    return this.knexService.knex('region').where('id', regionId).first();
-  }
-
-  /**
-   * Gets all cities belonging to a specific region
-   * @param {string} regionId - The unique identifier of the region
-   * @returns {Promise<CityData[]>} Array of cities with their details
-   */
-  async getCitiesByRegion(regionId: string): Promise<CityData[]> {
-    return this.knexService
-      .knex('city')
-      .join('country', 'city.country_id', 'country.id')
-      .where('country.region_id', regionId)
-      .select(
-        'city.id as city_id',
-        'city.name as city_name',
-        'city.group_id',
-        'city.telegram_link',
-      );
-  }
+  constructor(private readonly knexService: KnexService, private readonly regionService: RegionService, private readonly countryService: CountryService, private readonly cityService: CityService) {}
 
   /**
    * Gets the role of a user based on their Telegram ID
@@ -153,26 +121,6 @@ export class AccessService {
     return this.knexService.knex('city_access').where('user_telegram_id', telegram_id);
   }
 
-  async getRegionsByIds(region_ids: string[]): Promise<IRegion[]> {
-    return this.knexService.knex('region').whereIn('id', region_ids);
-  }
-
-  async getCountriesByRegionIds(region_ids: string[]): Promise<ICountry[]> {
-    return this.knexService.knex('country').whereIn('region_id', region_ids);
-  }
-
-  async getCountriesByCountryIds(country_ids: string[]): Promise<ICountry[]> {
-    return this.knexService.knex('country').whereIn('id', country_ids);
-  }
-
-  async getCitiesByCountryIds(country_ids: string[]): Promise<ICity[]> {
-    return this.knexService.knex('city').whereIn('country_id', country_ids);
-  }
-
-  async getCitiesByCityIds(city_ids: string[]): Promise<ICity[]> {
-    return this.knexService.knex('city').whereIn('id', city_ids);
-  }
-
   /**
    * Gets detailed access information for a user
    * @param {string} telegram_id - The Telegram ID of the user
@@ -217,14 +165,14 @@ export class AccessService {
     const regionAccess = await this.getRegionAccess(telegram_id);
 
     if (regionAccess.length) {
-      const regions = await this.getRegionsByIds(regionAccess.map((access) => access.region_id))
+      const regions = await this.regionService.getRegionsByIds(regionAccess.map((access) => access.region_id))
 
       accessResult.region_data = regions.map((region) => ({
         region_id: region.id,
         region_name: region.name,
       }));
 
-      const countries = await this.getCountriesByRegionIds(regions.map((region) => region.id))
+      const countries = await this.countryService.getCountriesByRegionIds(regions.map((region) => region.id))
 
       accessResult.country_data = countries.map((country) => ({
         country_id: country.id,
@@ -232,7 +180,7 @@ export class AccessService {
         region_id: country.region_id,
       }));
 
-      const cities = await this.getCitiesByCountryIds(countries.map((country) => country.id));
+      const cities = await this.cityService.getCitiesByCountryIds(countries.map((country) => country.id));
 
       accessResult.city_data = cities.map((city) => ({
         city_id: city.id,
@@ -251,7 +199,7 @@ export class AccessService {
     const countryAccess = await this.getCountryAccess(telegram_id);
 
     if (countryAccess.length) {
-      const countries = await this.getCountriesByCountryIds(countryAccess.map((access) => access.id))
+      const countries = await this.countryService.getCountriesByCountryIds(countryAccess.map((access) => access.id))
 
       accessResult.country_data = countries.map((country) => ({
         country_id: country.id,
@@ -259,7 +207,7 @@ export class AccessService {
         region_id: country.region_id,
       }));
 
-      const cities = await this.getCitiesByCountryIds(countries.map((country) => country.id))
+      const cities = await this.cityService.getCitiesByCountryIds(countries.map((country) => country.id))
 
       accessResult.city_data = cities.map((city) => ({
         city_id: city.id,
@@ -278,7 +226,7 @@ export class AccessService {
     const cityAccess = await this.getCityAccess(telegram_id)
 
     if (cityAccess.length) {
-      const cities = await this.getCitiesByCityIds(cityAccess.map((access) => access.id))
+      const cities = await this.cityService.getCitiesByCityIds(cityAccess.map((access) => access.id))
 
       accessResult.city_data = cities.map((city) => ({
         city_id: city.id,

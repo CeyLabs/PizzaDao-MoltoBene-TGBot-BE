@@ -42,6 +42,15 @@ export class CountryService {
     return country ?? null;
   }
 
+
+  async getCountriesByRegionIds(region_ids: string[]): Promise<ICountry[]> {
+    return this.knexService.knex('country').whereIn('region_id', region_ids);
+  }
+
+  async getCountriesByCountryIds(country_ids: string[]): Promise<ICountry[]> {
+    return this.knexService.knex('country').whereIn('id', country_ids);
+  }
+  
   /**
    * Finds a country by a Telegram group ID
    * @param {string} groupId - The Telegram group ID
