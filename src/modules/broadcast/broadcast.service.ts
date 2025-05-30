@@ -24,7 +24,13 @@ import { AccessService } from '../access/access.service';
 import { CommonService } from '../common/common.service';
 import { EventDetailService } from '../event-detail/event-detail.service';
 
-import { IUserAccessInfo, IBroadcastSession, IPostMessage, IBroadcast, IBroadcastMessageDetail } from './broadcast.type';
+import {
+  IUserAccessInfo,
+  IBroadcastSession,
+  IPostMessage,
+  IBroadcast,
+  IBroadcastMessageDetail,
+} from './broadcast.type';
 import { ICity, ICityForVars } from '../city/city.interface';
 import { CityService } from '../city/city.service';
 import { ICountry } from '../country/country.interface';
@@ -624,7 +630,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @private
    */
   private async handleCreatePost(ctx: Context): Promise<void> {
-    const userId = String(ctx.from?.id!)
+    const userId = String(ctx.from?.id!);
     const accessInfo = await this.accessService.getUserAccess(userId);
     if (!accessInfo) return;
 
@@ -1505,7 +1511,12 @@ You can register via: \`\\{unlock\\_link\\}\`
             // Add to successful entries array
             successEntries.push(`${escapedCityName},${city.group_id || ''},Success`);
 
-            await this.saveMessageDetail(broadcastId, sentMessage.message_id?.toString(), city, true);
+            await this.saveMessageDetail(
+              broadcastId,
+              sentMessage.message_id?.toString(),
+              city,
+              true,
+            );
 
             logs.push(`✅ Success: ${city.city_name} (${city.group_id})`);
           } catch (error) {
@@ -1547,18 +1558,22 @@ You can register via: \`\\{unlock\\_link\\}\`
             filename: `${broadcastId}.csv`,
           });
 
-          await ctx.telegram.sendDocument(
-            -1002557655268,
-            {
-              source: logFilePath,
-              filename: `${broadcastId}.csv`,
-            },
-            {
-              message_thread_id: 2,
-              caption: `*📡 Broadcast ID*: \`${this.escapeMarkdown(broadcastId)}\`\n👨🏻‍💼 *Sent By*: ${this.escapeMarkdown(ctx.from?.first_name ?? 'Unknown')} [${ctx.from?.id}\n *🕒 Sent at*: ${this.escapeMarkdown(new Date().toLocaleString())}]`,
-              parse_mode: 'MarkdownV2',
-            },
-          );
+          try {
+            await ctx.telegram.sendDocument(
+              process.env.LOG_GROUP_ID ?? '',
+              {
+                source: logFilePath,
+                filename: `${broadcastId}.csv`,
+              },
+              {
+                message_thread_id: Number(process.env.LOG_THREAD_ID) || undefined,
+                caption: `*📡 Broadcast ID*: \`${this.escapeMarkdown(broadcastId)}\`\n👨🏻‍💼 *Sent By*: ${this.escapeMarkdown(ctx.from?.first_name ?? 'Unknown')} [${ctx.from?.id}\n *🕒 Sent at*: ${this.escapeMarkdown(new Date().toLocaleString())}]`,
+                parse_mode: 'MarkdownV2',
+              },
+            );
+          } catch (error) {
+            console.error('Error sending log file to group:', error);
+          }
 
           // clean up the file after sending
           fs.unlinkSync(logFilePath);
@@ -1596,8 +1611,6 @@ You can register via: \`\\{unlock\\_link\\}\`
             }
           }
         }
-
-        
 
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
@@ -1765,7 +1778,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     index: number,
     messageObj: IPostMessage,
     variableIncluded?: boolean,
-  ) : Promise<void> {
+  ): Promise<void> {
     try {
       const chatId = ctx.chat?.id;
       if (!chatId) {
@@ -1977,7 +1990,10 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Promise<void>}
    * @private
    */
-  private async handleMedia(ctx: Context, mediaType: 'photo' | 'video' | 'document' | 'animation'): Promise<void> {
+  private async handleMedia(
+    ctx: Context,
+    mediaType: 'photo' | 'video' | 'document' | 'animation',
+  ): Promise<void> {
     if (!ctx.from?.id) return;
 
     const userId = ctx.from.id;
@@ -2096,7 +2112,7 @@ You can register via: \`\\{unlock\\_link\\}\`
   }
 
   private async createBroadcastRecord(broadcast: IBroadcast): Promise<void> {
-    await this.knexService.knex<IBroadcast>('broadcast').insert(broadcast); 
+    await this.knexService.knex<IBroadcast>('broadcast').insert(broadcast);
   }
 
   /**
@@ -2182,7 +2198,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     return result;
   }
 
-    /**
+  /**
    * Save broadcast message detail to the database
    * @param {string} broadcastId - The ID of the existing broadcast record
    * @param {Message} sentMessage - The sent Telegram message
@@ -2190,22 +2206,22 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @param {boolean} isSent - Whether the message was successfully sent
    * @private
    */
-    private async saveMessageDetail(
-      broadcastId: string,
-      messageId: string | undefined,
-      city: { city_name: string; group_id?: string | null },
-      isSent: boolean,
-    ): Promise<void> {
-      try {
-        // Insert only the broadcast message detail
-        await this.knexService.knex<IBroadcastMessageDetail>('broadcast_message_detail').insert({
-          broadcast_id: broadcastId,
-          message_id: messageId,
-          group_id: city.group_id || '',
-          is_sent: isSent,
-        });
-      } catch (error) {
-        console.error(`Error saving broadcast detail: ${error}`);
-      }
+  private async saveMessageDetail(
+    broadcastId: string,
+    messageId: string | undefined,
+    city: { city_name: string; group_id?: string | null },
+    isSent: boolean,
+  ): Promise<void> {
+    try {
+      // Insert only the broadcast message detail
+      await this.knexService.knex<IBroadcastMessageDetail>('broadcast_message_detail').insert({
+        broadcast_id: broadcastId,
+        message_id: messageId,
+        group_id: city.group_id || '',
+        is_sent: isSent,
+      });
+    } catch (error) {
+      console.error(`Error saving broadcast detail: ${error}`);
     }
+  }
 }
