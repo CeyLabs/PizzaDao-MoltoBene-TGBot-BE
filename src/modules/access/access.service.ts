@@ -9,6 +9,7 @@ import { ICityAccess, ICountryAccess, IRegionAccess } from './access.interface';
 import { RegionService } from '../region/region.service';
 import { CountryService } from '../country/country.service';
 import { CityService } from '../city/city.service';
+import { IBroadcastMessageDetail } from '../broadcast/broadcast.type';
 
 /**
  * Type representing user roles in the system
@@ -256,4 +257,33 @@ export class AccessService {
 
     return null;
   }
+
+
+  /**
+   * Save broadcast message detail to the database
+   * @param {string} broadcastId - The ID of the existing broadcast record
+   * @param {Message} sentMessage - The sent Telegram message
+   * @param {Object} city - The city the message was sent to
+   * @param {boolean} isSent - Whether the message was successfully sent
+   * @private
+   */
+  private async saveMessageDetail(
+    broadcastId: string,
+    messageId: string | undefined,
+    city: { city_name: string; group_id?: string | null },
+    isSent: boolean,
+  ): Promise<void> {
+    try {
+      // Insert only the broadcast message detail
+      await this.knexService.knex<IBroadcastMessageDetail>('broadcast_message_detail').insert({
+        broadcast_id: broadcastId,
+        message_id: messageId,
+        group_id: city.group_id || '',
+        is_sent: isSent,
+      });
+    } catch (error) {
+      console.error(`Error saving broadcast detail: ${error}`);
+    }
+  }
+
 }
