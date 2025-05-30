@@ -6,6 +6,9 @@
 import { Module } from '@nestjs/common';
 import { KnexModule } from '../knex/knex.module';
 import { AccessService } from './access.service';
+import { RegionModule } from '../region/region.module';
+import { CountryModule } from '../country/country.module';
+import { CityModule } from '../city/city.module';
 
 /**
  * Module for managing access control
@@ -13,7 +16,7 @@ import { AccessService } from './access.service';
  * @description Handles user access control at different levels (city, country, region)
  */
 @Module({
-  imports: [KnexModule],
+  imports: [KnexModule, RegionModule, CountryModule, CityModule],
   providers: [AccessService],
   exports: [AccessService],
 })

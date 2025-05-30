@@ -4,7 +4,7 @@ import config from '../../../knexfile';
 
 type KnexConfig = Record<string, Knex.Config>;
 
-interface DbConnection {
+interface IDbConnection {
   query: (sql: string, callback: (err: Error | null, result?: unknown) => void) => void;
 }
 
@@ -24,8 +24,8 @@ export class KnexService implements OnModuleInit, OnModuleDestroy {
       max: 50,
       // Add a connection validator
       afterCreate: (
-        conn: DbConnection,
-        done: (err: Error | null, connection?: DbConnection) => void,
+        conn: IDbConnection,
+        done: (err: Error | null, connection?: IDbConnection) => void,
       ) => {
         // Setup connection
         conn.query('SELECT 1', (err: Error | null) => {

@@ -23,13 +23,14 @@ import { CountryService } from '../country/country.service';
 import { AccessService } from '../access/access.service';
 import { CommonService } from '../common/common.service';
 import { EventDetailService } from '../event-detail/event-detail.service';
-import { KnexService } from '../knex/knex.service';
 
 import { IUserAccessInfo, IBroadcastSession, IPostMessage, IBroadcast, IBroadcastMessageDetail } from './broadcast.type';
 import { ICity, ICityForVars } from '../city/city.interface';
 import { CityService } from '../city/city.service';
 import { ICountry } from '../country/country.interface';
 import { IEventDetail } from '../event-detail/event-detail.interface';
+import { RegionService } from '../region/region.service';
+import { KnexService } from '../knex/knex.service';
 
 /**
  * Service for managing message broadcasting functionality
@@ -49,6 +50,7 @@ export class BroadcastService {
     private readonly accessService: AccessService,
     private readonly eventDetailService: EventDetailService,
     private readonly countryService: CountryService,
+    private readonly regionService: RegionService,
     private readonly cityService: CityService,
     private readonly knexService: KnexService,
     @Inject(forwardRef(() => CommonService))
@@ -69,15 +71,15 @@ export class BroadcastService {
       return;
     }
 
-    const accessRole = await this.accessService.getAccessRole(String(ctx.from.id));
-    if (!accessRole) {
+    const accessRole = await this.accessService.getUserAccess(String(ctx.from.id));
+    if (!accessRole || !accessRole.role) {
       await ctx.reply(this.escapeMarkdown('❌ You do not have access to broadcast messages.'), {
         parse_mode: 'MarkdownV2',
       });
       return;
     }
 
-    await this.showBroadcastMenu(ctx, accessRole);
+    await this.showBroadcastMenu(ctx, accessRole.role);
   }
 
   /**
@@ -86,10 +88,16 @@ export class BroadcastService {
    * @returns {Promise<void>}
    */
   @On('inline_query')
-  async handleInlineQuery(@Ctx() ctx: Context) {
+  async handleInlineQuery(@Ctx() ctx: Context): Promise<void> {
     const query = ctx.inlineQuery?.query?.trim();
     const userId = ctx.from?.id;
-    if (!userId) return ctx.answerInlineQuery([], { cache_time: 1 });
+    const offset = parseInt(ctx.inlineQuery?.offset || '0', 10);
+    const itemsPerPage = 10;
+
+    if (!userId) {
+      ctx.answerInlineQuery([], { cache_time: 1 })
+      return;
+    }
 
     const currentSession = this.commonService.getUserState(userId);
     const searchType = currentSession?.searchType || 'city'; // Default to city search
@@ -103,29 +111,31 @@ export class BroadcastService {
 
       if (allCountries.length <= 0) {
         // Fetch all countries based on user access
-        const accessInfo = await this.getUserAccessInfo(ctx);
-        if (!accessInfo) return ctx.answerInlineQuery([], { cache_time: 1 });
+        const accessInfo = await this.accessService.getUserAccess(String(userId));
+        if (!accessInfo) {
+          ctx.answerInlineQuery([], { cache_time: 1 });
+          return;
+        }
 
-        const { userAccess, role } = accessInfo;
-
-        if (role === 'admin') {
+        if (accessInfo.role === 'admin') {
           // Admin can access all countries
-          allCountries = await this.countryService.getAllCountries();
-        } else if (role === 'underboss' && Array.isArray(userAccess)) {
+          allCountries = accessInfo.country_data.map(access => ({ 
+            id: access.country_id,
+            name: access.country_name,
+            region_id: access.region_id,
+          }));
+        } else if (accessInfo.role === 'underboss') {
           // Underboss can access countries in their regions
-          const regionIds = userAccess.map((access) => (access as any).region_id).filter(Boolean);
-          const countryPromises = regionIds.map((regionId) =>
-            this.countryService.getCountriesByRegion(regionId),
-          );
+          const countryPromises = accessInfo.region_data.map((access) => this.countryService.getCountriesByRegion(access.region_id));
           const countriesArrays = await Promise.all(countryPromises);
           allCountries = countriesArrays.flat();
           // Remove duplicates
           allCountries = allCountries.filter(
             (country, index, self) => index === self.findIndex((c) => c.id === country.id),
           );
-        } else if (role === 'caporegime' && Array.isArray(userAccess)) {
+        } else if (accessInfo.role === 'caporegime') {
           // Caporegime can only access their assigned countries
-          const countryIds = userAccess.map((access) => (access as any).country_id).filter(Boolean);
+          const countryIds = accessInfo.country_data.map((access) => access.country_id);
           const countryPromises = countryIds.map((countryId) =>
             this.countryService.getCountryById(countryId),
           );
@@ -141,37 +151,49 @@ export class BroadcastService {
         this.commonService.setUserState(userId, session);
       }
 
-      if (!query || query === '') {
-        await ctx.answerInlineQuery(
-          [
-            {
-              type: 'article',
-              id: 'search_country',
-              title: 'Type your country name',
-              description: 'Start typing to search for a country',
-              input_message_content: {
-                message_text: 'Please type your country name to search.',
-              },
-            },
-          ],
-          { cache_time: 1 },
-        );
-        return;
-      }
-
-      // Filter countries
-      const countries: ICountry[] = query
+      // Filter countries - if no query, show all accessible countries
+      const filteredCountries: ICountry[] = query
         ? allCountries.filter((country: ICountry) =>
             country.name.toLowerCase().includes(query.toLowerCase()),
           )
-        : [];
+        : allCountries;
 
-      const results: InlineQueryResultArticle[] = countries.map(
-        (country: ICountry): InlineQueryResultArticle => ({
+      // Apply pagination
+      const startIndex = offset;
+      const endIndex = startIndex + itemsPerPage;
+      const paginatedCountries = filteredCountries.slice(startIndex, endIndex);
+      const hasMore = endIndex < filteredCountries.length;
+      const nextOffset = hasMore ? endIndex.toString() : '';
+
+      // Fetch region names for each paginated country
+      const regionNames: string[] = await Promise.all(
+        paginatedCountries.map(async (country: ICountry) => {
+          try {
+            if (country.region_id) {
+              const region = await this.regionService.getRegionById(String(country.region_id));
+              return region?.name || '';
+            }
+
+            const fullCountry = await this.countryService.getCountryById(String(country.id));
+            if (fullCountry && fullCountry.region_id) {
+              const region = await this.regionService.getRegionById(String(fullCountry.region_id));
+              return region?.name || '';
+            }
+
+            return '';
+          } catch (error) {
+            console.error('Error fetching region for country:', country.name, error);
+            return '';
+          }
+        }),
+      );
+
+      const results: InlineQueryResultArticle[] = paginatedCountries.map(
+        (country: ICountry, idx: number): InlineQueryResultArticle => ({
           type: 'article',
           id: String(country.id) || country.name,
           title: country.name,
-          description: 'Click to select this country',
+          description: regionNames[idx] || 'Select this country',
           thumbnail_url: process.env.EVENT_IMAGE_URL,
           input_message_content: {
             message_text: `You selected *${this.escapeMarkdown(country.name)}*\\.\n\nPlease confirm your selection\\.`,
@@ -195,9 +217,9 @@ export class BroadcastService {
       );
 
       // Save selected country details in session
-      const selectedCountry = results.map((result) => ({
-        id: result.id,
-        name: result.title,
+      const selectedCountry = paginatedCountries.map((country) => ({
+        id: String(country.id),
+        name: country.name,
       }));
 
       this.commonService.setUserState(userId, {
@@ -205,16 +227,63 @@ export class BroadcastService {
         selectedCountry,
       });
 
-      await ctx.answerInlineQuery(results, { cache_time: 0 });
+      await ctx.answerInlineQuery(results, {
+        cache_time: 0,
+        next_offset: nextOffset,
+      });
       return;
     }
 
+    // Handle city search
     let allCities: ICity[] =
       currentSession?.allCities && Array.isArray(currentSession.allCities)
         ? (currentSession.allCities as ICity[])
         : [];
+
     if (allCities.length <= 0) {
-      allCities = await this.cityService.getAllCities();
+      // Fetch cities based on user access and role
+      const accessInfo = await this.accessService.getUserAccess(String(userId));
+      if (!accessInfo) {
+        ctx.answerInlineQuery([], { cache_time: 1 })
+        return;
+      }
+
+      if (accessInfo.role === 'admin') {
+        // Admin can access all cities
+        allCities = await this.cityService.getAllCities();
+      } else if (accessInfo.role === 'underboss') {
+        // Underboss can only access cities in their regions
+        const cityPromises = accessInfo.region_data.map((access) => this.cityService.getCitiesByRegionId(access.region_id));
+        const citiesArrays = await Promise.all(cityPromises);
+        const regionCities = citiesArrays.flat();
+
+        // Convert to ICity format
+        allCities = regionCities.map((city) => ({
+          id: city.id,
+          name: city.name,
+          group_id: city.group_id,
+          telegram_link: city.telegram_link,
+          country_id: '', // Will be fetched if needed
+        })) as ICity[];
+      } else if (accessInfo.role === 'caporegime') {
+        // Caporegime can access cities in their countries
+        const cityPromises = accessInfo.country_data.map((access) => this.cityService.getCitiesByCountry(access.country_id));
+        const citiesArrays = await Promise.all(cityPromises);
+        allCities = citiesArrays.flat();
+      } else if (accessInfo.role === 'host') {
+        // Host can only access their assigned cities
+        allCities = accessInfo.city_data.map((city) => ({
+          id: city.city_id,
+          name: city.city_name,
+          group_id: city.group_id,
+          telegram_link: city.telegram_link,
+          country_id: city.country_id,
+        })) as ICity[];
+      } else {
+        // Fallback for non-array userAccess (single access object)
+        allCities = await this.cityService.getAllCities();
+      }
+
       const session: { allCities?: ICity[]; [key: string]: any } =
         this.commonService.getUserState(userId) || {};
       session.flow = 'broadcast';
@@ -222,43 +291,40 @@ export class BroadcastService {
       this.commonService.setUserState(userId, session);
     }
 
-    if (!query || query === '') {
-      await ctx.answerInlineQuery(
-        [
-          {
-            type: 'article',
-            id: 'search_city',
-            title: 'Type your city name',
-            description: 'Start typing to search for a city',
-            input_message_content: {
-              message_text: 'Please type your city name to search.',
-            },
-          },
-        ],
-        { cache_time: 1 },
-      );
-      return;
-    }
-
-    // Filter cities from session cache
-    const cities: ICity[] = query
+    // Filter cities - if no query, show all accessible cities
+    const filteredCities: ICity[] = query
       ? allCities.filter((city: ICity) => city.name.toLowerCase().includes(query.toLowerCase()))
-      : [];
+      : allCities;
 
-    // Fetch country names for each city
+    // Apply pagination
+    const startIndex = offset;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedCities = filteredCities.slice(startIndex, endIndex);
+    const hasMore = endIndex < filteredCities.length;
+    const nextOffset = hasMore ? endIndex.toString() : '';
+
+    // Fetch country names for each paginated city
     const countryNames: string[] = await Promise.all(
-      cities.map(async (city: ICity) => {
+      paginatedCities.map(async (city: ICity) => {
+        // First try to get country_id from the city object
         if (city.country_id) {
           const country: ICountry | null = await this.countryService.getCountryById(
             city.country_id,
           );
           return country?.name || '';
         }
+
+        // If country_id is not available, try to get it using group_id
+        if (city.group_id) {
+          const countryName = await this.countryService.getCountryByGroupId(city.group_id);
+          return countryName || '';
+        }
+
         return '';
       }),
     );
 
-    const results: InlineQueryResultArticle[] = cities.map(
+    const results: InlineQueryResultArticle[] = paginatedCities.map(
       (city: ICity, idx: number): InlineQueryResultArticle => ({
         type: 'article',
         id: city.id || city.name,
@@ -287,22 +353,15 @@ export class BroadcastService {
     );
 
     // Save selected city details in selectedCity array in session
-    const selectedCity = results.map((result) => ({
-      id: result.id,
-      name: result.title,
-      country_name: result.description,
-      group_id: (() => {
-        const btn = result.reply_markup?.inline_keyboard?.[0]?.[0];
-        if (
-          btn &&
-          typeof btn === 'object' &&
-          'callback_data' in btn &&
-          typeof btn.callback_data === 'string'
-        ) {
-          return '-' + (btn.callback_data.split('_')[2] || '');
-        }
-        return '';
-      })(),
+    const selectedCity = paginatedCities.map((city, idx) => ({
+      id: city.id || city.name,
+      name: city.name,
+      country_name: countryNames[idx] || '',
+      group_id: city.group_id
+        ? city.group_id.startsWith('-')
+          ? city.group_id
+          : '-' + city.group_id
+        : '',
     }));
 
     this.commonService.setUserState(userId, {
@@ -310,7 +369,10 @@ export class BroadcastService {
       selectedCity,
     });
 
-    await ctx.answerInlineQuery(results, { cache_time: 0 });
+    await ctx.answerInlineQuery(results, {
+      cache_time: 0,
+      next_offset: nextOffset,
+    });
   }
 
   /**
@@ -372,7 +434,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @param {Context} ctx - The Telegraf context
    * @returns {Promise<void>}
    */
-  async handleCallbackQuery(ctx: Context): Promise<void> {
+  async handleCallbackQuery(ctx: Context) {
     const callbackData =
       ctx.callbackQuery && 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : undefined;
 
@@ -531,7 +593,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     // delete the previous message
     await ctx.deleteMessage();
     const userId = ctx.from.id;
-    const region = await this.accessService.getRegionById(regionId);
+    const region = await this.regionService.getRegionById(regionId);
     const regionName = region ? region.name : 'Unknown Region';
     const message = this.escapeMarkdown(
       `You have selected region: ${regionName}. Now, send me the messages to broadcast to all cities in this region.`,
@@ -550,43 +612,15 @@ You can register via: \`\\{unlock\\_link\\}\`
   }
 
   /**
-   * Gets user access information
-   * @param {Context} ctx - The Telegraf context
-   * @returns {Promise<IUserAccessInfo | null>} User access information or null if not found
-   * @private
-   */
-  private async getUserAccessInfo(ctx: Context): Promise<IUserAccessInfo | null> {
-    if (!ctx.from?.id) {
-      await ctx.reply(this.escapeMarkdown('❌ User ID is undefined.'), {
-        parse_mode: 'MarkdownV2',
-      });
-      return null;
-    }
-
-    const userId = ctx.from.id;
-    const userAccess = await this.accessService.getUserAccess(String(userId));
-    if (!userAccess) {
-      await ctx.reply(this.escapeMarkdown('❌ You do not have access to broadcast messages.'), {
-        parse_mode: 'MarkdownV2',
-      });
-      return null;
-    }
-
-    const role = this.SUPER_ADMIN_IDS.includes(userId.toString()) ? 'admin' : userAccess[0].role;
-    return { userAccess, role, userId };
-  }
-
-  /**
    * Handles the create post action
    * @param {Context} ctx - The Telegraf context
    * @returns {Promise<void>}
    * @private
    */
   private async handleCreatePost(ctx: Context): Promise<void> {
-    const accessInfo = await this.getUserAccessInfo(ctx);
+    const userId = String(ctx.from?.id!)
+    const accessInfo = await this.accessService.getUserAccess(userId);
     if (!accessInfo) return;
-
-    const { userAccess, role } = accessInfo;
 
     await ctx.deleteMessage().catch(() => {});
 
@@ -594,7 +628,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     let inline_keyboard: InlineKeyboardButton[][] = [];
     let default_keyboard: KeyboardButton[][] = [];
 
-    switch (role) {
+    switch (accessInfo.role) {
       case 'admin':
         message = `You're assigned as *Super Admin* to all the Pizza DAO chats\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
         inline_keyboard = [
@@ -610,9 +644,8 @@ You can register via: \`\\{unlock\\_link\\}\`
         break;
 
       case 'underboss': {
-        const regionName =
-          Array.isArray(userAccess) && userAccess[0]?.region_name ? userAccess[0].region_name : '';
-        message = `You're assigned as *Underboss* to all the *${this.escapeMarkdown(regionName)}* Pizza DAO chats\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
+        const regionNames = accessInfo.region_data.map(region => region.region_name).join(', ');
+        message = `You're assigned as *Underboss* to all the *${this.escapeMarkdown(regionNames)}* Pizza DAO chat\\(s\\)\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
         inline_keyboard = [
           [
             { text: '🏙️ Specific City', callback_data: 'broadcast_underboss_city' },
@@ -620,7 +653,7 @@ You can register via: \`\\{unlock\\_link\\}\`
           ],
           [
             {
-              text: `All City Chats in ${regionName}`,
+              text: `All City Chats in ${regionNames} region(s)`,
               callback_data: 'broadcast_all_region_cities',
             },
           ],
@@ -629,8 +662,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       }
 
       case 'host': {
-        const cityName =
-          (Array.isArray(userAccess) && userAccess[0]?.city_data?.[0]?.city_name) || '';
+        const citynames = accessInfo.city_data.map(region => region.city_name).join(', ');
 
         this.commonService.setUserState(Number(ctx.from?.id), {
           flow: 'broadcast',
@@ -638,15 +670,15 @@ You can register via: \`\\{unlock\\_link\\}\`
           messages: [] as IPostMessage[],
         });
 
-        message = `You're assigned as Host to *"${this.escapeMarkdown(cityName || 'Unknown City')} Pizza DAO"* chat\\. Select an option below
+        message = `You're assigned as *Host* to *${this.escapeMarkdown(citynames)}* Pizza DAO chat\\(s\\)\\. Select an option below
 \nSend me one or multiple messages you want to include in the post\\. It can be anything — a text, photo, video, even a sticker\\.`;
         default_keyboard = this.getKeyboardMarkup().keyboard;
         break;
       }
 
       case 'caporegime': {
-        const countryName = (Array.isArray(userAccess) && userAccess[0]?.country_name) || '';
-        message = `You're assigned as *Caporegime* to all the *${this.escapeMarkdown(countryName || 'Unknown Country')}* Pizza DAO chats\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
+        const countryNames = accessInfo.country_data.map(region => region.country_name).join(', ');
+        message = `You're assigned as *Caporegime* to *${this.escapeMarkdown(countryNames)}* Pizza DAO chat\\(s\\)\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
         inline_keyboard = [
           [
             { text: '🏙️ Specific City', callback_data: 'broadcast_caporegime_city' },
@@ -654,7 +686,7 @@ You can register via: \`\\{unlock\\_link\\}\`
           ],
           [
             {
-              text: `All City Chats in ${countryName}`,
+              text: `All City Chats in ${countryNames}`,
               callback_data: 'broadcast_all_caporegime_cities',
             },
           ],
@@ -756,10 +788,11 @@ You can register via: \`\\{unlock\\_link\\}\`
         callbackData === 'broadcast_underboss_city' ||
         callbackData === 'broadcast_caporegime_city'
       ) {
-        // Set search type back to city
+        // Set search type back to city and clear cached cities to force re-fetch based on user role
         this.commonService.setUserState(userId, {
           ...this.commonService.getUserState(userId),
           searchType: 'city',
+          allCities: [], // Clear cached cities
         });
 
         await ctx.deleteMessage();
@@ -781,7 +814,7 @@ You can register via: \`\\{unlock\\_link\\}\`
           },
         );
       } else if (callbackData === 'broadcast_specific_region') {
-        const regions = await this.accessService.getAllRegions();
+        const regions = await this.regionService.getAllRegions();
         if (regions.length === 0) {
           await ctx.reply('No regions found.');
           return;
@@ -822,7 +855,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         );
       } else if (callbackData === 'broadcast_all_caporegime_cities') {
         const userAccess = await this.accessService.getUserAccess(String(userId));
-        if (!userAccess || !Array.isArray(userAccess)) return;
+        if (!userAccess) return;
 
         const countryId = (userAccess[0] as any).country_id;
         if (!countryId) return;
@@ -861,7 +894,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Object} Keyboard markup configuration
    * @private
    */
-  private getKeyboardMarkup() {
+  private getKeyboardMarkup(): any /* TODO: fix types */ {
     return {
       keyboard: [
         [{ text: 'Delete All' }, { text: 'Preview' }],
@@ -1018,7 +1051,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Object} Keyboard markup configuration with cancel button
    * @private
    */
-  private getCancelKeyboard() {
+  private getCancelKeyboard(): any /* TODO: fix types */ {
     return {
       keyboard: [[{ text: 'Cancel' }]],
       resize_keyboard: true,
@@ -1224,7 +1257,8 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @private
    */
   private async sendMessages(ctx: Context, session: IBroadcastSession): Promise<void> {
-    let broadcastId: string;
+    const userId = String(ctx.from?.id!)
+    const logs: string[] = [];
 
     try {
       let cityData: {
@@ -1263,37 +1297,20 @@ You can register via: \`\\{unlock\\_link\\}\`
           }));
         }
       } else if (session.targetType === 'region' && session.targetId) {
-        const cities = await this.accessService.getCitiesByRegion(session.targetId);
+        const cities = await this.cityService.getCitiesByRegionId(session.targetId);
         cityData = cities.map((city) => ({
-          city_name: city.city_name,
+          city_name: city.name,
           group_id: city.group_id,
           telegram_link: city.telegram_link,
         }));
       } else if (session.targetType === 'all') {
-        const accessInfo = await this.getUserAccessInfo(ctx);
+        const accessInfo = await this.accessService.getUserAccess(userId);
         if (!accessInfo) return;
-        const { userAccess } = accessInfo;
-        if (Array.isArray(userAccess)) {
-          cityData = userAccess
-            .flatMap((access) => access.city_data || [])
-            .map(
-              (city: {
-                city_name: string;
-                group_id?: string | null;
-                telegram_link?: string | null;
-              }) => ({
-                city_name: city.city_name,
-                group_id: city.group_id,
-                telegram_link: city.telegram_link,
-              }),
-            );
-        } else if (userAccess !== null) {
-          cityData = userAccess.city_data.map((city) => ({
+          cityData = accessInfo.city_data.map((city) => ({
             city_name: city.city_name,
             group_id: city.group_id,
             telegram_link: city.telegram_link,
-          }));
-        }
+        }));
       } else if (session.selectedCity) {
         if (!Array.isArray(session.selectedCity) || session.selectedCity.length === 0) {
           await ctx.reply(this.escapeMarkdown('❌ Invalid selected city data.'), {
@@ -1312,30 +1329,14 @@ You can register via: \`\\{unlock\\_link\\}\`
         ];
       } else {
         // Default case: use user's access data
-        const accessInfo = await this.getUserAccessInfo(ctx);
+        const accessInfo = await this.accessService.getUserAccess(userId);
         if (!accessInfo) return;
-        const { userAccess } = accessInfo;
-        if (Array.isArray(userAccess)) {
-          cityData = userAccess
-            .flatMap((access) => access.city_data || [])
-            .map(
-              (city: {
-                city_name: string;
-                group_id?: string | null;
-                telegram_link?: string | null;
-              }) => ({
-                city_name: city.city_name,
-                group_id: city.group_id,
-                telegram_link: city.telegram_link,
-              }),
-            );
-        } else if (userAccess !== null) {
-          cityData = userAccess.city_data.map((city) => ({
-            city_name: city.city_name,
-            group_id: city.group_id,
-            telegram_link: city.telegram_link,
-          }));
-        }
+
+        cityData = accessInfo.city_data.map((city) => ({
+          city_name: city.city_name,
+          group_id: city.group_id,
+          telegram_link: city.telegram_link,
+        }));
       }
 
       // Filter out cities without group_id
@@ -1358,51 +1359,56 @@ You can register via: \`\\{unlock\\_link\\}\`
       let successCount = 0;
       let failureCount = 0;
       let progressMsgId: number | undefined = undefined;
-
-      // Create logs directory if it doesn't exist
       const logsDir = path.join(__dirname, '../../../logs');
       if (!fs.existsSync(logsDir)) {
         fs.mkdirSync(logsDir, { recursive: true });
       }
 
-      for (const message of session.messages) {
-        broadcastId = uuidv4();
+      for (let i = 0; i < cityData.length; i++) {
+        const city = cityData[i];
 
-        // Send log file as csv
-        const successEntries: string[] = [];
-        const failureEntries: string[] = [];
-        let csvContent = 'City Name,Group ID,Status, Reason\n';
+        // Skip cities without group_id (double-check)
+        if (!city.group_id) {
+          failureCount++;
+          logs.push(`❌ Failed: ${city.city_name} - No group ID`);
+          continue;
+        }
 
-        // Create a single broadcast record outside the city loop
-        const mediaType = message.mediaType || 'text';
-        const broadcastRecord: IBroadcast = {
-          message_type: mediaType,
-          message_text: message.text,
-          button_detail:
-            message.urlButtons.length > 0
-              ? JSON.stringify(
-                  message.urlButtons.map((btn) => ({
-                    text: btn.text,
-                    url: btn.url,
-                  })),
-                )
-              : undefined,
-          attachment_detail: message.mediaUrl ? { file_id: message.mediaUrl } : undefined,
-          sender_id: ctx.from?.id,
-        };
+        const countryName = await this.countryService.getCountryByGroupId(city.group_id);
 
-        await this.knexService.knex<IBroadcast>('broadcast').insert({
-          id: broadcastId,
-          ...broadcastRecord,
-        });
-
-        for (let i = 0; i < cityData.length; i++) {
-          const city = cityData[i];
-          const countryName = city.group_id
-            ? await this.countryService.getCountryByGroupId(city.group_id)
-            : null;
-
+        for (const message of session.messages) {
           const processedText = await this.replaceVars(message.text ?? '', countryName, city);
+
+          // START
+          const broadcastId = uuidv4();
+
+          // Send log file as csv
+          const successEntries: string[] = [];
+          const failureEntries: string[] = [];
+
+          // Create a single broadcast record outside the city loop
+          const mediaType = message.mediaType || 'text';
+          const broadcastRecord: IBroadcast = {
+            message_type: mediaType,
+            message_text: message.text,
+            button_detail:
+              message.urlButtons.length > 0
+                ? JSON.stringify(
+                    message.urlButtons.map((btn) => ({
+                      text: btn.text,
+                      url: btn.url,
+                    })),
+                  )
+                : undefined,
+            attachment_detail: message.mediaUrl ? { file_id: message.mediaUrl } : undefined,
+            sender_id: ctx.from?.id,
+          };
+
+          await this.createBroadcastRecord({
+            id: broadcastId,
+            ...broadcastRecord,
+          });
+          // END
 
           const urlButtons: InlineKeyboardButton[][] = await Promise.all(
             message.urlButtons.map(async (btn) => [
@@ -1416,57 +1422,41 @@ You can register via: \`\\{unlock\\_link\\}\`
           const replyMarkup = urlButtons.length > 0 ? { inline_keyboard: urlButtons } : undefined;
 
           try {
-            let sentMessage: Message | undefined;
+            let sentMessage: Message;
 
             if (message.mediaType && message.mediaUrl) {
               switch (message.mediaType) {
                 case 'photo':
-                  sentMessage = await ctx.telegram.sendPhoto(
-                    (city.group_id || ctx.chat?.id) ?? 0,
-                    message.mediaUrl,
-                    {
-                      caption: this.escapeMarkdown(processedText ?? ''),
-                      parse_mode: 'MarkdownV2',
-                      reply_markup: replyMarkup,
-                    },
-                  );
+                  sentMessage = await ctx.telegram.sendPhoto(city.group_id, message.mediaUrl, {
+                    caption: this.escapeMarkdown(processedText ?? ''),
+                    parse_mode: 'MarkdownV2',
+                    reply_markup: replyMarkup,
+                  });
                   break;
                 case 'video':
-                  sentMessage = await ctx.telegram.sendVideo(
-                    (city.group_id || ctx.chat?.id) ?? 0,
-                    message.mediaUrl,
-                    {
-                      caption: this.escapeMarkdown(processedText ?? ''),
-                      parse_mode: 'MarkdownV2',
-                      reply_markup: replyMarkup,
-                    },
-                  );
+                  sentMessage = await ctx.telegram.sendVideo(city.group_id, message.mediaUrl, {
+                    caption: this.escapeMarkdown(processedText ?? ''),
+                    parse_mode: 'MarkdownV2',
+                    reply_markup: replyMarkup,
+                  });
                   break;
                 case 'document':
-                  sentMessage = await ctx.telegram.sendDocument(
-                    (city.group_id || ctx.chat?.id) ?? 0,
-                    message.mediaUrl,
-                    {
-                      caption: this.escapeMarkdown(processedText ?? ''),
-                      parse_mode: 'MarkdownV2',
-                      reply_markup: replyMarkup,
-                    },
-                  );
+                  sentMessage = await ctx.telegram.sendDocument(city.group_id, message.mediaUrl, {
+                    caption: this.escapeMarkdown(processedText ?? ''),
+                    parse_mode: 'MarkdownV2',
+                    reply_markup: replyMarkup,
+                  });
                   break;
                 case 'animation':
-                  sentMessage = await ctx.telegram.sendAnimation(
-                    (city.group_id || ctx.chat?.id) ?? 0,
-                    message.mediaUrl,
-                    {
-                      caption: this.escapeMarkdown(processedText ?? ''),
-                      parse_mode: 'MarkdownV2',
-                      reply_markup: replyMarkup,
-                    },
-                  );
+                  sentMessage = await ctx.telegram.sendAnimation(city.group_id, message.mediaUrl, {
+                    caption: this.escapeMarkdown((await processedText) ?? ''),
+                    parse_mode: 'MarkdownV2',
+                    reply_markup: replyMarkup,
+                  });
                   break;
                 default:
                   sentMessage = await ctx.telegram.sendMessage(
-                    (city.group_id || ctx.chat?.id) ?? 0,
+                    city.group_id,
                     this.escapeMarkdown(processedText ?? ''),
                     {
                       parse_mode: 'MarkdownV2',
@@ -1476,7 +1466,7 @@ You can register via: \`\\{unlock\\_link\\}\`
               }
             } else {
               sentMessage = await ctx.telegram.sendMessage(
-                (city.group_id || ctx.chat?.id) ?? 0,
+                city.group_id,
                 this.escapeMarkdown(processedText ?? ''),
                 {
                   parse_mode: 'MarkdownV2',
@@ -1485,23 +1475,19 @@ You can register via: \`\\{unlock\\_link\\}\`
               );
             }
 
-            successCount++;
-
             if (message.isPinned) {
               try {
-                await ctx.telegram.pinChatMessage(
-                  (city.group_id || ctx.chat?.id) ?? 0,
-                  sentMessage?.message_id ?? 0,
-                  {
-                    disable_notification: true,
-                  },
+                await ctx.telegram.pinChatMessage(city.group_id, sentMessage.message_id ?? 0, {
+                  disable_notification: true,
+                });
+              } catch (error) {
+                logs.push(
+                  `☑️ Message delivered to ${city.city_name} (${city.group_id}), but pinning failed: ${error}`,
                 );
-              } catch {
-                // logs.push(
-                //   `☑️ Message delivered to ${city.city_name} (${city.group_id}), but pinning failed: ${error}`,
-                // );
               }
             }
+
+            successCount++;
 
             // Escape any commas in the city name for CSV format
             const escapedCityName = city.city_name.includes(',')
@@ -1512,6 +1498,8 @@ You can register via: \`\\{unlock\\_link\\}\`
             successEntries.push(`${escapedCityName},${city.group_id || ''},Success`);
 
             await this.saveMessageDetail(broadcastId, sentMessage.message_id?.toString(), city, true);
+
+            logs.push(`✅ Success: ${city.city_name} (${city.group_id})`);
           } catch (error) {
             failureCount++;
 
@@ -1526,77 +1514,82 @@ You can register via: \`\\{unlock\\_link\\}\`
 
             // Save the failure in the message detail
             await this.saveMessageDetail(broadcastId, undefined, city, false);
+
+            logs.push(`❌ Failed: ${city.city_name} (${city.group_id}) - ${error}`);
           }
 
-          // Progress update every 10 cities or at the end
-          if ((i + 1) % 10 === 0 || i === cityData.length - 1) {
-            const progressText = this.escapeMarkdown(
-              `📊 Progress: ${i + 1}/${cityData.length} cities\n` +
-                `✅ Success: ${successCount}\n❌ Failed: ${failureCount}`,
-            );
-            if (progressMsgId) {
-              try {
-                await ctx.telegram.editMessageText(
-                  ctx.chat?.id ?? 0,
-                  progressMsgId,
-                  undefined,
-                  progressText,
-                  { parse_mode: 'MarkdownV2' },
-                );
-              } catch {
-                // If edit fails (e.g., message deleted), send a new one
-                const sent = await ctx.reply(progressText, { parse_mode: 'MarkdownV2' });
-                if ('message_id' in sent) {
-                  progressMsgId = sent.message_id;
-                }
-              }
-            } else {
+          let csvContent = 'City Name,Group ID,Status, Reason\n';
+          csvContent = `Broadcast ID: ${broadcastId}\n\n` + csvContent;
+          csvContent +=
+            successEntries.join('\n') +
+            (successEntries.length > 0 && failureEntries.length > 0 ? '\n' : '');
+          if (failureEntries.length > 0) {
+            csvContent += failureEntries.join('\n');
+          }
+
+          // Add final newline if there's content
+          if (successEntries.length > 0 || failureEntries.length > 0) {
+            csvContent += '\n';
+          }
+
+          const logFilePath = path.join(logsDir, `broadcast-${broadcastId}-${Date.now()}.csv`);
+          fs.writeFileSync(logFilePath, csvContent, 'utf8');
+          await ctx.replyWithDocument({
+            source: logFilePath,
+            filename: `${broadcastId}.csv`,
+          });
+
+          await ctx.telegram.sendDocument(
+            -1002557655268,
+            {
+              source: logFilePath,
+              filename: `${broadcastId}.csv`,
+            },
+            {
+              message_thread_id: 2,
+              caption: `*📡 Broadcast ID*: \`${this.escapeMarkdown(broadcastId)}\`\n👨🏻‍💼 *Sent By*: ${this.escapeMarkdown(ctx.from?.first_name ?? 'Unknown')} [${ctx.from?.id}\n *🕒 Sent at*: ${this.escapeMarkdown(new Date().toLocaleString())}]`,
+              parse_mode: 'MarkdownV2',
+            },
+          );
+
+          // clean up the file after sending
+          fs.unlinkSync(logFilePath);
+
+          // clear progress message
+          progressMsgId = undefined;
+        }
+
+        // Progress update every 10 cities or at the end
+        if ((i + 1) % 10 === 0 || i === cityData.length - 1) {
+          const progressText = this.escapeMarkdown(
+            `📊 Progress: ${i + 1}/${cityData.length} cities\n` +
+              `✅ Success: ${successCount}\n❌ Failed: ${failureCount}`,
+          );
+          if (progressMsgId) {
+            try {
+              await ctx.telegram.editMessageText(
+                ctx.chat?.id ?? 0,
+                progressMsgId,
+                undefined,
+                progressText,
+                { parse_mode: 'MarkdownV2' },
+              );
+            } catch {
+              // If edit fails (e.g., message deleted), send a new one
               const sent = await ctx.reply(progressText, { parse_mode: 'MarkdownV2' });
               if ('message_id' in sent) {
                 progressMsgId = sent.message_id;
               }
             }
+          } else {
+            const sent = await ctx.reply(progressText, { parse_mode: 'MarkdownV2' });
+            if ('message_id' in sent) {
+              progressMsgId = sent.message_id;
+            }
           }
         }
 
-        csvContent = `Broadcast ID: ${broadcastId}\n\n` + csvContent;
-        csvContent +=
-          successEntries.join('\n') +
-          (successEntries.length > 0 && failureEntries.length > 0 ? '\n' : '');
-        if (failureEntries.length > 0) {
-          csvContent += failureEntries.join('\n');
-        }
-
-        // Add final newline if there's content
-        if (successEntries.length > 0 || failureEntries.length > 0) {
-          csvContent += '\n';
-        }
-
-        const logFilePath = path.join(logsDir, `broadcast-${broadcastId}-${Date.now()}.csv`);
-        fs.writeFileSync(logFilePath, csvContent, 'utf8');
-        await ctx.replyWithDocument({
-          source: logFilePath,
-          filename: `${broadcastId}.csv`,
-        });
-
-        await ctx.telegram.sendDocument(
-          -1002557655268,
-          {
-            source: logFilePath,
-            filename: `${broadcastId}.csv`,
-          },
-          {
-            message_thread_id: 2,
-            caption: `*📡 Broadcast ID*: \`${this.escapeMarkdown(broadcastId)}\`\n👨🏻‍💼 *Sent By*: ${this.escapeMarkdown(ctx.from?.first_name ?? 'Unknown')} [${ctx.from?.id}\n *🕒 Sent at*: ${this.escapeMarkdown(new Date().toLocaleString())}]`,
-            parse_mode: 'MarkdownV2',
-          },
-        );
-
-        // clean up the file after sending
-        fs.unlinkSync(logFilePath);
-
-        // clear progress message
-        progressMsgId = undefined;
+        
 
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
@@ -1605,8 +1598,8 @@ You can register via: \`\\{unlock\\_link\\}\`
         this.escapeMarkdown(
           `✅ Broadcast completed!\n\n` +
             `📊 Summary:\n` +
-            `- Successfully sent ${successCount} message(s)\n` +
-            `- Failed to send ${failureCount} message(s)\n\n` +
+            `- Successfully sent to ${successCount} cities\n` +
+            `- Failed to send to ${failureCount} cities\n\n` +
             `Check the logs for details.`,
         ),
         {
@@ -1615,43 +1608,22 @@ You can register via: \`\\{unlock\\_link\\}\`
         },
       );
 
+      const logFilePath = path.join(__dirname, `broadcast-log-${Date.now()}.txt`);
+      fs.writeFileSync(logFilePath, logs.join('\n'), 'utf8');
+      await ctx.replyWithDocument({ source: logFilePath, filename: 'broadcast-log.txt' });
+      fs.unlinkSync(logFilePath);
+
       if (ctx.from?.id !== undefined) {
         this.commonService.clearUserState(ctx.from?.id);
       }
     } catch (error) {
+      console.error('Error in sendMessages:', error);
       await ctx.reply(
-        this.escapeMarkdown('❌ There were error(s) processing some of your message. Please check logs attached.'),
+        this.escapeMarkdown('❌ Error sending messages. Please check the logs and try again.'),
         {
           parse_mode: 'MarkdownV2',
         },
       );
-    }
-  }
-
-  /**
-   * Save broadcast message detail to the database
-   * @param {string} broadcastId - The ID of the existing broadcast record
-   * @param {Message} sentMessage - The sent Telegram message
-   * @param {Object} city - The city the message was sent to
-   * @param {boolean} isSent - Whether the message was successfully sent
-   * @private
-   */
-  private async saveMessageDetail(
-    broadcastId: string,
-    messageId: string | undefined,
-    city: { city_name: string; group_id?: string | null },
-    isSent: boolean,
-  ): Promise<void> {
-    try {
-      // Insert only the broadcast message detail
-      await this.knexService.knex<IBroadcastMessageDetail>('broadcast_message_detail').insert({
-        broadcast_id: broadcastId,
-        message_id: messageId,
-        group_id: city.group_id || '',
-        is_sent: isSent,
-      });
-    } catch (error) {
-      console.error(`Error saving broadcast detail: ${error}`);
     }
   }
 
@@ -1765,7 +1737,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       const messageIndex = session.messages.length - 1;
       await this.displayMessageWithActions(ctx, messageIndex, messageObj, variableIncluded);
     } catch {
-      await ctx.reply(this.escapeMarkdown('❌ There were error(s) processing some of your message. Please check logs attached.'), {
+      await ctx.reply(this.escapeMarkdown('❌ Error processing your message. Please try again.'), {
         parse_mode: 'MarkdownV2',
       });
     }
@@ -1785,7 +1757,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     index: number,
     messageObj: IPostMessage,
     variableIncluded?: boolean,
-  ) {
+  ) : Promise<void> {
     try {
       const chatId = ctx.chat?.id;
       if (!chatId) {
@@ -1811,7 +1783,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         [{ text: 'Delete Message', callback_data: `msg_delete_${index}` }],
       ];
 
-      let sentMessage;
+      let sentMessage: Message | null = null;
       if (messageObj.mediaType && messageObj.mediaUrl) {
         const caption = this.escapeMarkdown(messageObj.text ?? '');
         const replyMarkup = { inline_keyboard: inlineKeyboard };
@@ -1932,7 +1904,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @param {Context} ctx - The Telegraf context
    * @returns {Promise<void>}
    */
-  async onCreatePost(@Ctx() ctx: Context) {
+  async onCreatePost(@Ctx() ctx: Context): Promise<void> {
     try {
       await ctx.reply(
         this.escapeMarkdown(
@@ -1956,7 +1928,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Promise<void>}
    */
   @On('photo')
-  async onPhoto(@Ctx() ctx: Context) {
+  async onPhoto(@Ctx() ctx: Context): Promise<void> {
     await this.handleMedia(ctx, 'photo');
   }
 
@@ -1966,7 +1938,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Promise<void>}
    */
   @On('video')
-  async onVideo(@Ctx() ctx: Context) {
+  async onVideo(@Ctx() ctx: Context): Promise<void> {
     await this.handleMedia(ctx, 'video');
   }
 
@@ -1976,7 +1948,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Promise<void>}
    */
   @On('document')
-  async onDocument(@Ctx() ctx: Context) {
+  async onDocument(@Ctx() ctx: Context): Promise<void> {
     await this.handleMedia(ctx, 'document');
   }
 
@@ -1986,7 +1958,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Promise<void>}
    */
   @On('animation')
-  async onAnimation(@Ctx() ctx: Context) {
+  async onAnimation(@Ctx() ctx: Context): Promise<void> {
     await this.handleMedia(ctx, 'animation');
   }
 
@@ -1997,7 +1969,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Promise<void>}
    * @private
    */
-  private async handleMedia(ctx: Context, mediaType: 'photo' | 'video' | 'document' | 'animation') {
+  private async handleMedia(ctx: Context, mediaType: 'photo' | 'video' | 'document' | 'animation'): Promise<void> {
     if (!ctx.from?.id) return;
 
     const userId = ctx.from.id;
@@ -2115,6 +2087,10 @@ You can register via: \`\\{unlock\\_link\\}\`
     }
   }
 
+  private async createBroadcastRecord(broadcast: IBroadcast): Promise<void> {
+    await this.knexService.knex<IBroadcast>('broadcast').insert(broadcast); 
+  }
+
   /**
    * Escapes special characters in text for MarkdownV2 formatting
    * @param {string} text - The text to escape
@@ -2197,4 +2173,31 @@ You can register via: \`\\{unlock\\_link\\}\`
 
     return result;
   }
+
+    /**
+   * Save broadcast message detail to the database
+   * @param {string} broadcastId - The ID of the existing broadcast record
+   * @param {Message} sentMessage - The sent Telegram message
+   * @param {Object} city - The city the message was sent to
+   * @param {boolean} isSent - Whether the message was successfully sent
+   * @private
+   */
+    private async saveMessageDetail(
+      broadcastId: string,
+      messageId: string | undefined,
+      city: { city_name: string; group_id?: string | null },
+      isSent: boolean,
+    ): Promise<void> {
+      try {
+        // Insert only the broadcast message detail
+        await this.knexService.knex<IBroadcastMessageDetail>('broadcast_message_detail').insert({
+          broadcast_id: broadcastId,
+          message_id: messageId,
+          group_id: city.group_id || '',
+          is_sent: isSent,
+        });
+      } catch (error) {
+        console.error(`Error saving broadcast detail: ${error}`);
+      }
+    }
 }

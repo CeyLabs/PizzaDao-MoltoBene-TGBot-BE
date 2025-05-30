@@ -12,6 +12,7 @@ import { BroadcastService } from './broadcast.service';
 import { AccessModule } from '../access/access.module';
 import { CommonModule } from '../common/common.module';
 import { EventDetailModule } from '../event-detail/event-detail.module';
+import { RegionModule } from '../region/region.module';
 
 /**
  * Module for managing message broadcasting functionality
@@ -23,6 +24,7 @@ import { EventDetailModule } from '../event-detail/event-detail.module';
   imports: [
     CityModule,
     CountryModule,
+    RegionModule,
     UserModule,
     AccessModule,
     EventDetailModule,

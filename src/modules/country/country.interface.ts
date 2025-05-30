@@ -11,13 +11,13 @@
  */
 export interface ICountry {
   /** Unique identifier for the country */
-  id: number;
+  id: string;
   /** Name of the country */
   name: string;
   /** ID of the region the country belongs to */
-  region_id: number;
+  region_id: string;
   /** Timestamp when the country record was created */
-  created_at: Date;
+  created_at?: Date;
   /** Timestamp when the country record was last updated */
-  updated_at: Date;
+  updated_at?: Date;
 }
