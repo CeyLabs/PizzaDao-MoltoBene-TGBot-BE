@@ -63,7 +63,7 @@ export class BroadcastService {
    * @returns {Promise<void>}
    */
   @Command('broadcast')
-  async onBroadcast(@Ctx() ctx: Context) {
+  async onBroadcast(@Ctx() ctx: Context): Promise<void> {
     if (!ctx.from?.id) {
       await ctx.reply(this.escapeMarkdown('❌ User ID is undefined.'), {
         parse_mode: 'MarkdownV2',
@@ -382,7 +382,7 @@ export class BroadcastService {
    * @returns {Promise<void>}
    * @private
    */
-  private async showBroadcastMenu(ctx: Context, role: string) {
+  private async showBroadcastMenu(ctx: Context, role: string): Promise<void> {
     try {
       const welcomeMessage = `Hello there *${role.charAt(0).toUpperCase() + role.slice(1)}* 👋
 Here you can create rich posts, set Variables, and invite new Admins\\.
@@ -585,7 +585,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Promise<void>}
    * @private
    */
-  private async handleRegionSelection(ctx: Context, regionId: string) {
+  private async handleRegionSelection(ctx: Context, regionId: string): Promise<void> {
     if (!ctx.from?.id) {
       await ctx.answerCbQuery('User ID not found');
       return;
@@ -617,7 +617,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Promise<void>}
    * @private
    */
-  private async handleCreatePost(ctx: Context) {
+  private async handleCreatePost(ctx: Context): Promise<void> {
     const userId = String(ctx.from?.id!)
     const accessInfo = await this.accessService.getUserAccess(userId);
     if (!accessInfo) return;
@@ -724,7 +724,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Promise<void>}
    * @private
    */
-  private async handleBroadcastSelection(ctx: Context, callbackData: string) {
+  private async handleBroadcastSelection(ctx: Context, callbackData: string): Promise<void> {
     try {
       if (!ctx.from?.id) {
         await ctx.answerCbQuery(this.escapeMarkdown('❌ User ID not found'));
@@ -894,7 +894,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Object} Keyboard markup configuration
    * @private
    */
-  private getKeyboardMarkup() {
+  private getKeyboardMarkup(): any /* TODO: fix types */ {
     return {
       keyboard: [
         [{ text: 'Delete All' }, { text: 'Preview' }],
@@ -935,7 +935,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Promise<void>}
    * @private
    */
-  private async handleMessageAction(ctx: Context, callbackData: string) {
+  private async handleMessageAction(ctx: Context, callbackData: string): Promise<void> {
     if (!ctx.from?.id) {
       await ctx.answerCbQuery(this.escapeMarkdown('❌ User ID not found'));
       return;
@@ -1051,7 +1051,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Object} Keyboard markup configuration with cancel button
    * @private
    */
-  private getCancelKeyboard() {
+  private getCancelKeyboard(): any /* TODO: fix types */ {
     return {
       keyboard: [[{ text: 'Cancel' }]],
       resize_keyboard: true,
@@ -1066,7 +1066,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Promise<void>}
    * @private
    */
-  private async handlePostActions(ctx: Context, action: string) {
+  private async handlePostActions(ctx: Context, action: string): Promise<void> {
     if (!ctx.from?.id) return;
 
     const userId = ctx.from.id;
@@ -1123,7 +1123,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Promise<void>}
    * @private
    */
-  private async previewMessages(ctx: Context, session: IBroadcastSession) {
+  private async previewMessages(ctx: Context, session: IBroadcastSession): Promise<void> {
     try {
       const previewCity = {
         city_name: 'Berlin',
@@ -1256,7 +1256,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Promise<void>}
    * @private
    */
-  private async sendMessages(ctx: Context, session: IBroadcastSession) {
+  private async sendMessages(ctx: Context, session: IBroadcastSession): Promise<void> {
     const userId = String(ctx.from?.id!)
     const logs: string[] = [];
 
@@ -1377,7 +1377,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         const countryName = await this.countryService.getCountryByGroupId(city.group_id);
 
         for (const message of session.messages) {
-          const processedText = this.replaceVars(message.text ?? '', countryName, city);
+          const processedText = await this.replaceVars(message.text ?? '', countryName, city);
 
           // START
           const broadcastId = uuidv4();
@@ -1428,21 +1428,21 @@ You can register via: \`\\{unlock\\_link\\}\`
               switch (message.mediaType) {
                 case 'photo':
                   sentMessage = await ctx.telegram.sendPhoto(city.group_id, message.mediaUrl, {
-                    caption: this.escapeMarkdown((await processedText) ?? ''),
+                    caption: this.escapeMarkdown(processedText ?? ''),
                     parse_mode: 'MarkdownV2',
                     reply_markup: replyMarkup,
                   });
                   break;
                 case 'video':
                   sentMessage = await ctx.telegram.sendVideo(city.group_id, message.mediaUrl, {
-                    caption: this.escapeMarkdown((await processedText) ?? ''),
+                    caption: this.escapeMarkdown(processedText ?? ''),
                     parse_mode: 'MarkdownV2',
                     reply_markup: replyMarkup,
                   });
                   break;
                 case 'document':
                   sentMessage = await ctx.telegram.sendDocument(city.group_id, message.mediaUrl, {
-                    caption: this.escapeMarkdown((await processedText) ?? ''),
+                    caption: this.escapeMarkdown(processedText ?? ''),
                     parse_mode: 'MarkdownV2',
                     reply_markup: replyMarkup,
                   });
@@ -1457,7 +1457,7 @@ You can register via: \`\\{unlock\\_link\\}\`
                 default:
                   sentMessage = await ctx.telegram.sendMessage(
                     city.group_id,
-                    this.escapeMarkdown((await processedText) ?? ''),
+                    this.escapeMarkdown(processedText ?? ''),
                     {
                       parse_mode: 'MarkdownV2',
                       reply_markup: replyMarkup,
@@ -1467,7 +1467,7 @@ You can register via: \`\\{unlock\\_link\\}\`
             } else {
               sentMessage = await ctx.telegram.sendMessage(
                 city.group_id,
-                this.escapeMarkdown((await processedText) ?? ''),
+                this.escapeMarkdown(processedText ?? ''),
                 {
                   parse_mode: 'MarkdownV2',
                   reply_markup: replyMarkup,
@@ -1632,7 +1632,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @param {Context} ctx - The Telegraf context
    * @returns {Promise<void>}
    */
-  async handleBroadcatsMessages(ctx: Context) {
+  async handleBroadcatsMessages(ctx: Context): Promise<void> {
     if (!ctx.from?.id || !ctx.message || !('text' in ctx.message)) return;
 
     const userId = ctx.from.id;
@@ -1757,7 +1757,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     index: number,
     messageObj: IPostMessage,
     variableIncluded?: boolean,
-  ) {
+  ) : Promise<void> {
     try {
       const chatId = ctx.chat?.id;
       if (!chatId) {
@@ -1783,7 +1783,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         [{ text: 'Delete Message', callback_data: `msg_delete_${index}` }],
       ];
 
-      let sentMessage;
+      let sentMessage: Message | null = null;
       if (messageObj.mediaType && messageObj.mediaUrl) {
         const caption = this.escapeMarkdown(messageObj.text ?? '');
         const replyMarkup = { inline_keyboard: inlineKeyboard };
@@ -1904,7 +1904,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @param {Context} ctx - The Telegraf context
    * @returns {Promise<void>}
    */
-  async onCreatePost(@Ctx() ctx: Context) {
+  async onCreatePost(@Ctx() ctx: Context): Promise<void> {
     try {
       await ctx.reply(
         this.escapeMarkdown(
@@ -1928,7 +1928,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Promise<void>}
    */
   @On('photo')
-  async onPhoto(@Ctx() ctx: Context) {
+  async onPhoto(@Ctx() ctx: Context): Promise<void> {
     await this.handleMedia(ctx, 'photo');
   }
 
@@ -1938,7 +1938,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Promise<void>}
    */
   @On('video')
-  async onVideo(@Ctx() ctx: Context) {
+  async onVideo(@Ctx() ctx: Context): Promise<void> {
     await this.handleMedia(ctx, 'video');
   }
 
@@ -1948,7 +1948,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Promise<void>}
    */
   @On('document')
-  async onDocument(@Ctx() ctx: Context) {
+  async onDocument(@Ctx() ctx: Context): Promise<void> {
     await this.handleMedia(ctx, 'document');
   }
 
@@ -1958,7 +1958,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Promise<void>}
    */
   @On('animation')
-  async onAnimation(@Ctx() ctx: Context) {
+  async onAnimation(@Ctx() ctx: Context): Promise<void> {
     await this.handleMedia(ctx, 'animation');
   }
 
@@ -1969,7 +1969,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Promise<void>}
    * @private
    */
-  private async handleMedia(ctx: Context, mediaType: 'photo' | 'video' | 'document' | 'animation') {
+  private async handleMedia(ctx: Context, mediaType: 'photo' | 'video' | 'document' | 'animation'): Promise<void> {
     if (!ctx.from?.id) return;
 
     const userId = ctx.from.id;
@@ -2087,7 +2087,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     }
   }
 
-  private async createBroadcastRecord(broadcast: IBroadcast) {
+  private async createBroadcastRecord(broadcast: IBroadcast): Promise<void> {
     await this.knexService.knex<IBroadcast>('broadcast').insert(broadcast); 
   }
 
