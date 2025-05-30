@@ -1272,7 +1272,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    */
   private async sendMessages(ctx: Context, session: IBroadcastSession): Promise<void> {
     const userId = String(ctx.from?.id!);
-    const logs: string[] = [];
+    let broadcastId: string;
 
     try {
       let cityData: {
@@ -1373,56 +1373,57 @@ You can register via: \`\\{unlock\\_link\\}\`
       let successCount = 0;
       let failureCount = 0;
       let progressMsgId: number | undefined = undefined;
+
+      // Create logs directory if it doesn't exist
       const logsDir = path.join(__dirname, '../../../logs');
       if (!fs.existsSync(logsDir)) {
         fs.mkdirSync(logsDir, { recursive: true });
       }
 
-      for (let i = 0; i < cityData.length; i++) {
-        const city = cityData[i];
+      for (const message of session.messages) {
+        broadcastId = uuidv4();
 
-        // Skip cities without group_id (double-check)
-        if (!city.group_id) {
-          failureCount++;
-          logs.push(`❌ Failed: ${city.city_name} - No group ID`);
-          continue;
-        }
+        // Send log file as csv
+        const successEntries: string[] = [];
+        const failureEntries: string[] = [];
+        let csvContent = 'City Name,Group ID,Status, Reason\n';
 
-        const countryName = await this.countryService.getCountryByGroupId(city.group_id);
+        // Create a single broadcast record outside the city loop
+        const mediaType = message.mediaType || 'text';
+        const broadcastRecord: IBroadcast = {
+          message_type: mediaType,
+          message_text: message.text,
+          button_detail:
+            message.urlButtons.length > 0
+              ? JSON.stringify(
+                  message.urlButtons.map((btn) => ({
+                    text: btn.text,
+                    url: btn.url,
+                  })),
+                )
+              : undefined,
+          attachment_detail: message.mediaUrl ? { file_id: message.mediaUrl } : undefined,
+          sender_id: ctx.from?.id,
+        };
 
-        for (const message of session.messages) {
+        await this.createBroadcastRecord({
+          id: broadcastId,
+          ...broadcastRecord,
+        });
+
+        for (let i = 0; i < cityData.length; i++) {
+          const city = cityData[i];
+
+          // Skip cities without group_id (double-check)
+          if (!city.group_id) {
+            failureCount++;
+            console.error(`❌ Failed: ${city.city_name} - No group ID`);
+            continue;
+          }
+
+          const countryName = await this.countryService.getCountryByGroupId(city.group_id);
+
           const processedText = await this.replaceVars(message.text ?? '', countryName, city);
-
-          // START
-          const broadcastId = uuidv4();
-
-          // Send log file as csv
-          const successEntries: string[] = [];
-          const failureEntries: string[] = [];
-
-          // Create a single broadcast record outside the city loop
-          const mediaType = message.mediaType || 'text';
-          const broadcastRecord: IBroadcast = {
-            message_type: mediaType,
-            message_text: message.text,
-            button_detail:
-              message.urlButtons.length > 0
-                ? JSON.stringify(
-                    message.urlButtons.map((btn) => ({
-                      text: btn.text,
-                      url: btn.url,
-                    })),
-                  )
-                : undefined,
-            attachment_detail: message.mediaUrl ? { file_id: message.mediaUrl } : undefined,
-            sender_id: ctx.from?.id,
-          };
-
-          await this.createBroadcastRecord({
-            id: broadcastId,
-            ...broadcastRecord,
-          });
-          // END
 
           const urlButtons: InlineKeyboardButton[][] = await Promise.all(
             message.urlButtons.map(async (btn) => [
@@ -1463,7 +1464,7 @@ You can register via: \`\\{unlock\\_link\\}\`
                   break;
                 case 'animation':
                   sentMessage = await ctx.telegram.sendAnimation(city.group_id, message.mediaUrl, {
-                    caption: this.escapeMarkdown((await processedText) ?? ''),
+                    caption: this.escapeMarkdown(processedText ?? ''),
                     parse_mode: 'MarkdownV2',
                     reply_markup: replyMarkup,
                   });
@@ -1491,11 +1492,11 @@ You can register via: \`\\{unlock\\_link\\}\`
 
             if (message.isPinned) {
               try {
-                await ctx.telegram.pinChatMessage(city.group_id, sentMessage.message_id ?? 0, {
+                await ctx.telegram.pinChatMessage(city.group_id, sentMessage?.message_id ?? 0, {
                   disable_notification: true,
                 });
               } catch (error) {
-                logs.push(
+                console.error(
                   `☑️ Message delivered to ${city.city_name} (${city.group_id}), but pinning failed: ${error}`,
                 );
               }
@@ -1517,8 +1518,6 @@ You can register via: \`\\{unlock\\_link\\}\`
               city,
               true,
             );
-
-            logs.push(`✅ Success: ${city.city_name} (${city.group_id})`);
           } catch (error) {
             failureCount++;
 
@@ -1533,84 +1532,81 @@ You can register via: \`\\{unlock\\_link\\}\`
 
             // Save the failure in the message detail
             await this.saveMessageDetail(broadcastId, undefined, city, false);
-
-            logs.push(`❌ Failed: ${city.city_name} (${city.group_id}) - ${error}`);
           }
 
-          let csvContent = 'City Name,Group ID,Status, Reason\n';
-          csvContent = `Broadcast ID: ${broadcastId}\n\n` + csvContent;
-          csvContent +=
-            successEntries.join('\n') +
-            (successEntries.length > 0 && failureEntries.length > 0 ? '\n' : '');
-          if (failureEntries.length > 0) {
-            csvContent += failureEntries.join('\n');
-          }
-
-          // Add final newline if there's content
-          if (successEntries.length > 0 || failureEntries.length > 0) {
-            csvContent += '\n';
-          }
-
-          const logFilePath = path.join(logsDir, `broadcast-${broadcastId}-${Date.now()}.csv`);
-          fs.writeFileSync(logFilePath, csvContent, 'utf8');
-          await ctx.replyWithDocument({
-            source: logFilePath,
-            filename: `${broadcastId}.csv`,
-          });
-
-          try {
-            await ctx.telegram.sendDocument(
-              process.env.LOG_GROUP_ID ?? '',
-              {
-                source: logFilePath,
-                filename: `${broadcastId}.csv`,
-              },
-              {
-                message_thread_id: Number(process.env.LOG_THREAD_ID) || undefined,
-                caption: `*📡 Broadcast ID*: \`${this.escapeMarkdown(broadcastId)}\`\n👨🏻‍💼 *Sent By*: ${this.escapeMarkdown(ctx.from?.first_name ?? 'Unknown')} [${ctx.from?.id}\n *🕒 Sent at*: ${this.escapeMarkdown(new Date().toLocaleString())}]`,
-                parse_mode: 'MarkdownV2',
-              },
+          // Progress update every 10 cities or at the end
+          if ((i + 1) % 10 === 0 || i === cityData.length - 1) {
+            const progressText = this.escapeMarkdown(
+              `📊 Progress: ${i + 1}/${cityData.length} cities\n` +
+                `✅ Success: ${successCount}\n❌ Failed: ${failureCount}`,
             );
-          } catch (error) {
-            console.error('Error sending log file to group:', error);
-          }
-
-          // clean up the file after sending
-          fs.unlinkSync(logFilePath);
-
-          // clear progress message
-          progressMsgId = undefined;
-        }
-
-        // Progress update every 10 cities or at the end
-        if ((i + 1) % 10 === 0 || i === cityData.length - 1) {
-          const progressText = this.escapeMarkdown(
-            `📊 Progress: ${i + 1}/${cityData.length} cities\n` +
-              `✅ Success: ${successCount}\n❌ Failed: ${failureCount}`,
-          );
-          if (progressMsgId) {
-            try {
-              await ctx.telegram.editMessageText(
-                ctx.chat?.id ?? 0,
-                progressMsgId,
-                undefined,
-                progressText,
-                { parse_mode: 'MarkdownV2' },
-              );
-            } catch {
-              // If edit fails (e.g., message deleted), send a new one
+            if (progressMsgId) {
+              try {
+                await ctx.telegram.editMessageText(
+                  ctx.chat?.id ?? 0,
+                  progressMsgId,
+                  undefined,
+                  progressText,
+                  { parse_mode: 'MarkdownV2' },
+                );
+              } catch {
+                // If edit fails (e.g., message deleted), send a new one
+                const sent = await ctx.reply(progressText, { parse_mode: 'MarkdownV2' });
+                if ('message_id' in sent) {
+                  progressMsgId = sent.message_id;
+                }
+              }
+            } else {
               const sent = await ctx.reply(progressText, { parse_mode: 'MarkdownV2' });
               if ('message_id' in sent) {
                 progressMsgId = sent.message_id;
               }
             }
-          } else {
-            const sent = await ctx.reply(progressText, { parse_mode: 'MarkdownV2' });
-            if ('message_id' in sent) {
-              progressMsgId = sent.message_id;
-            }
           }
         }
+
+        csvContent = `Broadcast ID: ${broadcastId}\n\n` + csvContent;
+        csvContent +=
+          successEntries.join('\n') +
+          (successEntries.length > 0 && failureEntries.length > 0 ? '\n' : '');
+        if (failureEntries.length > 0) {
+          csvContent += failureEntries.join('\n');
+        }
+
+        // Add final newline if there's content
+        if (successEntries.length > 0 || failureEntries.length > 0) {
+          csvContent += '\n';
+        }
+
+        const logFilePath = path.join(logsDir, `broadcast-${broadcastId}-${Date.now()}.csv`);
+        fs.writeFileSync(logFilePath, csvContent, 'utf8');
+        await ctx.replyWithDocument({
+          source: logFilePath,
+          filename: `${broadcastId}.csv`,
+        });
+
+        try {
+          await ctx.telegram.sendDocument(
+            process.env.LOG_GROUP_ID ?? '',
+            {
+              source: logFilePath,
+              filename: `${broadcastId}.csv`,
+            },
+            {
+              message_thread_id: Number(process.env.LOG_THREAD_ID) || undefined,
+              caption: `*📡 Broadcast ID*: \`${this.escapeMarkdown(broadcastId)}\`\n👨🏻‍💼 *Sent By*: ${this.escapeMarkdown(ctx.from?.first_name ?? 'Unknown')} [${ctx.from?.id}\n *🕒 Sent at*: ${this.escapeMarkdown(new Date().toLocaleString())}]`,
+              parse_mode: 'MarkdownV2',
+            },
+          );
+        } catch (error) {
+          console.error('Error sending log file to group:', error);
+        }
+
+        // clean up the file after sending
+        fs.unlinkSync(logFilePath);
+
+        // clear progress message
+        progressMsgId = undefined;
 
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
@@ -1619,8 +1615,8 @@ You can register via: \`\\{unlock\\_link\\}\`
         this.escapeMarkdown(
           `✅ Broadcast completed!\n\n` +
             `📊 Summary:\n` +
-            `- Successfully sent to ${successCount} cities\n` +
-            `- Failed to send to ${failureCount} cities\n\n` +
+            `- Successfully sent ${successCount} message(s)\n` +
+            `- Failed to send ${failureCount} message(s)\n\n` +
             `Check the logs for details.`,
         ),
         {
@@ -1628,11 +1624,6 @@ You can register via: \`\\{unlock\\_link\\}\`
           reply_markup: { remove_keyboard: true },
         },
       );
-
-      const logFilePath = path.join(__dirname, `broadcast-log-${Date.now()}.txt`);
-      fs.writeFileSync(logFilePath, logs.join('\n'), 'utf8');
-      await ctx.replyWithDocument({ source: logFilePath, filename: 'broadcast-log.txt' });
-      fs.unlinkSync(logFilePath);
 
       if (ctx.from?.id !== undefined) {
         this.commonService.clearUserState(ctx.from?.id);
