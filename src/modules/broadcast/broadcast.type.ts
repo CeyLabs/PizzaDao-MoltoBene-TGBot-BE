@@ -150,3 +150,45 @@ export interface ISelectedCountry {
   /** An optional list of cities within the country.*/
   cities?: ICity[];
 }
+
+/**
+ * Interface for Underboss access data
+ * @interface UnderbossAccess
+ */
+export interface UnderbossAccess {
+  /** Region ID that the underboss has access to */
+  region_id: number;
+  /** Region name */
+  region_name?: string;
+  /** User role */
+  role: string;
+}
+
+/**
+ * Interface for Caporegime access data
+ * @interface CaporegimeAccess
+ */
+export interface CaporegimeAccess {
+  /** Country ID that the caporegime has access to */
+  country_id: string;
+  /** Country name */
+  country_name?: string;
+  /** User role */
+  role: string;
+}
+
+/**
+ * Interface for Host access data
+ * @interface HostAccess
+ */
+export interface HostAccess {
+  /** Array of cities that the host has access to */
+  city_data: Array<{
+    city_id: string;
+    city_name: string;
+    group_id?: string | null;
+    telegram_link?: string | null;
+  }>;
+  /** User role */
+  role: string;
+}
