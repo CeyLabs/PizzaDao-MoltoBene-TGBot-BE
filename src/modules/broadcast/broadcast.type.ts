@@ -206,4 +206,4 @@ export interface IBroadcastMessageDetail {
   is_sent: boolean;
   /** Timestamp when the message was sent */
   sent_at?: Date;
-} 
+}

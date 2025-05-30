@@ -91,7 +91,7 @@ export class BroadcastService {
     const itemsPerPage = 10;
 
     if (!userId) {
-      ctx.answerInlineQuery([], { cache_time: 1 })
+      ctx.answerInlineQuery([], { cache_time: 1 });
       return;
     }
 
@@ -115,14 +115,16 @@ export class BroadcastService {
 
         if (accessInfo.role === 'admin') {
           // Admin can access all countries
-          allCountries = accessInfo.country_data.map(access => ({ 
+          allCountries = accessInfo.country_data.map((access) => ({
             id: access.country_id,
             name: access.country_name,
             region_id: access.region_id,
           }));
         } else if (accessInfo.role === 'underboss') {
           // Underboss can access countries in their regions
-          const countryPromises = accessInfo.region_data.map((access) => this.countryService.getCountriesByRegion(access.region_id));
+          const countryPromises = accessInfo.region_data.map((access) =>
+            this.countryService.getCountriesByRegion(access.region_id),
+          );
           const countriesArrays = await Promise.all(countryPromises);
           allCountries = countriesArrays.flat();
           // Remove duplicates
@@ -240,7 +242,7 @@ export class BroadcastService {
       // Fetch cities based on user access and role
       const accessInfo = await this.accessService.getUserAccess(String(userId));
       if (!accessInfo) {
-        ctx.answerInlineQuery([], { cache_time: 1 })
+        ctx.answerInlineQuery([], { cache_time: 1 });
         return;
       }
 
@@ -249,7 +251,9 @@ export class BroadcastService {
         allCities = await this.cityService.getAllCities();
       } else if (accessInfo.role === 'underboss') {
         // Underboss can only access cities in their regions
-        const cityPromises = accessInfo.region_data.map((access) => this.cityService.getCitiesByRegionId(access.region_id));
+        const cityPromises = accessInfo.region_data.map((access) =>
+          this.cityService.getCitiesByRegionId(access.region_id),
+        );
         const citiesArrays = await Promise.all(cityPromises);
         const regionCities = citiesArrays.flat();
 
@@ -263,7 +267,9 @@ export class BroadcastService {
         })) as ICity[];
       } else if (accessInfo.role === 'caporegime') {
         // Caporegime can access cities in their countries
-        const cityPromises = accessInfo.country_data.map((access) => this.cityService.getCitiesByCountry(access.country_id));
+        const cityPromises = accessInfo.country_data.map((access) =>
+          this.cityService.getCitiesByCountry(access.country_id),
+        );
         const citiesArrays = await Promise.all(cityPromises);
         allCities = citiesArrays.flat();
       } else if (accessInfo.role === 'host') {
@@ -614,7 +620,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @private
    */
   private async handleCreatePost(ctx: Context) {
-    const userId = String(ctx.from?.id!)
+    const userId = String(ctx.from?.id!);
     const accessInfo = await this.accessService.getUserAccess(userId);
     if (!accessInfo) return;
 
@@ -640,7 +646,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         break;
 
       case 'underboss': {
-        const regionNames = accessInfo.region_data.map(region => region.region_name).join(', ');
+        const regionNames = accessInfo.region_data.map((region) => region.region_name).join(', ');
         message = `You're assigned as *Underboss* to all the *${this.escapeMarkdown(regionNames)}* Pizza DAO chat\\(s\\)\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
         inline_keyboard = [
           [
@@ -658,7 +664,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       }
 
       case 'host': {
-        const citynames = accessInfo.city_data.map(region => region.city_name).join(', ');
+        const citynames = accessInfo.city_data.map((region) => region.city_name).join(', ');
 
         this.commonService.setUserState(Number(ctx.from?.id), {
           flow: 'broadcast',
@@ -673,7 +679,9 @@ You can register via: \`\\{unlock\\_link\\}\`
       }
 
       case 'caporegime': {
-        const countryNames = accessInfo.country_data.map(region => region.country_name).join(', ');
+        const countryNames = accessInfo.country_data
+          .map((region) => region.country_name)
+          .join(', ');
         message = `You're assigned as *Caporegime* to *${this.escapeMarkdown(countryNames)}* Pizza DAO chat\\(s\\)\\. Select a Specific Group\\(s\\) to send the Broadcast Message\\.`;
         inline_keyboard = [
           [
@@ -1253,7 +1261,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @private
    */
   private async sendMessages(ctx: Context, session: IBroadcastSession) {
-    const userId = String(ctx.from?.id!)
+    const userId = String(ctx.from?.id!);
     const logs: string[] = [];
 
     try {
@@ -1302,10 +1310,10 @@ You can register via: \`\\{unlock\\_link\\}\`
       } else if (session.targetType === 'all') {
         const accessInfo = await this.accessService.getUserAccess(userId);
         if (!accessInfo) return;
-          cityData = accessInfo.city_data.map((city) => ({
-            city_name: city.city_name,
-            group_id: city.group_id,
-            telegram_link: city.telegram_link,
+        cityData = accessInfo.city_data.map((city) => ({
+          city_name: city.city_name,
+          group_id: city.group_id,
+          telegram_link: city.telegram_link,
         }));
       } else if (session.selectedCity) {
         if (!Array.isArray(session.selectedCity) || session.selectedCity.length === 0) {

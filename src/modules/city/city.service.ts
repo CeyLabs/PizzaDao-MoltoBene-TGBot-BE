@@ -65,9 +65,9 @@ export class CityService {
     return this.knexService
       .knex('city')
       .join('country', 'city.country_id', 'country.id')
-      .where('country.region_id', regionId)
+      .where('country.region_id', regionId);
   }
-  
+
   /**
    * Finds a city by its ID
    * @param {string} cityId - The ID of the city to find

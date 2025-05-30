@@ -31,5 +31,4 @@ export class RegionService {
   async getRegionById(regionId: string): Promise<{ id: string; name: string } | undefined> {
     return this.knexService.knex('region').where('id', regionId).first();
   }
-
 }
