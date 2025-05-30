@@ -6,9 +6,6 @@
 import { Injectable } from '@nestjs/common';
 import { KnexService } from '../knex/knex.service';
 import { ICityAccess, ICountryAccess, IRegionAccess } from './access.interface';
-import { IRegion } from '../region/region.interface';
-import { ICountry } from '../country/country.interface';
-import { ICity } from '../city/city.interface';
 import { RegionService } from '../region/region.service';
 import { CountryService } from '../country/country.service';
 import { CityService } from '../city/city.service';
