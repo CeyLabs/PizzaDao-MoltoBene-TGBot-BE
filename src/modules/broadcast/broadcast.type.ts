@@ -169,7 +169,6 @@ export interface ISelectedCountry {
 }
 
 /**
-<<<<<<< HEAD
  * Interface for Underboss access data
  * @interface UnderbossAccess
  */

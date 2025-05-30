@@ -1656,6 +1656,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         this.escapeMarkdown(
           '❌ There were error(s) processing some of your message. Please check logs attached.',
         ),
+
         {
           parse_mode: 'MarkdownV2',
         },
