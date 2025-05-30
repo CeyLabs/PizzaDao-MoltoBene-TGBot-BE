@@ -17,6 +17,7 @@ import {
   InputTextMessageContent,
   KeyboardButton,
   Message,
+  ReplyKeyboardMarkup,
 } from 'telegraf/typings/core/types/typegram';
 
 import { CountryService } from '../country/country.service';
@@ -25,7 +26,6 @@ import { CommonService } from '../common/common.service';
 import { EventDetailService } from '../event-detail/event-detail.service';
 
 import {
-  IUserAccessInfo,
   IBroadcastSession,
   IPostMessage,
   IBroadcast,
@@ -908,7 +908,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Object} Keyboard markup configuration
    * @private
    */
-  private getKeyboardMarkup(): any /* TODO: fix types */ {
+  private getKeyboardMarkup(): ReplyKeyboardMarkup {
     return {
       keyboard: [
         [{ text: 'Delete All' }, { text: 'Preview' }],
@@ -1065,7 +1065,7 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Object} Keyboard markup configuration with cancel button
    * @private
    */
-  private getCancelKeyboard(): any /* TODO: fix types */ {
+  private getCancelKeyboard(): ReplyKeyboardMarkup {
     return {
       keyboard: [[{ text: 'Cancel' }]],
       resize_keyboard: true,
