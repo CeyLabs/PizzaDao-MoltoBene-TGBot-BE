@@ -101,7 +101,7 @@ export class BroadcastService {
     const itemsPerPage = 10;
 
     if (!userId) {
-      ctx.answerInlineQuery([], { cache_time: 1 });
+      await ctx.answerInlineQuery([], { cache_time: 1 });
       return;
     }
 
