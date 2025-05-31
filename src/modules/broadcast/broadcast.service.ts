@@ -607,9 +607,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     const userId = ctx.from.id;
     const region = await this.regionService.getRegionById(regionId);
     const regionName = region ? region.name : 'Unknown Region';
-    const message = this.escapeMarkdown(
-      `You have selected region: ${regionName}. Now, send me the messages to broadcast to all cities in this region.`,
-    );
+
     this.commonService.setUserState(userId, {
       flow: 'broadcast',
       step: 'creating_post',
@@ -617,10 +615,20 @@ You can register via: \`\\{unlock\\_link\\}\`
       targetType: 'region',
       targetId: regionId,
     });
-    await ctx.reply(message, {
-      parse_mode: 'MarkdownV2',
-      reply_markup: this.getKeyboardMarkup(),
-    });
+
+    await ctx.reply(
+      `📢 You're broadcasting to all cities in *${regionName} region*\\.\n\n` +
+        `Send me one or multiple messages you want to include in the post\\. It can be anything — a text, photo, video, even a sticker\\.\n\n` +
+        `You can use variables with below format within curly brackets\\.\n\n` +
+        `*Eg:*\n` +
+        `Hello \`\\{city\\}\` Pizza DAO members,\n` +
+        `We have Upcoming Pizza Day on \`\\{location\\}\` at \`\\{start\\_time\\}\`\\.\n\n` +
+        `You can register via \\- \`\\{unlock\\_link\\}\``,
+      {
+        parse_mode: 'MarkdownV2',
+        reply_markup: this.getKeyboardMarkup(),
+      },
+    );
   }
 
   /**
