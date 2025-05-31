@@ -1,6 +1,6 @@
 /**
- * @fileoverview Service for managing country-related operations
- * @module country.service
+ * @fileoverview Service for managing region-related operations
+ * @module region.service
  */
 
 import { Injectable } from '@nestjs/common';
