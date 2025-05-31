@@ -8,7 +8,7 @@ export interface IRegion {
   /** Name of the region */
   name: string;
   /** Timestamp when the region was created */
-  created_at?: string;
+  created_at?: Date;
   /** Timestamp when the region was last updated */
-  updated_at?: string;
+  updated_at?: Date;
 }
