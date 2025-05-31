@@ -1498,24 +1498,34 @@ You can register via: \`\\{unlock\\_link\\}\`
               );
             }
 
+            // Escape any commas in the city name for CSV format
+            const escapedCityName = city.city_name.includes(',')
+              ? `"${city.city_name}"`
+              : city.city_name;
+
             if (message.isPinned) {
               try {
                 await ctx.telegram.pinChatMessage(city.group_id, sentMessage?.message_id ?? 0, {
                   disable_notification: true,
                 });
               } catch (error) {
-                console.error(
-                  `☑️ Message delivered to ${city.city_name} (${city.group_id}), but pinning failed: ${error}`,
+                // Add pinning failure entry to CSV with error message
+                const errorMsg = String(error).replace(/"/g, '""');
+                successEntries.push(
+                  `${escapedCityName},${city.group_id || ''},Success (pin failed),"${errorMsg}"`,
                 );
               }
             }
 
             successCount++;
 
-            // Escape any commas in the city name for CSV format
-            const escapedCityName = city.city_name.includes(',')
-              ? `"${city.city_name}"`
-              : city.city_name;
+            if (
+              successEntries.find((entry) =>
+                entry.startsWith(`${escapedCityName},${city.group_id || ''}`),
+              )
+            ) {
+              continue;
+            }
 
             // Add to successful entries array
             successEntries.push(`${escapedCityName},${city.group_id || ''},Success`);
