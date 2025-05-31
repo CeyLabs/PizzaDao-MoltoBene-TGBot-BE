@@ -119,7 +119,7 @@ export class BroadcastService {
         // Fetch all countries based on user access
         const accessInfo = await this.accessService.getUserAccess(String(userId));
         if (!accessInfo) {
-          ctx.answerInlineQuery([], { cache_time: 1 });
+          await ctx.answerInlineQuery([], { cache_time: 1 });
           return;
         }
 
@@ -148,7 +148,7 @@ export class BroadcastService {
             this.countryService.getCountryById(countryId),
           );
           const countries = await Promise.all(countryPromises);
-          allCountries = countries.filter((country) => country !== null) as ICountry[];
+          allCountries = countries.filter((country): country is ICountry => country !== null);
         }
 
         const session: { allCountries?: ICountry[]; [key: string]: any } =
@@ -252,7 +252,7 @@ export class BroadcastService {
       // Fetch cities based on user access and role
       const accessInfo = await this.accessService.getUserAccess(String(userId));
       if (!accessInfo) {
-        ctx.answerInlineQuery([], { cache_time: 1 });
+        await ctx.answerInlineQuery([], { cache_time: 1 });
         return;
       }
 
@@ -839,10 +839,10 @@ You can register via: \`\\{unlock\\_link\\}\`
           reply_markup: { inline_keyboard: regionButtons },
         });
       } else if (callbackData === 'broadcast_all_region_cities') {
-        const userAccess = await this.accessService.getUserAccess(String(userId));
-        if (!userAccess || !Array.isArray(userAccess)) return;
+        const accessInfo = await this.accessService.getUserAccess(String(userId));
+        if (!accessInfo || !accessInfo.region_data || accessInfo.region_data.length === 0) return;
 
-        const regionId = (userAccess[0] as any).region_id;
+        const regionId = accessInfo.region_data[0].region_id;
         if (!regionId) return;
 
         this.commonService.setUserState(userId, {
@@ -869,9 +869,9 @@ You can register via: \`\\{unlock\\_link\\}\`
         );
       } else if (callbackData === 'broadcast_all_caporegime_cities') {
         const userAccess = await this.accessService.getUserAccess(String(userId));
-        if (!userAccess) return;
+        if (!userAccess || !userAccess.country_data || userAccess.country_data.length === 0) return;
 
-        const countryId = (userAccess[0] as any).country_id;
+        const countryId = userAccess.country_data[0].country_id;
         if (!countryId) return;
 
         this.commonService.setUserState(userId, {
