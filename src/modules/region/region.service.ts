@@ -11,6 +11,11 @@ import { IRegion } from './region.interface';
 export class RegionService {
   constructor(private readonly knexService: KnexService) {}
 
+  /**
+   * Retrieves regions by multiple region IDs
+   * @param {string[]} region_ids - Array of region IDs to retrieve
+   * @returns {Promise<IRegion[]>} Array of regions matching the provided IDs
+   */
   async getRegionsByIds(region_ids: string[]): Promise<IRegion[]> {
     return this.knexService.knex('region').whereIn('id', region_ids);
   }
