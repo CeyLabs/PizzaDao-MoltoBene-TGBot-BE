@@ -6,9 +6,6 @@
 import { Injectable } from '@nestjs/common';
 import { KnexService } from '../knex/knex.service';
 import { ICityAccess, ICountryAccess, IRegionAccess } from './access.interface';
-import { IRegion } from '../region/region.interface';
-import { ICountry } from '../country/country.interface';
-import { ICity } from '../city/city.interface';
 import { RegionService } from '../region/region.service';
 import { CountryService } from '../country/country.service';
 import { CityService } from '../city/city.service';
@@ -77,10 +74,10 @@ type TCityData = {
  * @property {TCityData[]} city_data - Array of cities the user has access to
  */
 type TAccessResult = {
-  role: TRole | null,
-  country_data: TCountryData[],
-  region_data: TRegionData[],
-  city_data: TCityData[],
+  role: TRole | null;
+  country_data: TCountryData[];
+  region_data: TRegionData[];
+  city_data: TCityData[];
 };
 
 /**
@@ -91,7 +88,12 @@ type TAccessResult = {
  */
 @Injectable()
 export class AccessService {
-  constructor(private readonly knexService: KnexService, private readonly regionService: RegionService, private readonly countryService: CountryService, private readonly cityService: CityService) {}
+  constructor(
+    private readonly knexService: KnexService,
+    private readonly regionService: RegionService,
+    private readonly countryService: CountryService,
+    private readonly cityService: CityService,
+  ) {}
 
   async getRegionAccess(telegram_id: string): Promise<IRegionAccess[]> {
     return this.knexService.knex('region_access').where('user_telegram_id', telegram_id);
@@ -116,18 +118,29 @@ export class AccessService {
       : [];
 
     if (adminIds.includes(telegram_id)) {
-        const allRegions: TRegionData[] = await this.knexService
+      const allRegions: TRegionData[] = await this.knexService
         .knex('region')
         .select('region.id as region_id', 'region.name as region_name');
 
       const allCountries: TCountryData[] = await this.knexService
         .knex('country')
-        .select('country.id as country_id', 'country.name as country_name', 'country.region_id as region_id');
+        .select(
+          'country.id as country_id',
+          'country.name as country_name',
+          'country.region_id as region_id',
+        );
 
       const allCities: TCityData[] = await this.knexService
         .knex('city')
         .join('country', 'country.id', 'city.country_id')
-        .select('city.id as city_id', 'city.name as city_name', 'city.group_id as group_id', 'city.telegram_link as telegram_link', 'city.country_id as country_id', 'country.region_id as region_id');
+        .select(
+          'city.id as city_id',
+          'city.name as city_name',
+          'city.group_id as group_id',
+          'city.telegram_link as telegram_link',
+          'city.country_id as country_id',
+          'country.region_id as region_id',
+        );
 
       return {
         role: 'admin',
@@ -147,14 +160,18 @@ export class AccessService {
     const regionAccess = await this.getRegionAccess(telegram_id);
 
     if (regionAccess.length) {
-      const regions = await this.regionService.getRegionsByIds(regionAccess.map((access) => access.region_id))
+      const regions = await this.regionService.getRegionsByIds(
+        regionAccess.map((access) => access.region_id),
+      );
 
       accessResult.region_data = regions.map((region) => ({
         region_id: region.id,
         region_name: region.name,
       }));
 
-      const countries = await this.countryService.getCountriesByRegionIds(regions.map((region) => region.id))
+      const countries = await this.countryService.getCountriesByRegionIds(
+        regions.map((region) => region.id),
+      );
 
       accessResult.country_data = countries.map((country) => ({
         country_id: country.id,
@@ -162,13 +179,17 @@ export class AccessService {
         region_id: country.region_id,
       }));
 
-      const cities = await this.cityService.getCitiesByCountryIds(countries.map((country) => country.id));
+      const cities = await this.cityService.getCitiesByCountryIds(
+        countries.map((country) => country.id),
+      );
 
       accessResult.city_data = cities.map((city) => ({
         city_id: city.id,
         city_name: city.name,
         country_id: city.country_id,
-        region_id: accessResult.country_data.find((country) => country.country_id === city.country_id)!.region_id,
+        region_id: accessResult.country_data.find(
+          (country) => country.country_id === city.country_id,
+        )!.region_id,
         group_id: city.group_id!,
         telegram_link: city.telegram_link!,
       }));
@@ -181,7 +202,9 @@ export class AccessService {
     const countryAccess = await this.getCountryAccess(telegram_id);
 
     if (countryAccess.length) {
-      const countries = await this.countryService.getCountriesByCountryIds(countryAccess.map((access) => access.id))
+      const countries = await this.countryService.getCountriesByCountryIds(
+        countryAccess.map((access) => access.country_id),
+      );
 
       accessResult.country_data = countries.map((country) => ({
         country_id: country.id,
@@ -189,13 +212,17 @@ export class AccessService {
         region_id: country.region_id,
       }));
 
-      const cities = await this.cityService.getCitiesByCountryIds(countries.map((country) => country.id))
+      const cities = await this.cityService.getCitiesByCountryIds(
+        countries.map((country) => country.id),
+      );
 
       accessResult.city_data = cities.map((city) => ({
         city_id: city.id,
         city_name: city.name,
         country_id: city.country_id,
-        region_id: accessResult.country_data.find((country) => country.country_id === city.country_id)!.region_id,
+        region_id: accessResult.country_data.find(
+          (country) => country.country_id === city.country_id,
+        )!.region_id,
         group_id: city.group_id!, // TODO: ! needs to be removed
         telegram_link: city.telegram_link!,
       }));
@@ -205,16 +232,20 @@ export class AccessService {
       return accessResult;
     }
 
-    const cityAccess = await this.getCityAccess(telegram_id)
+    const cityAccess = await this.getCityAccess(telegram_id);
 
     if (cityAccess.length) {
-      const cities = await this.cityService.getCitiesByCityIds(cityAccess.map((access) => access.id))
+      const cities = await this.cityService.getCitiesByCityIds(
+        cityAccess.map((access) => access.city_id),
+      );
 
       accessResult.city_data = cities.map((city) => ({
         city_id: city.id,
         city_name: city.name,
         country_id: city.country_id,
-        region_id: accessResult.country_data.find((country) => country.country_id === city.country_id)!.region_id,
+        region_id: accessResult.country_data.find(
+          (country) => country.country_id === city.country_id,
+        )!.region_id,
         group_id: city.group_id!,
         telegram_link: city.telegram_link!,
       }));
@@ -226,7 +257,6 @@ export class AccessService {
 
     return null;
   }
-
 
   /**
    * Save broadcast message detail to the database
@@ -254,5 +284,4 @@ export class AccessService {
       console.error(`Error saving broadcast detail: ${error}`);
     }
   }
-
 }
