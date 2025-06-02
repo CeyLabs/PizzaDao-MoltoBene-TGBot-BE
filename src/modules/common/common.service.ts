@@ -9,6 +9,7 @@ import { Help, On, Update } from 'nestjs-telegraf';
 import { WelcomeService } from '../welcome/welcome.service';
 import { BroadcastService } from '../broadcast/broadcast.service';
 import { TUserFlow, IUserState } from './common.interface';
+import { getContextTelegramUserId } from 'src/utils/context';
 
 /**
  * Service for managing common functionality and user state
@@ -65,10 +66,10 @@ export class CommonService {
    */
   @On('message')
   async handleMessage(ctx: Context) {
-    const userId = ctx.from?.id;
+    const userId = getContextTelegramUserId(ctx);
     if (!userId) return;
 
-    const state = this.userState.get(userId) || { flow: 'idle' as TUserFlow };
+    const state = this.userState.get(Number(userId)) || { flow: 'idle' as TUserFlow };
 
     if (state.flow === 'broadcast') {
       await this.broadcastService.handleBroadcatsMessages(ctx);

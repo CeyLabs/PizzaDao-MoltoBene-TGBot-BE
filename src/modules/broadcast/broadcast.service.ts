@@ -37,6 +37,7 @@ import { ICountry } from '../country/country.interface';
 import { IEventDetail } from '../event-detail/event-detail.interface';
 import { RegionService } from '../region/region.service';
 import { KnexService } from '../knex/knex.service';
+import { getContextTelegramUserId } from 'src/utils/context';
 
 /**
  * Service for managing message broadcasting functionality
@@ -95,8 +96,9 @@ export class BroadcastService {
    */
   @On('inline_query')
   async handleInlineQuery(@Ctx() ctx: Context): Promise<void> {
+    const userId = getContextTelegramUserId(ctx);
+
     const query = ctx.inlineQuery?.query?.trim();
-    const userId = ctx.from?.id;
     const offset = parseInt(ctx.inlineQuery?.offset || '0', 10);
     const itemsPerPage = 10;
 
@@ -105,7 +107,7 @@ export class BroadcastService {
       return;
     }
 
-    const currentSession = this.commonService.getUserState(userId);
+    const currentSession = this.commonService.getUserState(Number(userId));
     const searchType = currentSession?.searchType || 'city'; // Default to city search
 
     if (searchType === 'country') {
@@ -152,11 +154,11 @@ export class BroadcastService {
         }
 
         const session: { allCountries?: ICountry[]; [key: string]: any } =
-          this.commonService.getUserState(userId) || {};
+          this.commonService.getUserState(Number(userId)) || {};
         session.flow = 'broadcast';
         session.allCountries = allCountries;
         session.searchType = 'country';
-        this.commonService.setUserState(userId, session);
+        this.commonService.setUserState(Number(userId), session);
       }
 
       // Filter countries - if no query, show all accessible countries
@@ -230,8 +232,8 @@ export class BroadcastService {
         name: country.name,
       }));
 
-      this.commonService.setUserState(userId, {
-        ...this.commonService.getUserState(userId),
+      this.commonService.setUserState(Number(userId), {
+        ...this.commonService.getUserState(Number(userId)),
         selectedCountry,
       });
 
@@ -297,10 +299,10 @@ export class BroadcastService {
       }
 
       const session: { allCities?: ICity[]; [key: string]: any } =
-        this.commonService.getUserState(userId) || {};
+        this.commonService.getUserState(Number(userId)) || {};
       session.flow = 'broadcast';
       session.allCities = allCities;
-      this.commonService.setUserState(userId, session);
+      this.commonService.setUserState(Number(userId), session);
     }
 
     // Filter cities - if no query, show all accessible cities
@@ -376,8 +378,8 @@ export class BroadcastService {
         : '',
     }));
 
-    this.commonService.setUserState(userId, {
-      ...this.commonService.getUserState(userId),
+    this.commonService.setUserState(Number(userId), {
+      ...this.commonService.getUserState(Number(userId)),
       selectedCity,
     });
 
@@ -604,11 +606,14 @@ You can register via: \`\\{unlock\\_link\\}\`
     }
     // delete the previous message
     await ctx.deleteMessage();
-    const userId = ctx.from.id;
+
+    const userId = getContextTelegramUserId(ctx);
+    if (!userId) return;
+
     const region = await this.regionService.getRegionById(regionId);
     const regionName = region ? region.name : 'Unknown Region';
 
-    this.commonService.setUserState(userId, {
+    this.commonService.setUserState(Number(userId), {
       flow: 'broadcast',
       step: 'creating_post',
       messages: [],
@@ -638,7 +643,9 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @private
    */
   private async handleCreatePost(ctx: Context): Promise<void> {
-    const userId = String(ctx.from?.id!);
+    const userId = getContextTelegramUserId(ctx);
+    if (!userId) return;
+
     const accessInfo = await this.accessService.getUserAccess(userId);
     if (!accessInfo) return;
 
@@ -753,7 +760,8 @@ You can register via: \`\\{unlock\\_link\\}\`
         return;
       }
 
-      const userId = ctx.from.id;
+      const userId = getContextTelegramUserId(ctx);
+      if (!userId) return;
 
       if (callbackData === 'broadcast_all_cities') {
         this.commonService.setUserState(Number(userId), {
@@ -782,8 +790,8 @@ You can register via: \`\\{unlock\\_link\\}\`
         callbackData === 'broadcast_caporegime_country'
       ) {
         // Set search type to country
-        this.commonService.setUserState(userId, {
-          ...this.commonService.getUserState(userId),
+        this.commonService.setUserState(Number(userId), {
+          ...this.commonService.getUserState(Number(userId)),
           searchType: 'country',
         });
 
@@ -811,8 +819,8 @@ You can register via: \`\\{unlock\\_link\\}\`
         callbackData === 'broadcast_caporegime_city'
       ) {
         // Set search type back to city and clear cached cities to force re-fetch based on user role
-        this.commonService.setUserState(userId, {
-          ...this.commonService.getUserState(userId),
+        this.commonService.setUserState(Number(userId), {
+          ...this.commonService.getUserState(Number(userId)),
           searchType: 'city',
           allCities: [], // Clear cached cities
         });
@@ -853,7 +861,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         const regionId = accessInfo.region_data[0].region_id;
         if (!regionId) return;
 
-        this.commonService.setUserState(userId, {
+        this.commonService.setUserState(Number(userId), {
           flow: 'broadcast',
           step: 'creating_post',
           messages: [],
@@ -882,7 +890,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         const countryId = userAccess.country_data[0].country_id;
         if (!countryId) return;
 
-        this.commonService.setUserState(userId, {
+        this.commonService.setUserState(Number(userId), {
           flow: 'broadcast',
           step: 'creating_post',
           messages: [],
@@ -963,8 +971,10 @@ You can register via: \`\\{unlock\\_link\\}\`
       return;
     }
 
-    const userId = ctx.from.id;
-    const session = this.commonService.getUserState(userId);
+    const userId = getContextTelegramUserId(ctx);
+    if (!userId) return;
+
+    const session = this.commonService.getUserState(Number(userId));
     if (!session) {
       await ctx.answerCbQuery(this.escapeMarkdown('❌ No active session found.'));
       return;
@@ -981,7 +991,7 @@ You can register via: \`\\{unlock\\_link\\}\`
 
     switch (action) {
       case 'media':
-        this.commonService.setUserState(userId, {
+        this.commonService.setUserState(Number(userId), {
           currentAction: 'attach_media',
           currentMessageIndex: index,
         });
@@ -993,7 +1003,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         break;
 
       case 'url':
-        this.commonService.setUserState(userId, {
+        this.commonService.setUserState(Number(userId), {
           currentAction: 'add_url_buttons',
           currentMessageIndex: index,
         });
@@ -1016,7 +1026,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       case 'pin': {
         const selectedMessage = session.messages[index] as IPostMessage;
         selectedMessage.isPinned = !selectedMessage.isPinned;
-        this.commonService.setUserState(userId, {
+        this.commonService.setUserState(Number(userId), {
           ...session,
           step: 'creating_post',
           messages: session.messages ?? [],
@@ -1056,7 +1066,7 @@ You can register via: \`\\{unlock\\_link\\}\`
 
       case 'delete':
         session.messages.splice(index, 1);
-        this.commonService.setUserState(userId, session);
+        this.commonService.setUserState(Number(userId), session);
 
         await ctx.answerCbQuery(this.escapeMarkdown('Message deleted'));
         await ctx.deleteMessage().catch(() => {});
@@ -1091,8 +1101,10 @@ You can register via: \`\\{unlock\\_link\\}\`
   private async handlePostActions(ctx: Context, action: string): Promise<void> {
     if (!ctx.from?.id) return;
 
-    const userId = ctx.from.id;
-    const session = this.commonService.getUserState(userId);
+    const userId = getContextTelegramUserId(ctx);
+    if (!userId) return;
+
+    const session = this.commonService.getUserState(Number(userId));
     if (!session || !session.messages) {
       await ctx.reply(this.escapeMarkdown('❌ No messages to process.'), {
         parse_mode: 'MarkdownV2',
@@ -1117,7 +1129,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         break;
 
       case 'Delete All':
-        this.commonService.setUserState(userId, {
+        this.commonService.setUserState(Number(userId), {
           ...session,
           step: 'creating_post',
           messages: [],
@@ -1129,7 +1141,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         break;
 
       case 'Cancel':
-        this.commonService.clearUserState(userId);
+        this.commonService.clearUserState(Number(userId));
         await ctx.reply(this.escapeMarkdown('✅ Broadcast session cancelled.'), {
           parse_mode: 'MarkdownV2',
           reply_markup: { remove_keyboard: true },
@@ -1279,7 +1291,9 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @private
    */
   private async sendMessages(ctx: Context, session: IBroadcastSession): Promise<void> {
-    const userId = String(ctx.from?.id!);
+    const userId = getContextTelegramUserId(ctx);
+    if (!userId) return;
+
     let broadcastId: string;
 
     try {
@@ -1665,9 +1679,11 @@ You can register via: \`\\{unlock\\_link\\}\`
   async handleBroadcatsMessages(ctx: Context): Promise<void> {
     if (!ctx.from?.id || !ctx.message || !('text' in ctx.message)) return;
 
-    const userId = ctx.from.id;
+    const userId = getContextTelegramUserId(ctx);
+    if (!userId) return;
+
     const text = ctx.message.text;
-    const session = this.commonService.getUserState(userId);
+    const session = this.commonService.getUserState(Number(userId));
 
     if (!session || session.step !== 'creating_post') return;
 
@@ -1683,7 +1699,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         session.currentAction = undefined;
         session.currentMessageIndex = undefined;
         session.step = session.step ?? 'creating_post';
-        this.commonService.setUserState(userId, session);
+        this.commonService.setUserState(Number(userId), session);
         await ctx.reply(this.escapeMarkdown('✅ Action cancelled.'), {
           parse_mode: 'MarkdownV2',
           reply_markup: this.getKeyboardMarkup(),
@@ -1709,7 +1725,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         session.currentMessageIndex < session.messages.length
       ) {
         (session.messages[session.currentMessageIndex] as IPostMessage).urlButtons = buttons;
-        this.commonService.setUserState(userId, session);
+        this.commonService.setUserState(Number(userId), session);
 
         await ctx.reply(this.escapeMarkdown('✅ URL buttons added to your message.'), {
           parse_mode: 'MarkdownV2',
@@ -1732,7 +1748,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         session.currentAction = undefined;
         session.currentMessageIndex = undefined;
         session.step = session.step ?? 'creating_post';
-        this.commonService.setUserState(userId, session);
+        this.commonService.setUserState(Number(userId), session);
       } else {
         await ctx.reply(
           this.escapeMarkdown('❌ Invalid URL button format or message index. Please try again.'),
@@ -1759,7 +1775,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         session.messages = [];
       }
       session.messages.push(messageObj);
-      this.commonService.setUserState(userId, {
+      this.commonService.setUserState(Number(userId), {
         ...session,
         step: session.step ?? 'creating_post',
       });
@@ -1862,12 +1878,12 @@ You can register via: \`\\{unlock\\_link\\}\`
       if (sentMessage && 'message_id' in sentMessage) {
         messageObj.messageId = (sentMessage as { message_id: number }).message_id;
       }
-      const userId = ctx.from?.id;
+      const userId = getContextTelegramUserId(ctx);
       if (userId) {
-        const session = this.commonService.getUserState(userId);
+        const session = this.commonService.getUserState(Number(userId));
         if (session?.messages) {
           session.messages[index] = messageObj;
-          this.commonService.setUserState(userId, session);
+          this.commonService.setUserState(Number(userId), session);
         }
       }
 
@@ -2005,8 +2021,10 @@ You can register via: \`\\{unlock\\_link\\}\`
   ): Promise<void> {
     if (!ctx.from?.id) return;
 
-    const userId = ctx.from.id;
-    const session = this.commonService.getUserState(userId);
+    const userId = getContextTelegramUserId(ctx);
+    if (!userId) return;
+
+    const session = this.commonService.getUserState(Number(userId));
     if (!session || session.step !== 'creating_post') return;
 
     let fileId: string | undefined;
@@ -2083,7 +2101,7 @@ You can register via: \`\\{unlock\\_link\\}\`
 
         session.currentAction = undefined;
         session.currentMessageIndex = undefined;
-        this.commonService.setUserState(userId, session);
+        this.commonService.setUserState(Number(userId), session);
       } else {
         const messageObj: IPostMessage = {
           text,
@@ -2098,7 +2116,7 @@ You can register via: \`\\{unlock\\_link\\}\`
           session.messages = [];
         }
         session.messages.push(messageObj);
-        this.commonService.setUserState(userId, session);
+        this.commonService.setUserState(Number(userId), session);
 
         const messageIndex = session.messages.length - 1;
         await ctx.reply(
