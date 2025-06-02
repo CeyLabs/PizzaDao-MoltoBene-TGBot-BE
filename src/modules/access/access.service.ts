@@ -203,7 +203,7 @@ export class AccessService {
 
     if (countryAccess.length) {
       const countries = await this.countryService.getCountriesByCountryIds(
-        countryAccess.map((access) => access.id),
+        countryAccess.map((access) => access.country_id),
       );
 
       accessResult.country_data = countries.map((country) => ({
@@ -236,7 +236,7 @@ export class AccessService {
 
     if (cityAccess.length) {
       const cities = await this.cityService.getCitiesByCityIds(
-        cityAccess.map((access) => access.id),
+        cityAccess.map((access) => access.city_id),
       );
 
       accessResult.city_data = cities.map((city) => ({
@@ -257,7 +257,6 @@ export class AccessService {
 
     return null;
   }
-
 
   /**
    * Save broadcast message detail to the database
@@ -285,5 +284,4 @@ export class AccessService {
       console.error(`Error saving broadcast detail: ${error}`);
     }
   }
-
 }
