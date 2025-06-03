@@ -57,7 +57,7 @@ type TCountryData = {
  * @property {string | null} telegram_link - Telegram link for the city's group
  */
 type TCityData = {
-  region_id: string;
+  region_id?: string;
   country_id: string;
   city_id: string;
   city_name: string;
@@ -239,22 +239,10 @@ export class AccessService {
         cityAccess.map((access) => access.city_id),
       );
 
-      const countryIds = [...new Set(cities.map((city) => city.country_id))];
-      const countries = await this.countryService.getCountriesByCountryIds(countryIds);
-
-      accessResult.country_data = countries.map((country) => ({
-        country_id: country.id,
-        country_name: country.name,
-        region_id: country.region_id,
-      }));
-
       accessResult.city_data = cities.map((city) => ({
         city_id: city.id,
         city_name: city.name,
         country_id: city.country_id,
-        region_id: accessResult.country_data.find(
-          (country) => country.country_id === city.country_id,
-        )!.region_id,
         group_id: city.group_id!,
         telegram_link: city.telegram_link!,
       }));
