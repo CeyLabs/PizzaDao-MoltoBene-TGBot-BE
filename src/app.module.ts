@@ -1,8 +1,12 @@
+/**
+ * @fileoverview Root module of the PizzaDao MoltoBene Telegram Bot application
+ * @module app.module
+ */
+
 import { Module } from '@nestjs/common';
 import { TelegrafModule } from 'nestjs-telegraf';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { config } from 'dotenv';
-
 import { AppService } from './app.service';
 import { AppController } from './app.controller';
 import { KnexModule } from './modules/knex/knex.module';
@@ -13,10 +17,18 @@ import { CityModule } from './modules/city/city.module';
 import { CommonModule } from './modules/common/common.module';
 import { PrivateChatMiddleware } from './middleware/chat-type.middleware';
 import { TelegramLoggerService } from 'src/utils/telegram-logger.service';
+import { BroadcastModule } from './modules/broadcast/broadcast.module';
+import { EventDetailModule } from './modules/event-detail/event-detail.module';
 
 // Load environment variables
 config();
 
+/**
+ * Root module of the application that configures and bootstraps all required modules
+ * @class AppModule
+ * @description Configures the main application module with all necessary dependencies,
+ * including the Telegram bot, database connection, and various feature modules.
+ */
 @Module({
   imports: [
     ConfigModule.forRoot(),
@@ -43,13 +55,17 @@ config();
       },
       inject: [ConfigService],
     }),
-    KnexModule,
+
     UserModule,
     WelcomeModule,
+    BroadcastModule,
+    CommonModule,
+    KnexModule,
     CountryModule,
     CityModule,
-    CommonModule,
+    EventDetailModule,
   ],
+
   controllers: [AppController],
   providers: [AppService, TelegramLoggerService],
 })
