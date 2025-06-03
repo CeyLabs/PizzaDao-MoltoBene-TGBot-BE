@@ -3,6 +3,7 @@
  * @module region.service
  */
 
+import RunCache from 'run-cache';
 import { Injectable } from '@nestjs/common';
 import { KnexService } from '../knex/knex.service';
 import { IRegion } from './region.interface';
@@ -25,7 +26,19 @@ export class RegionService {
    * @returns {Promise<IRegion[]>} Array of regions with their IDs and names
    */
   async getAllRegions(): Promise<IRegion[]> {
-    return this.knexService.knex('region').select('id', 'name');
+    const cacheKey = 'getAllRegions';
+
+    const cachedRegions = await RunCache.get(cacheKey);
+
+    if (cachedRegions) {
+      return JSON.parse(cachedRegions as string) as IRegion[];
+    }
+
+    const regions = await this.knexService.knex<IRegion>('region').select('id', 'name');
+
+    await RunCache.set({ key: cacheKey, value: JSON.stringify(regions) });
+
+    return regions;
   }
 
   /**
