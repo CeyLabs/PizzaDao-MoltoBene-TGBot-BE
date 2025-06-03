@@ -41,35 +41,18 @@ This bot serves as the registration and management system for PizzaDAO's telegra
 - Telegram Bot Token
 - OpenAI API Key
 
-## 🔧 Environment Variables
-
-Create a `.env` file in the root directory with the following variables:
-
-```env
-# Bot Configuration
-TELEGRAM_BOT_TOKEN=your_telegram_bot_token
-BOT_USERNAME=your_bot_username
-ENABLE_WEBHOOK=true/false
-WEBHOOK_DOMAIN=your_webhook_domain
-ADMIN_IDS=admin_ids_seperated_by_commas
-
-# Database Configuration
-PG_HOST=your_postgres_host
-PG_PORT=your_postgres_port
-PG_DB=your_database_name
-PG_USER=your_database_user
-PG_PW=your_database_password
-
-# OpenAI Configuration
-OPENAI_API_KEY=your_openai_api_key
-```
-
 ## 🚀 Installation
 
 1. Clone the repository:
 ```bash
 git clone https://github.com/yourusername/PizzaDao-MoltoBene-TGBot-BE.git
 cd PizzaDao-MoltoBene-TGBot-BE
+```
+
+2. Create envs:
+```bash
+cp .env.example .env
+# and update .env file with your config
 ```
 
 2. Install dependencies:
