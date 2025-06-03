@@ -3,6 +3,7 @@
  * @module country.service
  */
 
+import RunCache from 'run-cache';
 import { Injectable } from '@nestjs/common';
 import { KnexService } from '../knex/knex.service';
 import { ICountry } from './country.interface';
@@ -80,6 +81,20 @@ export class CountryService {
    * @returns {Promise<ICountry[]>} Array of all countries with their basic information
    */
   async getAllCountries(): Promise<ICountry[]> {
-    return this.knexService.knex('country').select('id', 'name', 'region_id');
+    const cacheKey = 'getAllCountries';
+
+    const cachedCountries = await RunCache.get(cacheKey);
+
+    if (cachedCountries) {
+      return JSON.parse(cachedCountries as string) as ICountry[];
+    }
+
+    const countries = await this.knexService
+      .knex<ICountry>('country')
+      .select('id', 'name', 'region_id');
+
+    await RunCache.set({ key: cacheKey, value: JSON.stringify(cachedCountries) });
+
+    return countries;
   }
 }
