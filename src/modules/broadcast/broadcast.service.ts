@@ -1388,7 +1388,7 @@ You can register via: \`\\{unlock\\_link\\}\`
                 )
               : undefined,
           attachment_detail: message.mediaUrl ? { file_id: message.mediaUrl } : undefined,
-          sender_id: ctx.from?.id,
+          sender_id: String(ctx.from?.id),
         };
 
         await this.knexService.knex<IBroadcast>('broadcast').insert({
