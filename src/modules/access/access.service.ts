@@ -239,6 +239,15 @@ export class AccessService {
         cityAccess.map((access) => access.city_id),
       );
 
+      const countryIds = [...new Set(cities.map((city) => city.country_id))];
+      const countries = await this.countryService.getCountriesByCountryIds(countryIds);
+
+      accessResult.country_data = countries.map((country) => ({
+        country_id: country.id,
+        country_name: country.name,
+        region_id: country.region_id,
+      }));
+
       accessResult.city_data = cities.map((city) => ({
         city_id: city.id,
         city_name: city.name,
