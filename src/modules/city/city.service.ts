@@ -3,6 +3,7 @@
  * @module city.service
  */
 
+import RunCache from 'run-cache';
 import { Injectable } from '@nestjs/common';
 import { KnexService } from '../knex/knex.service';
 import { ICity } from './city.interface';
@@ -23,7 +24,20 @@ export class CityService {
    * @returns {Promise<ICity[]>} Array of all cities
    */
   async getAllCities(): Promise<ICity[]> {
-    return this.knexService.knex('city').select('id', 'name', 'group_id', 'country_id');
+    const cacheKey = 'getAllCities';
+
+    const cachedCities = await RunCache.get(cacheKey);
+
+    if (cachedCities) {
+      return JSON.parse(cachedCities as string) as ICity[];
+    }
+    const cities = await this.knexService
+      .knex<ICity>('city')
+      .select('id', 'name', 'group_id', 'country_id');
+
+    await RunCache.set({ key: cacheKey, value: JSON.stringify(cities) });
+
+    return cities;
   }
 
   /**

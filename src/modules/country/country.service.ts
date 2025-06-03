@@ -93,7 +93,7 @@ export class CountryService {
       .knex<ICountry>('country')
       .select('id', 'name', 'region_id');
 
-    await RunCache.set({ key: cacheKey, value: JSON.stringify(cachedCountries) });
+    await RunCache.set({ key: cacheKey, value: JSON.stringify(countries) });
 
     return countries;
   }
