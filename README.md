@@ -49,34 +49,34 @@ git clone https://github.com/yourusername/PizzaDao-MoltoBene-TGBot-BE.git
 cd PizzaDao-MoltoBene-TGBot-BE
 ```
 
-2. Create envs:
+2. Create `.env` file:
 ```bash
 cp .env.example .env
 # and update .env file with your config
 ```
 
-2. Install dependencies:
+3. Install dependencies:
 ```bash
 npm install
 ```
 
-3. Start the PostgreSQL database using Docker:
+4. Start the PostgreSQL database using Docker:
 ```bash
 docker-compose up -d
 ```
 
-4. Run database migrations:
+5. Run database migrations:
 ```bash
 npm run migrate
 npm run fixtures
 ```
 
-4. Sync unlock events:
+6. Sync unlock events:
 ```bash
 npm run unlock:sync
 ```
 
-5. Start the development server:
+7. Start the development server:
 ```bash
 npm run serve:local
 ```

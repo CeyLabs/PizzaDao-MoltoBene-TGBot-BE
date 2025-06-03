@@ -185,7 +185,7 @@ export interface IBroadcast {
   /** JSON data for any attachments */
   attachment_detail?: Record<string, any>;
   /** ID of the user who sent the broadcast */
-  sender_id: number | undefined;
+  sender_id: string;
 }
 
 /**
