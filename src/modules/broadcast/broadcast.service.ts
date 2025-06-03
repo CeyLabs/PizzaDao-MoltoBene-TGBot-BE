@@ -116,11 +116,7 @@ export class BroadcastService {
       const cacheKey = `broadcast:countries:${userId}`;
       const cachedCountries = await RunCache.get(cacheKey);
 
-      let allCountries: ICountry[] = [];
-
-      if (cachedCountries) {
-        allCountries = JSON.parse(cachedCountries as string) as ICountry[];
-      }
+      let allCountries = JSON.parse(cachedCountries as string) as ICountry[];
 
       if (allCountries.length <= 0) {
         // Fetch all countries based on user access
@@ -254,11 +250,7 @@ export class BroadcastService {
     const cacheKey = `broadcast:cities:${userId}`;
     const cachedCities = await RunCache.get(cacheKey);
 
-    let allCities: ICity[] = [];
-
-    if (cachedCities) {
-      allCities = JSON.parse(cachedCities as string) as ICity[];
-    }
+    let allCities = JSON.parse(cachedCities as string) as ICity[];
 
     if (allCities.length <= 0) {
       // Fetch cities based on user access and role
