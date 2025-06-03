@@ -118,6 +118,10 @@ export class AccessService {
     const cachedUserAccess = await RunCache.get(cacheKey);
 
     if (cachedUserAccess) {
+      if (cachedUserAccess === 'NULL_ACCESS') {
+        return null;
+      }
+
       return JSON.parse(cachedUserAccess as string) as TAccessResult;
     }
 
@@ -284,6 +288,11 @@ export class AccessService {
 
       return accessResult;
     }
+
+    await RunCache.set({
+      key: cacheKey,
+      value: 'NULL_ACCESS',
+    });
 
     return null;
   }
