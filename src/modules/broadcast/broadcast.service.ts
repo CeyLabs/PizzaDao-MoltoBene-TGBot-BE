@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { v4 as uuidv4 } from 'uuid';
+import RunCache from 'run-cache';
 
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { Context } from 'telegraf';
@@ -111,11 +112,15 @@ export class BroadcastService {
     const searchType = currentSession?.searchType || 'city'; // Default to city search
 
     if (searchType === 'country') {
-      // Handle country search
-      let allCountries: ICountry[] =
-        currentSession?.allCountries && Array.isArray(currentSession.allCountries)
-          ? (currentSession.allCountries as ICountry[])
-          : [];
+      // Get country details from cache
+      const cacheKey = `broadcast:countries:${userId}`;
+      const cachedCountries = await RunCache.get(cacheKey);
+
+      let allCountries: ICountry[] = [];
+
+      if (cachedCountries) {
+        allCountries = JSON.parse(cachedCountries as string) as ICountry[];
+      }
 
       if (allCountries.length <= 0) {
         // Fetch all countries based on user access
@@ -153,12 +158,13 @@ export class BroadcastService {
           allCountries = countries.filter((country): country is ICountry => country !== null);
         }
 
-        const session: { allCountries?: ICountry[]; [key: string]: any } =
+        const session: { [key: string]: any } =
           this.commonService.getUserState(Number(userId)) || {};
         session.flow = 'broadcast';
-        session.allCountries = allCountries;
         session.searchType = 'country';
         this.commonService.setUserState(Number(userId), session);
+
+        await RunCache.set({ key: cacheKey, value: JSON.stringify(allCountries) });
       }
 
       // Filter countries - if no query, show all accessible countries
@@ -244,11 +250,15 @@ export class BroadcastService {
       return;
     }
 
-    // Handle city search
-    let allCities: ICity[] =
-      currentSession?.allCities && Array.isArray(currentSession.allCities)
-        ? (currentSession.allCities as ICity[])
-        : [];
+    // Get city details from cache
+    const cacheKey = `broadcast:cities:${userId}`;
+    const cachedCities = await RunCache.get(cacheKey);
+
+    let allCities: ICity[] = [];
+
+    if (cachedCities) {
+      allCities = JSON.parse(cachedCities as string) as ICity[];
+    }
 
     if (allCities.length <= 0) {
       // Fetch cities based on user access and role
@@ -298,11 +308,11 @@ export class BroadcastService {
         allCities = await this.cityService.getAllCities();
       }
 
-      const session: { allCities?: ICity[]; [key: string]: any } =
-        this.commonService.getUserState(Number(userId)) || {};
+      const session: { [key: string]: any } = this.commonService.getUserState(Number(userId)) || {};
       session.flow = 'broadcast';
-      session.allCities = allCities;
       this.commonService.setUserState(Number(userId), session);
+
+      await RunCache.set({ key: cacheKey, value: JSON.stringify(allCities) });
     }
 
     // Filter cities - if no query, show all accessible cities
