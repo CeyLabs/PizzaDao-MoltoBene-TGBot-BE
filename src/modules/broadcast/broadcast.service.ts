@@ -31,6 +31,7 @@ import {
   IBroadcast,
   IBroadcastMessageDetail,
 } from './broadcast.type';
+
 import { ICity, ICityForVars } from '../city/city.interface';
 import { CityService } from '../city/city.service';
 import { ICountry } from '../country/country.interface';
@@ -335,7 +336,7 @@ export class BroadcastService {
             [
               {
                 text: '✅ Confirm',
-                callback_data: `confirm_city_${city.group_id ? city.group_id.replace(/^-/, '') : 'confirm_city_none'}`,
+                callback_data: `confirm_city_${this.normalizeGroupId(city.group_id) || 'confirm_city_none'}`,
               },
               {
                 text: '❌ Cancel',
@@ -347,17 +348,8 @@ export class BroadcastService {
       }),
     );
 
-    // Save selected city details in selectedCity array in session
-    const selectedCity = paginatedCities.map((city, idx) => ({
-      id: city.id || city.name,
-      name: city.name,
-      country_name: countryNames[idx] || '',
-      group_id: city.group_id
-        ? city.group_id.startsWith('-')
-          ? city.group_id
-          : '-' + city.group_id
-        : '',
-    }));
+    // Save selected city details in selectedCity array in session using the new utility method
+    const selectedCity = this.createSelectedCityData(paginatedCities, countryNames);
 
     await this.commonService.setUserState(Number(userId), {
       ...(await this.commonService.getUserState(Number(userId))),
@@ -2207,13 +2199,40 @@ You can register via: \`\\{unlock\\_link\\}\`
   }
 
   /**
-   * Save broadcast message detail to the database
-   * @param {string} broadcastId - The ID of the existing broadcast record
-   * @param {Message} sentMessage - The sent Telegram message
-   * @param {Object} city - The city the message was sent to
-   * @param {boolean} isSent - Whether the message was successfully sent
+   * Normalizes group ID by ensuring it starts with a hyphen
+   * @param {string | null | undefined} groupId - The group ID to normalize
+   * @returns {string} The normalized group ID
    * @private
    */
+  private normalizeGroupId(groupId?: string | null): string {
+    if (!groupId) return '';
+    return groupId.startsWith('-') ? groupId : '-' + groupId;
+  }
+
+  /**
+   * Fetches cities based on user role with improved type safety and error handling
+   * @param {Context} ctx - The Telegraf context
+   * @param {IUserAccessInfo} accessInfo - User access information
+   * @returns {Promise<ICity[]>} Array of cities the user has access to
+   * @private
+   */
+
+  /**
+   * Creates selected city data with normalized group IDs
+   * @param {ICity[]} cities - Array of cities
+   * @param {string[]} countryNames - Array of country names corresponding to cities
+   * @returns {Array} Array of selected city objects with normalized data
+   * @private
+   */
+  private createSelectedCityData(cities: ICity[], countryNames: string[]) {
+    return cities.map((city, idx) => ({
+      id: city.id || city.name,
+      name: city.name,
+      country_name: countryNames[idx] || '',
+      group_id: this.normalizeGroupId(city.group_id),
+    }));
+  }
+
   private async saveMessageDetail(
     broadcastId: string,
     messageId: string | undefined,
