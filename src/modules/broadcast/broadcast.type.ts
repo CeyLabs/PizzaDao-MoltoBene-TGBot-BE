@@ -7,11 +7,11 @@ import { ICountry } from '../country/country.interface';
  */
 
 /**
- * Interface defining the supported media types for broadcast messages
- * @interface IMediaType
+ * Type defining the supported media types for broadcast messages
+ * @type TMediaType
  * @description Defines all available media types that can be used in broadcasts
  */
-export type IMediaType =
+export type TMediaType =
   | 'text'
   | 'photo'
   | 'video'
@@ -89,8 +89,8 @@ export interface IAdminAccessResult {
 export interface IUserAccessInfo {
   /** User's access data */
   userAccess: IUserAccess[] | IAdminAccessResult | null;
-  /** User's role */
-  role: string;
+  /** User's role (admin - everything, underboss - region, caporegime - country, host - city) */
+  role: 'admin' | 'underboss' | 'caporegime' | 'host';
   /** User's Telegram ID */
   userId: number | undefined;
 }
@@ -111,7 +111,7 @@ export interface IPostMessage {
   /** URL of the media to be attached */
   mediaUrl: string | null;
   /** Type of media to be attached */
-  mediaType?: IMediaType;
+  mediaType?: TMediaType;
   /** ID of the message in Telegram */
   messageId?: number;
 }
@@ -218,7 +218,7 @@ export interface IBroadcast {
   /** Unique identifier of the broadcast */
   id?: string;
   /** Type of message being broadcast */
-  message_type: IMediaType;
+  message_type: TMediaType;
   /** Text content of the message */
   message_text?: string | null;
   /** JSON data for buttons attached to the message */
@@ -226,7 +226,7 @@ export interface IBroadcast {
   /** JSON data for any attachments */
   attachment_detail?: Record<string, any>;
   /** ID of the user who sent the broadcast */
-  sender_id: number | undefined;
+  sender_id: string;
 }
 
 /**

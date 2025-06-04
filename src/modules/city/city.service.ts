@@ -39,6 +39,37 @@ export class CityService {
   }
 
   /**
+   * Retrieves cities by multiple country IDs
+   * @param {string[]} country_ids - Array of country IDs to filter cities by
+   * @returns {Promise<ICity[]>} Array of cities matching the country IDs
+   */
+  async getCitiesByCountryIds(country_ids: string[]): Promise<ICity[]> {
+    return this.knexService.knex('city').whereIn('country_id', country_ids);
+  }
+
+  /**
+   * Retrieves cities by multiple city IDs
+   * @param {string[]} city_ids - Array of city IDs to retrieve
+   * @returns {Promise<ICity[]>} Array of cities matching the provided IDs
+   */
+  async getCitiesByCityIds(city_ids: string[]): Promise<ICity[]> {
+    return this.knexService.knex('city').whereIn('id', city_ids);
+  }
+
+  /**
+   * Gets all cities belonging to a specific region
+   * @param {string} regionId - The unique identifier of the region
+   * @returns {Promise<ICity[]>} Array of cities with their details
+   */
+  async getCitiesByRegionId(regionId: string): Promise<ICity[]> {
+    return this.knexService
+      .knex('city')
+      .join('country', 'city.country_id', 'country.id')
+      .where('country.region_id', regionId)
+      .select('city.id as city_id', 'city.name as name', 'city.group_id', 'city.telegram_link');
+  }
+
+  /**
    * Finds a city by its ID
    * @param {string} cityId - The ID of the city to find
    * @returns {Promise<ICity | null>} The found city or null if not found
