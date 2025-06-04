@@ -18,7 +18,17 @@ export class RegionService {
    * @returns {Promise<IRegion[]>} Array of regions matching the provided IDs
    */
   async getRegionsByIds(region_ids: string[]): Promise<IRegion[]> {
-    return this.knexService.knex('region').whereIn('id', region_ids);
+    const cacheKey = `regions:ids:${region_ids.join(',')}`;
+    const cachedRegions = await RunCache.get(cacheKey);
+
+    if (cachedRegions) {
+      return JSON.parse(cachedRegions as string) as IRegion[];
+    }
+    const regions = await this.knexService.knex<IRegion>('region').whereIn('id', region_ids);
+
+    await RunCache.set({ key: cacheKey, value: JSON.stringify(regions) });
+
+    return regions;
   }
 
   /**

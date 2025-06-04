@@ -49,7 +49,21 @@ export class CountryService {
    * @returns {Promise<ICountry[]>} Array of countries matching the region IDs
    */
   async getCountriesByRegionIds(region_ids: string[]): Promise<ICountry[]> {
-    return this.knexService.knex('country').whereIn('region_id', region_ids);
+    const cacheKey = `countries:region_ids:${region_ids.join(',')}`;
+    const cachedCountries = await RunCache.get(cacheKey);
+
+    if (cachedCountries) {
+      return JSON.parse(cachedCountries as string) as ICountry[];
+    }
+
+    const countries = await this.knexService
+      .knex<ICountry>('country')
+      .whereIn('region_id', region_ids)
+      .select('id', 'name', 'region_id');
+
+    await RunCache.set({ key: cacheKey, value: JSON.stringify(countries) });
+
+    return countries;
   }
 
   /**
@@ -58,7 +72,21 @@ export class CountryService {
    * @returns {Promise<ICountry[]>} Array of countries matching the provided IDs
    */
   async getCountriesByCountryIds(country_ids: string[]): Promise<ICountry[]> {
-    return this.knexService.knex('country').whereIn('id', country_ids);
+    const cacheKey = `countries:ids:${country_ids.join(',')}`;
+    const cachedCountries = await RunCache.get(cacheKey);
+
+    if (cachedCountries) {
+      return JSON.parse(cachedCountries as string) as ICountry[];
+    }
+
+    const countries = await this.knexService
+      .knex<ICountry>('country')
+      .whereIn('id', country_ids)
+      .select('id', 'name', 'region_id');
+
+    await RunCache.set({ key: cacheKey, value: JSON.stringify(countries) });
+
+    return countries;
   }
 
   /**

@@ -112,56 +112,47 @@ export class BroadcastService {
     const searchType = currentSession?.searchType || 'city'; // Default to city search
 
     if (searchType === 'country') {
-      // Get country details from cache
-      const cacheKey = `broadcast:countries:${userId}`;
-      const cachedCountries = await RunCache.get(cacheKey);
+      let allCountries: ICountry[] = [];
 
-      let allCountries = JSON.parse(cachedCountries as string) as ICountry[];
-
-      if (allCountries.length <= 0) {
-        // Fetch all countries based on user access
-        const accessInfo = await this.accessService.getUserAccess(String(userId));
-        if (!accessInfo) {
-          await ctx.answerInlineQuery([], { cache_time: 1 });
-          return;
-        }
-
-        if (accessInfo.role === 'admin') {
-          // Admin can access all countries
-          allCountries = accessInfo.country_data.map((access) => ({
-            id: access.country_id,
-            name: access.country_name,
-            region_id: access.region_id,
-          }));
-        } else if (accessInfo.role === 'underboss') {
-          // Underboss can access countries in their regions
-          const countryPromises = accessInfo.region_data.map((access) =>
-            this.countryService.getCountriesByRegion(access.region_id),
-          );
-          const countriesArrays = await Promise.all(countryPromises);
-          allCountries = countriesArrays.flat();
-          // Remove duplicates
-          allCountries = allCountries.filter(
-            (country, index, self) => index === self.findIndex((c) => c.id === country.id),
-          );
-        } else if (accessInfo.role === 'caporegime') {
-          // Caporegime can only access their assigned countries
-          const countryIds = accessInfo.country_data.map((access) => access.country_id);
-          const countryPromises = countryIds.map((countryId) =>
-            this.countryService.getCountryById(countryId),
-          );
-          const countries = await Promise.all(countryPromises);
-          allCountries = countries.filter((country): country is ICountry => country !== null);
-        }
-
-        const session: { [key: string]: any } =
-          this.commonService.getUserState(Number(userId)) || {};
-        session.flow = 'broadcast';
-        session.searchType = 'country';
-        this.commonService.setUserState(Number(userId), session);
-
-        await RunCache.set({ key: cacheKey, value: JSON.stringify(allCountries) });
+      // Fetch all countries based on user access
+      const accessInfo = await this.accessService.getUserAccess(String(userId));
+      if (!accessInfo) {
+        await ctx.answerInlineQuery([], { cache_time: 1 });
+        return;
       }
+
+      if (accessInfo.role === 'admin') {
+        // Admin can access all countries
+        allCountries = accessInfo.country_data.map((access) => ({
+          id: access.country_id,
+          name: access.country_name,
+          region_id: access.region_id,
+        }));
+      } else if (accessInfo.role === 'underboss') {
+        // Underboss can access countries in their regions
+        const countryPromises = accessInfo.region_data.map((access) =>
+          this.countryService.getCountriesByRegion(access.region_id),
+        );
+        const countriesArrays = await Promise.all(countryPromises);
+        allCountries = countriesArrays.flat();
+        // Remove duplicates
+        allCountries = allCountries.filter(
+          (country, index, self) => index === self.findIndex((c) => c.id === country.id),
+        );
+      } else if (accessInfo.role === 'caporegime') {
+        // Caporegime can only access their assigned countries
+        const countryIds = accessInfo.country_data.map((access) => access.country_id);
+        const countryPromises = countryIds.map((countryId) =>
+          this.countryService.getCountryById(countryId),
+        );
+        const countries = await Promise.all(countryPromises);
+        allCountries = countries.filter((country): country is ICountry => country !== null);
+      }
+
+      const session: { [key: string]: any } = this.commonService.getUserState(Number(userId)) || {};
+      session.flow = 'broadcast';
+      session.searchType = 'country';
+      this.commonService.setUserState(Number(userId), session);
 
       // Filter countries - if no query, show all accessible countries
       const filteredCountries: ICountry[] = query
@@ -246,66 +237,58 @@ export class BroadcastService {
       return;
     }
 
-    // Get city details from cache
-    const cacheKey = `broadcast:cities:${userId}`;
-    const cachedCities = await RunCache.get(cacheKey);
+    let allCities: ICity[] = [];
 
-    let allCities = JSON.parse(cachedCities as string) as ICity[];
-
-    if (allCities.length <= 0) {
-      // Fetch cities based on user access and role
-      const accessInfo = await this.accessService.getUserAccess(String(userId));
-      if (!accessInfo) {
-        await ctx.answerInlineQuery([], { cache_time: 1 });
-        return;
-      }
-
-      if (accessInfo.role === 'admin') {
-        // Admin can access all cities
-        allCities = await this.cityService.getAllCities();
-      } else if (accessInfo.role === 'underboss') {
-        // Underboss can only access cities in their regions
-        const cityPromises = accessInfo.region_data.map((access) =>
-          this.cityService.getCitiesByRegionId(access.region_id),
-        );
-        const citiesArrays = await Promise.all(cityPromises);
-        const regionCities = citiesArrays.flat();
-
-        // Convert to ICity format
-        allCities = regionCities.map((city) => ({
-          id: city.id,
-          name: city.name,
-          group_id: city.group_id,
-          telegram_link: city.telegram_link,
-          country_id: '', // Will be fetched if needed
-        })) as ICity[];
-      } else if (accessInfo.role === 'caporegime') {
-        // Caporegime can access cities in their countries
-        const cityPromises = accessInfo.country_data.map((access) =>
-          this.cityService.getCitiesByCountry(access.country_id),
-        );
-        const citiesArrays = await Promise.all(cityPromises);
-        allCities = citiesArrays.flat();
-      } else if (accessInfo.role === 'host') {
-        // Host can only access their assigned cities
-        allCities = accessInfo.city_data.map((city) => ({
-          id: city.city_id,
-          name: city.city_name,
-          group_id: city.group_id,
-          telegram_link: city.telegram_link,
-          country_id: city.country_id,
-        })) as ICity[];
-      } else {
-        // Fallback for non-array userAccess (single access object)
-        allCities = await this.cityService.getAllCities();
-      }
-
-      const session: { [key: string]: any } = this.commonService.getUserState(Number(userId)) || {};
-      session.flow = 'broadcast';
-      this.commonService.setUserState(Number(userId), session);
-
-      await RunCache.set({ key: cacheKey, value: JSON.stringify(allCities) });
+    // Fetch cities based on user access and role
+    const accessInfo = await this.accessService.getUserAccess(String(userId));
+    if (!accessInfo) {
+      await ctx.answerInlineQuery([], { cache_time: 1 });
+      return;
     }
+
+    if (accessInfo.role === 'admin') {
+      // Admin can access all cities
+      allCities = await this.cityService.getAllCities();
+    } else if (accessInfo.role === 'underboss') {
+      // Underboss can only access cities in their regions
+      const cityPromises = accessInfo.region_data.map((access) =>
+        this.cityService.getCitiesByRegionId(access.region_id),
+      );
+      const citiesArrays = await Promise.all(cityPromises);
+      const regionCities = citiesArrays.flat();
+
+      // Convert to ICity format
+      allCities = regionCities.map((city) => ({
+        id: city.id,
+        name: city.name,
+        group_id: city.group_id,
+        telegram_link: city.telegram_link,
+        country_id: '', // Will be fetched if needed
+      })) as ICity[];
+    } else if (accessInfo.role === 'caporegime') {
+      // Caporegime can access cities in their countries
+      const cityPromises = accessInfo.country_data.map((access) =>
+        this.cityService.getCitiesByCountry(access.country_id),
+      );
+      const citiesArrays = await Promise.all(cityPromises);
+      allCities = citiesArrays.flat();
+    } else if (accessInfo.role === 'host') {
+      // Host can only access their assigned cities
+      allCities = accessInfo.city_data.map((city) => ({
+        id: city.city_id,
+        name: city.city_name,
+        group_id: city.group_id,
+        telegram_link: city.telegram_link,
+        country_id: city.country_id,
+      })) as ICity[];
+    } else {
+      // Fallback for non-array userAccess (single access object)
+      allCities = await this.cityService.getAllCities();
+    }
+
+    const session: { [key: string]: any } = this.commonService.getUserState(Number(userId)) || {};
+    session.flow = 'broadcast';
+    this.commonService.setUserState(Number(userId), session);
 
     // Filter cities - if no query, show all accessible cities
     const filteredCities: ICity[] = query
