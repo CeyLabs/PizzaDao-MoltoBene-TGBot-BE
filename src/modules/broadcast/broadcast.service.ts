@@ -48,11 +48,6 @@ import { getContextTelegramUserId } from 'src/utils/context';
 @Update()
 @Injectable()
 export class BroadcastService {
-  /** Array of super admin Telegram IDs */
-  private readonly SUPER_ADMIN_IDS: string[] = process.env.ADMIN_IDS
-    ? process.env.ADMIN_IDS.split(',').map((id) => id.trim())
-    : [];
-
   constructor(
     private readonly accessService: AccessService,
     private readonly eventDetailService: EventDetailService,
