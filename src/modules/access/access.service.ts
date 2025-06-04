@@ -113,15 +113,11 @@ export class AccessService {
    * @returns {Promise<AccessResult>} Detailed access information including cities, regions, and countries
    */
   async getUserAccess(telegram_id: string): Promise<TAccessResult | null> {
-    const cacheKey = `getUserAccess:${telegram_id}`;
+    const cacheKey = `access:user:${telegram_id}`;
 
     const cachedUserAccess = await RunCache.get(cacheKey);
 
     if (cachedUserAccess) {
-      if (cachedUserAccess === 'NULL_ACCESS') {
-        return null;
-      }
-
       return JSON.parse(cachedUserAccess as string) as TAccessResult;
     }
 
@@ -291,7 +287,7 @@ export class AccessService {
 
     await RunCache.set({
       key: cacheKey,
-      value: 'NULL_ACCESS',
+      value: JSON.stringify(null),
     });
 
     return null;

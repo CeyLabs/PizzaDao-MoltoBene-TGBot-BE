@@ -24,7 +24,7 @@ export class CityService {
    * @returns {Promise<ICity[]>} Array of all cities
    */
   async getAllCities(): Promise<ICity[]> {
-    const cacheKey = 'getAllCities';
+    const cacheKey = 'cities:all';
 
     const cachedCities = await RunCache.get(cacheKey);
 

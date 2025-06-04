@@ -26,7 +26,7 @@ export class RegionService {
    * @returns {Promise<IRegion[]>} Array of regions with their IDs and names
    */
   async getAllRegions(): Promise<IRegion[]> {
-    const cacheKey = 'getAllRegions';
+    const cacheKey = 'regions:all';
 
     const cachedRegions = await RunCache.get(cacheKey);
 

@@ -81,7 +81,7 @@ export class CountryService {
    * @returns {Promise<ICountry[]>} Array of all countries with their basic information
    */
   async getAllCountries(): Promise<ICountry[]> {
-    const cacheKey = 'getAllCountries';
+    const cacheKey = 'countries:all';
 
     const cachedCountries = await RunCache.get(cacheKey);
 
