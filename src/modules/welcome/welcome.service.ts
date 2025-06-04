@@ -562,7 +562,7 @@ export class WelcomeService {
             force_reply: true,
           },
         });
-        this.commonService.setUserState(Number(userId), {
+        await this.commonService.setUserState(Number(userId), {
           flow: 'welcome',
           step: `edit_${field}`,
         });
@@ -583,7 +583,7 @@ export class WelcomeService {
     // CallBackQuery[Register User]: Handle 'Yes, I have a Pizza Name' button
     if (callbackData === 'has_pizza_name') {
       await ctx.deleteMessage();
-      this.commonService.setUserState(Number(userId), {
+      await this.commonService.setUserState(Number(userId), {
         flow: 'welcome',
         step: 'discord_pizza_name',
       });
@@ -598,7 +598,7 @@ export class WelcomeService {
     // CallBackQuery[Register User]: Handle 'Give me a Pizza Name' button
     if (callbackData === 'give_me_pizza_name') {
       await ctx.deleteMessage();
-      this.commonService.setUserState(Number(userId), {
+      await this.commonService.setUserState(Number(userId), {
         flow: 'welcome',
         step: 'pizza_topping',
       });
@@ -674,7 +674,7 @@ export class WelcomeService {
       cityDetails?.id || '',
     );
 
-    this.commonService.clearUserState(Number(userId));
+    await this.commonService.clearUserState(Number(userId));
     this.userGroupMap.delete(userId);
   }
 
@@ -695,7 +695,7 @@ export class WelcomeService {
       return;
     }
 
-    this.commonService.setUserState(Number(userId), {
+    await this.commonService.setUserState(Number(userId), {
       flow: 'welcome',
       step: 'ninja_turtle_character',
     });
@@ -1231,7 +1231,7 @@ export class WelcomeService {
     const userId = getContextTelegramUserId(ctx);
     if (!userId) return;
 
-    const step = this.commonService.getUserState(Number(userId))?.step;
+    const step = (await this.commonService.getUserState(Number(userId)))?.step;
 
     const userData = this.userGroupMap.get(userId);
 
@@ -1252,7 +1252,7 @@ export class WelcomeService {
         await this.sendUserDataToGoogleScript(updatedUser, 'update');
       }
 
-      this.commonService.clearUserState(Number(userId));
+      await this.commonService.clearUserState(Number(userId));
 
       await ctx.reply(`Your ${field.replaceAll('_', ' ')} has been updated to "${newValue}".`);
       await this.handleStartCommand(ctx);
@@ -1268,7 +1268,7 @@ export class WelcomeService {
         return;
       }
 
-      this.commonService.setUserState(Number(userId), {
+      await this.commonService.setUserState(Number(userId), {
         flow: 'welcome',
         step: 'discord_username',
       });
@@ -1311,7 +1311,7 @@ export class WelcomeService {
         await ctx.reply('Invalid input. Please provide a valid name.');
         return;
       }
-      this.commonService.setUserState(Number(userId), {
+      await this.commonService.setUserState(Number(userId), {
         flow: 'welcome',
         step: 'enter_mafia_movie',
       });
@@ -1381,7 +1381,7 @@ export class WelcomeService {
       await ctx.reply(
         '❌ Failed to generate a unique pizza name. Please try again with another topping or mafia movie.',
       );
-      this.commonService.setUserState(Number(userId), {
+      await this.commonService.setUserState(Number(userId), {
         flow: 'welcome',
         step: 'pizza_topping',
       });

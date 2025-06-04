@@ -48,11 +48,6 @@ import { getContextTelegramUserId } from 'src/utils/context';
 @Update()
 @Injectable()
 export class BroadcastService {
-  /** Array of super admin Telegram IDs */
-  private readonly SUPER_ADMIN_IDS: string[] = process.env.ADMIN_IDS
-    ? process.env.ADMIN_IDS.split(',').map((id) => id.trim())
-    : [];
-
   constructor(
     private readonly accessService: AccessService,
     private readonly eventDetailService: EventDetailService,
@@ -107,59 +102,52 @@ export class BroadcastService {
       return;
     }
 
-    const currentSession = this.commonService.getUserState(Number(userId));
+    const currentSession = await this.commonService.getUserState(Number(userId));
     const searchType = currentSession?.searchType || 'city'; // Default to city search
 
     if (searchType === 'country') {
-      // Handle country search
-      let allCountries: ICountry[] =
-        currentSession?.allCountries && Array.isArray(currentSession.allCountries)
-          ? (currentSession.allCountries as ICountry[])
-          : [];
+      let allCountries: ICountry[] = [];
 
-      if (allCountries.length <= 0) {
-        // Fetch all countries based on user access
-        const accessInfo = await this.accessService.getUserAccess(String(userId));
-        if (!accessInfo) {
-          await ctx.answerInlineQuery([], { cache_time: 1 });
-          return;
-        }
-
-        if (accessInfo.role === 'admin') {
-          // Admin can access all countries
-          allCountries = accessInfo.country_data.map((access) => ({
-            id: access.country_id,
-            name: access.country_name,
-            region_id: access.region_id,
-          }));
-        } else if (accessInfo.role === 'underboss') {
-          // Underboss can access countries in their regions
-          const countryPromises = accessInfo.region_data.map((access) =>
-            this.countryService.getCountriesByRegion(access.region_id),
-          );
-          const countriesArrays = await Promise.all(countryPromises);
-          allCountries = countriesArrays.flat();
-          // Remove duplicates
-          allCountries = allCountries.filter(
-            (country, index, self) => index === self.findIndex((c) => c.id === country.id),
-          );
-        } else if (accessInfo.role === 'caporegime') {
-          // Caporegime can only access their assigned countries
-          const countryIds = accessInfo.country_data.map((access) => access.country_id);
-          const countryPromises = countryIds.map((countryId) =>
-            this.countryService.getCountryById(countryId),
-          );
-          const countries = await Promise.all(countryPromises);
-          allCountries = countries.filter((country): country is ICountry => country !== null);
-        }
-
-        const session: { allCountries?: ICountry[]; [key: string]: any } =
-          this.commonService.getUserState(Number(userId)) || {};
-        session.flow = 'broadcast';
-        session.allCountries = allCountries;
-        session.searchType = 'country';
-        this.commonService.setUserState(Number(userId), session);
+      // Fetch all countries based on user access
+      const accessInfo = await this.accessService.getUserAccess(String(userId));
+      if (!accessInfo) {
+        await ctx.answerInlineQuery([], { cache_time: 1 });
+        return;
       }
+
+      if (accessInfo.role === 'admin') {
+        // Admin can access all countries
+        allCountries = accessInfo.country_data.map((access) => ({
+          id: access.country_id,
+          name: access.country_name,
+          region_id: access.region_id,
+        }));
+      } else if (accessInfo.role === 'underboss') {
+        // Underboss can access countries in their regions
+        const countryPromises = accessInfo.region_data.map((access) =>
+          this.countryService.getCountriesByRegion(access.region_id),
+        );
+        const countriesArrays = await Promise.all(countryPromises);
+        allCountries = countriesArrays.flat();
+        // Remove duplicates
+        allCountries = allCountries.filter(
+          (country, index, self) => index === self.findIndex((c) => c.id === country.id),
+        );
+      } else if (accessInfo.role === 'caporegime') {
+        // Caporegime can only access their assigned countries
+        const countryIds = accessInfo.country_data.map((access) => access.country_id);
+        const countryPromises = countryIds.map((countryId) =>
+          this.countryService.getCountryById(countryId),
+        );
+        const countries = await Promise.all(countryPromises);
+        allCountries = countries.filter((country): country is ICountry => country !== null);
+      }
+
+      const session: { [key: string]: any } =
+        (await this.commonService.getUserState(Number(userId))) || {};
+      session.flow = 'broadcast';
+      session.searchType = 'country';
+      await this.commonService.setUserState(Number(userId), session);
 
       // Filter countries - if no query, show all accessible countries
       const filteredCountries: ICountry[] = query
@@ -232,8 +220,8 @@ export class BroadcastService {
         name: country.name,
       }));
 
-      this.commonService.setUserState(Number(userId), {
-        ...this.commonService.getUserState(Number(userId)),
+      await this.commonService.setUserState(Number(userId), {
+        ...(await this.commonService.getUserState(Number(userId))),
         selectedCountry,
       });
 
@@ -244,66 +232,59 @@ export class BroadcastService {
       return;
     }
 
-    // Handle city search
-    let allCities: ICity[] =
-      currentSession?.allCities && Array.isArray(currentSession.allCities)
-        ? (currentSession.allCities as ICity[])
-        : [];
+    let allCities: ICity[] = [];
 
-    if (allCities.length <= 0) {
-      // Fetch cities based on user access and role
-      const accessInfo = await this.accessService.getUserAccess(String(userId));
-      if (!accessInfo) {
-        await ctx.answerInlineQuery([], { cache_time: 1 });
-        return;
-      }
-
-      if (accessInfo.role === 'admin') {
-        // Admin can access all cities
-        allCities = await this.cityService.getAllCities();
-      } else if (accessInfo.role === 'underboss') {
-        // Underboss can only access cities in their regions
-        const cityPromises = accessInfo.region_data.map((access) =>
-          this.cityService.getCitiesByRegionId(access.region_id),
-        );
-        const citiesArrays = await Promise.all(cityPromises);
-        const regionCities = citiesArrays.flat();
-
-        // Convert to ICity format
-        allCities = regionCities.map((city) => ({
-          id: city.id,
-          name: city.name,
-          group_id: city.group_id,
-          telegram_link: city.telegram_link,
-          country_id: '', // Will be fetched if needed
-        })) as ICity[];
-      } else if (accessInfo.role === 'caporegime') {
-        // Caporegime can access cities in their countries
-        const cityPromises = accessInfo.country_data.map((access) =>
-          this.cityService.getCitiesByCountry(access.country_id),
-        );
-        const citiesArrays = await Promise.all(cityPromises);
-        allCities = citiesArrays.flat();
-      } else if (accessInfo.role === 'host') {
-        // Host can only access their assigned cities
-        allCities = accessInfo.city_data.map((city) => ({
-          id: city.city_id,
-          name: city.city_name,
-          group_id: city.group_id,
-          telegram_link: city.telegram_link,
-          country_id: city.country_id,
-        })) as ICity[];
-      } else {
-        // Fallback for non-array userAccess (single access object)
-        allCities = await this.cityService.getAllCities();
-      }
-
-      const session: { allCities?: ICity[]; [key: string]: any } =
-        this.commonService.getUserState(Number(userId)) || {};
-      session.flow = 'broadcast';
-      session.allCities = allCities;
-      this.commonService.setUserState(Number(userId), session);
+    // Fetch cities based on user access and role
+    const accessInfo = await this.accessService.getUserAccess(String(userId));
+    if (!accessInfo) {
+      await ctx.answerInlineQuery([], { cache_time: 1 });
+      return;
     }
+
+    if (accessInfo.role === 'admin') {
+      // Admin can access all cities
+      allCities = await this.cityService.getAllCities();
+    } else if (accessInfo.role === 'underboss') {
+      // Underboss can only access cities in their regions
+      const cityPromises = accessInfo.region_data.map((access) =>
+        this.cityService.getCitiesByRegionId(access.region_id),
+      );
+      const citiesArrays = await Promise.all(cityPromises);
+      const regionCities = citiesArrays.flat();
+
+      // Convert to ICity format
+      allCities = regionCities.map((city) => ({
+        id: city.id,
+        name: city.name,
+        group_id: city.group_id,
+        telegram_link: city.telegram_link,
+        country_id: '', // Will be fetched if needed
+      })) as ICity[];
+    } else if (accessInfo.role === 'caporegime') {
+      // Caporegime can access cities in their countries
+      const cityPromises = accessInfo.country_data.map((access) =>
+        this.cityService.getCitiesByCountry(access.country_id),
+      );
+      const citiesArrays = await Promise.all(cityPromises);
+      allCities = citiesArrays.flat();
+    } else if (accessInfo.role === 'host') {
+      // Host can only access their assigned cities
+      allCities = accessInfo.city_data.map((city) => ({
+        id: city.city_id,
+        name: city.city_name,
+        group_id: city.group_id,
+        telegram_link: city.telegram_link,
+        country_id: city.country_id,
+      })) as ICity[];
+    } else {
+      // Fallback for non-array userAccess (single access object)
+      allCities = await this.cityService.getAllCities();
+    }
+
+    const session: { [key: string]: any } =
+      (await this.commonService.getUserState(Number(userId))) || {};
+    session.flow = 'broadcast';
+    await this.commonService.setUserState(Number(userId), session);
 
     // Filter cities - if no query, show all accessible cities
     const filteredCities: ICity[] = query
@@ -378,8 +359,8 @@ export class BroadcastService {
         : '',
     }));
 
-    this.commonService.setUserState(Number(userId), {
-      ...this.commonService.getUserState(Number(userId)),
+    await this.commonService.setUserState(Number(userId), {
+      ...(await this.commonService.getUserState(Number(userId))),
       selectedCity,
     });
 
@@ -474,7 +455,7 @@ You can register via: \`\\{unlock\\_link\\}\`
 
     if (callbackData.startsWith('confirm_country_')) {
       const countryId = callbackData.replace('confirm_country_', '');
-      const session = this.commonService.getUserState(ctx.from.id);
+      const session = await this.commonService.getUserState(ctx.from.id);
       if (!session) {
         await ctx.answerCbQuery('❌ No active session found\\.');
         return;
@@ -490,7 +471,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       // Fetch all cities for this country
       const cities = await this.cityService.getCitiesByCountry(countryId);
 
-      this.commonService.setUserState(ctx.from.id, {
+      await this.commonService.setUserState(ctx.from.id, {
         step: 'creating_post',
         ...session,
         selectedCountry: [
@@ -522,7 +503,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     }
 
     if (callbackData.startsWith('confirm_city_')) {
-      const session = this.commonService.getUserState(ctx.from.id);
+      const session = await this.commonService.getUserState(ctx.from.id);
       if (!session) {
         await ctx.answerCbQuery('❌ No active session found\\.');
         return;
@@ -535,7 +516,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         return;
       }
 
-      this.commonService.setUserState(ctx.from.id, {
+      await this.commonService.setUserState(ctx.from.id, {
         step: 'creating_post',
         ...session,
         selectedCity: selectedCity,
@@ -613,7 +594,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     const region = await this.regionService.getRegionById(regionId);
     const regionName = region ? region.name : 'Unknown Region';
 
-    this.commonService.setUserState(Number(userId), {
+    await this.commonService.setUserState(Number(userId), {
       flow: 'broadcast',
       step: 'creating_post',
       messages: [],
@@ -691,7 +672,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       case 'host': {
         const citynames = accessInfo.city_data.map((region) => region.city_name).join(', ');
 
-        this.commonService.setUserState(Number(ctx.from?.id), {
+        await this.commonService.setUserState(Number(ctx.from?.id), {
           flow: 'broadcast',
           step: `creating_post`,
           messages: [] as IPostMessage[],
@@ -764,7 +745,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       if (!userId) return;
 
       if (callbackData === 'broadcast_all_cities') {
-        this.commonService.setUserState(Number(userId), {
+        await this.commonService.setUserState(Number(userId), {
           flow: 'broadcast',
           step: `creating_post`,
           messages: [] as IPostMessage[],
@@ -790,8 +771,8 @@ You can register via: \`\\{unlock\\_link\\}\`
         callbackData === 'broadcast_caporegime_country'
       ) {
         // Set search type to country
-        this.commonService.setUserState(Number(userId), {
-          ...this.commonService.getUserState(Number(userId)),
+        await this.commonService.setUserState(Number(userId), {
+          ...(await this.commonService.getUserState(Number(userId))),
           searchType: 'country',
         });
 
@@ -819,8 +800,8 @@ You can register via: \`\\{unlock\\_link\\}\`
         callbackData === 'broadcast_caporegime_city'
       ) {
         // Set search type back to city and clear cached cities to force re-fetch based on user role
-        this.commonService.setUserState(Number(userId), {
-          ...this.commonService.getUserState(Number(userId)),
+        await this.commonService.setUserState(Number(userId), {
+          ...(await this.commonService.getUserState(Number(userId))),
           searchType: 'city',
           allCities: [], // Clear cached cities
         });
@@ -861,7 +842,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         const regionId = accessInfo.region_data[0].region_id;
         if (!regionId) return;
 
-        this.commonService.setUserState(Number(userId), {
+        await this.commonService.setUserState(Number(userId), {
           flow: 'broadcast',
           step: 'creating_post',
           messages: [],
@@ -890,7 +871,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         const countryId = userAccess.country_data[0].country_id;
         if (!countryId) return;
 
-        this.commonService.setUserState(Number(userId), {
+        await this.commonService.setUserState(Number(userId), {
           flow: 'broadcast',
           step: 'creating_post',
           messages: [],
@@ -974,7 +955,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     const userId = getContextTelegramUserId(ctx);
     if (!userId) return;
 
-    const session = this.commonService.getUserState(Number(userId));
+    const session = await this.commonService.getUserState(Number(userId));
     if (!session) {
       await ctx.answerCbQuery(this.escapeMarkdown('❌ No active session found.'));
       return;
@@ -991,7 +972,7 @@ You can register via: \`\\{unlock\\_link\\}\`
 
     switch (action) {
       case 'media':
-        this.commonService.setUserState(Number(userId), {
+        await this.commonService.setUserState(Number(userId), {
           currentAction: 'attach_media',
           currentMessageIndex: index,
         });
@@ -1003,7 +984,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         break;
 
       case 'url':
-        this.commonService.setUserState(Number(userId), {
+        await this.commonService.setUserState(Number(userId), {
           currentAction: 'add_url_buttons',
           currentMessageIndex: index,
         });
@@ -1026,7 +1007,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       case 'pin': {
         const selectedMessage = session.messages[index] as IPostMessage;
         selectedMessage.isPinned = !selectedMessage.isPinned;
-        this.commonService.setUserState(Number(userId), {
+        await this.commonService.setUserState(Number(userId), {
           ...session,
           step: 'creating_post',
           messages: session.messages ?? [],
@@ -1066,7 +1047,7 @@ You can register via: \`\\{unlock\\_link\\}\`
 
       case 'delete':
         session.messages.splice(index, 1);
-        this.commonService.setUserState(Number(userId), session);
+        await this.commonService.setUserState(Number(userId), session);
 
         await ctx.answerCbQuery(this.escapeMarkdown('Message deleted'));
         await ctx.deleteMessage().catch(() => {});
@@ -1104,7 +1085,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     const userId = getContextTelegramUserId(ctx);
     if (!userId) return;
 
-    const session = this.commonService.getUserState(Number(userId));
+    const session = await this.commonService.getUserState(Number(userId));
     if (!session || !session.messages) {
       await ctx.reply(this.escapeMarkdown('❌ No messages to process.'), {
         parse_mode: 'MarkdownV2',
@@ -1129,7 +1110,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         break;
 
       case 'Delete All':
-        this.commonService.setUserState(Number(userId), {
+        await this.commonService.setUserState(Number(userId), {
           ...session,
           step: 'creating_post',
           messages: [],
@@ -1141,7 +1122,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         break;
 
       case 'Cancel':
-        this.commonService.clearUserState(Number(userId));
+        await this.commonService.clearUserState(Number(userId));
         await ctx.reply(this.escapeMarkdown('✅ Broadcast session cancelled.'), {
           parse_mode: 'MarkdownV2',
           reply_markup: { remove_keyboard: true },
@@ -1265,7 +1246,7 @@ You can register via: \`\\{unlock\\_link\\}\`
 
         session.messages[index] = message;
         if (ctx.from?.id) {
-          this.commonService.setUserState(ctx.from.id, { ...session });
+          await this.commonService.setUserState(ctx.from.id, { ...session });
         }
       }
 
@@ -1658,7 +1639,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       );
 
       if (ctx.from?.id !== undefined) {
-        this.commonService.clearUserState(ctx.from?.id);
+        await this.commonService.clearUserState(ctx.from?.id);
       }
     } catch (error) {
       console.error('Error in sendMessages:', error);
@@ -1683,7 +1664,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     if (!userId) return;
 
     const text = ctx.message.text;
-    const session = this.commonService.getUserState(Number(userId));
+    const session = await this.commonService.getUserState(Number(userId));
 
     if (!session || session.step !== 'creating_post') return;
 
@@ -1699,7 +1680,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         session.currentAction = undefined;
         session.currentMessageIndex = undefined;
         session.step = session.step ?? 'creating_post';
-        this.commonService.setUserState(Number(userId), session);
+        await this.commonService.setUserState(Number(userId), session);
         await ctx.reply(this.escapeMarkdown('✅ Action cancelled.'), {
           parse_mode: 'MarkdownV2',
           reply_markup: this.getKeyboardMarkup(),
@@ -1725,7 +1706,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         session.currentMessageIndex < session.messages.length
       ) {
         (session.messages[session.currentMessageIndex] as IPostMessage).urlButtons = buttons;
-        this.commonService.setUserState(Number(userId), session);
+        await this.commonService.setUserState(Number(userId), session);
 
         await ctx.reply(this.escapeMarkdown('✅ URL buttons added to your message.'), {
           parse_mode: 'MarkdownV2',
@@ -1748,7 +1729,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         session.currentAction = undefined;
         session.currentMessageIndex = undefined;
         session.step = session.step ?? 'creating_post';
-        this.commonService.setUserState(Number(userId), session);
+        await this.commonService.setUserState(Number(userId), session);
       } else {
         await ctx.reply(
           this.escapeMarkdown('❌ Invalid URL button format or message index. Please try again.'),
@@ -1775,7 +1756,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         session.messages = [];
       }
       session.messages.push(messageObj);
-      this.commonService.setUserState(Number(userId), {
+      await this.commonService.setUserState(Number(userId), {
         ...session,
         step: session.step ?? 'creating_post',
       });
@@ -1880,10 +1861,10 @@ You can register via: \`\\{unlock\\_link\\}\`
       }
       const userId = getContextTelegramUserId(ctx);
       if (userId) {
-        const session = this.commonService.getUserState(Number(userId));
+        const session = await this.commonService.getUserState(Number(userId));
         if (session?.messages) {
           session.messages[index] = messageObj;
-          this.commonService.setUserState(Number(userId), session);
+          await this.commonService.setUserState(Number(userId), session);
         }
       }
 
@@ -2024,7 +2005,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     const userId = getContextTelegramUserId(ctx);
     if (!userId) return;
 
-    const session = this.commonService.getUserState(Number(userId));
+    const session = await this.commonService.getUserState(Number(userId));
     if (!session || session.step !== 'creating_post') return;
 
     let fileId: string | undefined;
@@ -2101,7 +2082,7 @@ You can register via: \`\\{unlock\\_link\\}\`
 
         session.currentAction = undefined;
         session.currentMessageIndex = undefined;
-        this.commonService.setUserState(Number(userId), session);
+        await this.commonService.setUserState(Number(userId), session);
       } else {
         const messageObj: IPostMessage = {
           text,
@@ -2116,7 +2097,7 @@ You can register via: \`\\{unlock\\_link\\}\`
           session.messages = [];
         }
         session.messages.push(messageObj);
-        this.commonService.setUserState(Number(userId), session);
+        await this.commonService.setUserState(Number(userId), session);
 
         const messageIndex = session.messages.length - 1;
         await ctx.reply(

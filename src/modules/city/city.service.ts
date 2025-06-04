@@ -3,6 +3,7 @@
  * @module city.service
  */
 
+import RunCache from 'run-cache';
 import { Injectable } from '@nestjs/common';
 import { KnexService } from '../knex/knex.service';
 import { ICity } from './city.interface';
@@ -23,7 +24,20 @@ export class CityService {
    * @returns {Promise<ICity[]>} Array of all cities
    */
   async getAllCities(): Promise<ICity[]> {
-    return this.knexService.knex('city').select('id', 'name', 'group_id', 'country_id');
+    const cacheKey = 'cities:all';
+
+    const cachedCities = await RunCache.get(cacheKey);
+
+    if (cachedCities) {
+      return JSON.parse(cachedCities as string) as ICity[];
+    }
+    const cities = await this.knexService
+      .knex<ICity>('city')
+      .select('id', 'name', 'group_id', 'country_id');
+
+    await RunCache.set({ key: cacheKey, value: JSON.stringify(cities) });
+
+    return cities;
   }
 
   /**
@@ -44,7 +58,21 @@ export class CityService {
    * @returns {Promise<ICity[]>} Array of cities matching the country IDs
    */
   async getCitiesByCountryIds(country_ids: string[]): Promise<ICity[]> {
-    return this.knexService.knex('city').whereIn('country_id', country_ids);
+    const cacheKey = `cities:country_ids:${country_ids.join(',')}`;
+    const cachedCities = await RunCache.get(cacheKey);
+
+    if (cachedCities) {
+      return JSON.parse(cachedCities as string) as ICity[];
+    }
+
+    const cities = await this.knexService
+      .knex<ICity>('city')
+      .whereIn('country_id', country_ids)
+      .select('id', 'name', 'group_id', 'telegram_link', 'country_id');
+
+    await RunCache.set({ key: cacheKey, value: JSON.stringify(cities) });
+
+    return cities;
   }
 
   /**
@@ -53,7 +81,21 @@ export class CityService {
    * @returns {Promise<ICity[]>} Array of cities matching the provided IDs
    */
   async getCitiesByCityIds(city_ids: string[]): Promise<ICity[]> {
-    return this.knexService.knex('city').whereIn('id', city_ids);
+    const cacheKey = `cities:ids:${city_ids.join(',')}`;
+    const cachedCities = await RunCache.get(cacheKey);
+
+    if (cachedCities) {
+      return JSON.parse(cachedCities as string) as ICity[];
+    }
+
+    const cities = await this.knexService
+      .knex<ICity>('city')
+      .whereIn('id', city_ids)
+      .select('id', 'name', 'group_id', 'telegram_link', 'country_id');
+
+    await RunCache.set({ key: cacheKey, value: JSON.stringify(cities) });
+
+    return cities;
   }
 
   /**

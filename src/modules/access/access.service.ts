@@ -2,7 +2,7 @@
  * @fileoverview Service for managing access control
  * @module access.service
  */
-
+import RunCache from 'run-cache';
 import { Injectable } from '@nestjs/common';
 import { KnexService } from '../knex/knex.service';
 import { ICityAccess, ICountryAccess, IRegionAccess } from './access.interface';
@@ -113,6 +113,14 @@ export class AccessService {
    * @returns {Promise<AccessResult>} Detailed access information including cities, regions, and countries
    */
   async getUserAccess(telegram_id: string): Promise<TAccessResult | null> {
+    const cacheKey = `access:user:${telegram_id}`;
+
+    const cachedUserAccess = await RunCache.get(cacheKey);
+
+    if (cachedUserAccess) {
+      return JSON.parse(cachedUserAccess as string) as TAccessResult;
+    }
+
     const adminIds: string[] = process.env.ADMIN_IDS
       ? process.env.ADMIN_IDS.split(',').map((id) => id.trim())
       : [];
@@ -141,6 +149,16 @@ export class AccessService {
           'city.country_id as country_id',
           'country.region_id as region_id',
         );
+
+      await RunCache.set({
+        key: cacheKey,
+        value: JSON.stringify({
+          role: 'admin',
+          city_data: allCities,
+          region_data: allRegions,
+          country_data: allCountries,
+        }),
+      });
 
       return {
         role: 'admin',
@@ -196,6 +214,11 @@ export class AccessService {
 
       accessResult.role = 'underboss';
 
+      await RunCache.set({
+        key: cacheKey,
+        value: JSON.stringify(accessResult),
+      });
+
       return accessResult;
     }
 
@@ -229,6 +252,11 @@ export class AccessService {
 
       accessResult.role = 'caporegime';
 
+      await RunCache.set({
+        key: cacheKey,
+        value: JSON.stringify(accessResult),
+      });
+
       return accessResult;
     }
 
@@ -249,8 +277,18 @@ export class AccessService {
 
       accessResult.role = 'host';
 
+      await RunCache.set({
+        key: cacheKey,
+        value: JSON.stringify(accessResult),
+      });
+
       return accessResult;
     }
+
+    await RunCache.set({
+      key: cacheKey,
+      value: JSON.stringify(null),
+    });
 
     return null;
   }
