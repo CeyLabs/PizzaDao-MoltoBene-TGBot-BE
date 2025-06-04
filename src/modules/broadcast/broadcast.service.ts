@@ -7,7 +7,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { v4 as uuidv4 } from 'uuid';
-import RunCache from 'run-cache';
 
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { Context } from 'telegraf';
@@ -108,7 +107,7 @@ export class BroadcastService {
       return;
     }
 
-    const currentSession = this.commonService.getUserState(Number(userId));
+    const currentSession = await this.commonService.getUserState(Number(userId));
     const searchType = currentSession?.searchType || 'city'; // Default to city search
 
     if (searchType === 'country') {
@@ -149,10 +148,11 @@ export class BroadcastService {
         allCountries = countries.filter((country): country is ICountry => country !== null);
       }
 
-      const session: { [key: string]: any } = this.commonService.getUserState(Number(userId)) || {};
+      const session: { [key: string]: any } =
+        (await this.commonService.getUserState(Number(userId))) || {};
       session.flow = 'broadcast';
       session.searchType = 'country';
-      this.commonService.setUserState(Number(userId), session);
+      await this.commonService.setUserState(Number(userId), session);
 
       // Filter countries - if no query, show all accessible countries
       const filteredCountries: ICountry[] = query
@@ -225,8 +225,8 @@ export class BroadcastService {
         name: country.name,
       }));
 
-      this.commonService.setUserState(Number(userId), {
-        ...this.commonService.getUserState(Number(userId)),
+      await this.commonService.setUserState(Number(userId), {
+        ...(await this.commonService.getUserState(Number(userId))),
         selectedCountry,
       });
 
@@ -286,9 +286,10 @@ export class BroadcastService {
       allCities = await this.cityService.getAllCities();
     }
 
-    const session: { [key: string]: any } = this.commonService.getUserState(Number(userId)) || {};
+    const session: { [key: string]: any } =
+      (await this.commonService.getUserState(Number(userId))) || {};
     session.flow = 'broadcast';
-    this.commonService.setUserState(Number(userId), session);
+    await this.commonService.setUserState(Number(userId), session);
 
     // Filter cities - if no query, show all accessible cities
     const filteredCities: ICity[] = query
@@ -363,8 +364,8 @@ export class BroadcastService {
         : '',
     }));
 
-    this.commonService.setUserState(Number(userId), {
-      ...this.commonService.getUserState(Number(userId)),
+    await this.commonService.setUserState(Number(userId), {
+      ...(await this.commonService.getUserState(Number(userId))),
       selectedCity,
     });
 
@@ -459,7 +460,7 @@ You can register via: \`\\{unlock\\_link\\}\`
 
     if (callbackData.startsWith('confirm_country_')) {
       const countryId = callbackData.replace('confirm_country_', '');
-      const session = this.commonService.getUserState(ctx.from.id);
+      const session = await this.commonService.getUserState(ctx.from.id);
       if (!session) {
         await ctx.answerCbQuery('❌ No active session found\\.');
         return;
@@ -475,7 +476,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       // Fetch all cities for this country
       const cities = await this.cityService.getCitiesByCountry(countryId);
 
-      this.commonService.setUserState(ctx.from.id, {
+      await this.commonService.setUserState(ctx.from.id, {
         step: 'creating_post',
         ...session,
         selectedCountry: [
@@ -507,7 +508,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     }
 
     if (callbackData.startsWith('confirm_city_')) {
-      const session = this.commonService.getUserState(ctx.from.id);
+      const session = await this.commonService.getUserState(ctx.from.id);
       if (!session) {
         await ctx.answerCbQuery('❌ No active session found\\.');
         return;
@@ -520,7 +521,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         return;
       }
 
-      this.commonService.setUserState(ctx.from.id, {
+      await this.commonService.setUserState(ctx.from.id, {
         step: 'creating_post',
         ...session,
         selectedCity: selectedCity,
@@ -598,7 +599,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     const region = await this.regionService.getRegionById(regionId);
     const regionName = region ? region.name : 'Unknown Region';
 
-    this.commonService.setUserState(Number(userId), {
+    await this.commonService.setUserState(Number(userId), {
       flow: 'broadcast',
       step: 'creating_post',
       messages: [],
@@ -676,7 +677,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       case 'host': {
         const citynames = accessInfo.city_data.map((region) => region.city_name).join(', ');
 
-        this.commonService.setUserState(Number(ctx.from?.id), {
+        await this.commonService.setUserState(Number(ctx.from?.id), {
           flow: 'broadcast',
           step: `creating_post`,
           messages: [] as IPostMessage[],
@@ -749,7 +750,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       if (!userId) return;
 
       if (callbackData === 'broadcast_all_cities') {
-        this.commonService.setUserState(Number(userId), {
+        await this.commonService.setUserState(Number(userId), {
           flow: 'broadcast',
           step: `creating_post`,
           messages: [] as IPostMessage[],
@@ -775,8 +776,8 @@ You can register via: \`\\{unlock\\_link\\}\`
         callbackData === 'broadcast_caporegime_country'
       ) {
         // Set search type to country
-        this.commonService.setUserState(Number(userId), {
-          ...this.commonService.getUserState(Number(userId)),
+        await this.commonService.setUserState(Number(userId), {
+          ...(await this.commonService.getUserState(Number(userId))),
           searchType: 'country',
         });
 
@@ -804,8 +805,8 @@ You can register via: \`\\{unlock\\_link\\}\`
         callbackData === 'broadcast_caporegime_city'
       ) {
         // Set search type back to city and clear cached cities to force re-fetch based on user role
-        this.commonService.setUserState(Number(userId), {
-          ...this.commonService.getUserState(Number(userId)),
+        await this.commonService.setUserState(Number(userId), {
+          ...(await this.commonService.getUserState(Number(userId))),
           searchType: 'city',
           allCities: [], // Clear cached cities
         });
@@ -846,7 +847,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         const regionId = accessInfo.region_data[0].region_id;
         if (!regionId) return;
 
-        this.commonService.setUserState(Number(userId), {
+        await this.commonService.setUserState(Number(userId), {
           flow: 'broadcast',
           step: 'creating_post',
           messages: [],
@@ -875,7 +876,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         const countryId = userAccess.country_data[0].country_id;
         if (!countryId) return;
 
-        this.commonService.setUserState(Number(userId), {
+        await this.commonService.setUserState(Number(userId), {
           flow: 'broadcast',
           step: 'creating_post',
           messages: [],
@@ -959,7 +960,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     const userId = getContextTelegramUserId(ctx);
     if (!userId) return;
 
-    const session = this.commonService.getUserState(Number(userId));
+    const session = await this.commonService.getUserState(Number(userId));
     if (!session) {
       await ctx.answerCbQuery(this.escapeMarkdown('❌ No active session found.'));
       return;
@@ -976,7 +977,7 @@ You can register via: \`\\{unlock\\_link\\}\`
 
     switch (action) {
       case 'media':
-        this.commonService.setUserState(Number(userId), {
+        await this.commonService.setUserState(Number(userId), {
           currentAction: 'attach_media',
           currentMessageIndex: index,
         });
@@ -988,7 +989,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         break;
 
       case 'url':
-        this.commonService.setUserState(Number(userId), {
+        await this.commonService.setUserState(Number(userId), {
           currentAction: 'add_url_buttons',
           currentMessageIndex: index,
         });
@@ -1011,7 +1012,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       case 'pin': {
         const selectedMessage = session.messages[index] as IPostMessage;
         selectedMessage.isPinned = !selectedMessage.isPinned;
-        this.commonService.setUserState(Number(userId), {
+        await this.commonService.setUserState(Number(userId), {
           ...session,
           step: 'creating_post',
           messages: session.messages ?? [],
@@ -1051,7 +1052,7 @@ You can register via: \`\\{unlock\\_link\\}\`
 
       case 'delete':
         session.messages.splice(index, 1);
-        this.commonService.setUserState(Number(userId), session);
+        await this.commonService.setUserState(Number(userId), session);
 
         await ctx.answerCbQuery(this.escapeMarkdown('Message deleted'));
         await ctx.deleteMessage().catch(() => {});
@@ -1089,7 +1090,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     const userId = getContextTelegramUserId(ctx);
     if (!userId) return;
 
-    const session = this.commonService.getUserState(Number(userId));
+    const session = await this.commonService.getUserState(Number(userId));
     if (!session || !session.messages) {
       await ctx.reply(this.escapeMarkdown('❌ No messages to process.'), {
         parse_mode: 'MarkdownV2',
@@ -1114,7 +1115,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         break;
 
       case 'Delete All':
-        this.commonService.setUserState(Number(userId), {
+        await this.commonService.setUserState(Number(userId), {
           ...session,
           step: 'creating_post',
           messages: [],
@@ -1126,7 +1127,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         break;
 
       case 'Cancel':
-        this.commonService.clearUserState(Number(userId));
+        await this.commonService.clearUserState(Number(userId));
         await ctx.reply(this.escapeMarkdown('✅ Broadcast session cancelled.'), {
           parse_mode: 'MarkdownV2',
           reply_markup: { remove_keyboard: true },
@@ -1250,7 +1251,7 @@ You can register via: \`\\{unlock\\_link\\}\`
 
         session.messages[index] = message;
         if (ctx.from?.id) {
-          this.commonService.setUserState(ctx.from.id, { ...session });
+          await this.commonService.setUserState(ctx.from.id, { ...session });
         }
       }
 
@@ -1643,7 +1644,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       );
 
       if (ctx.from?.id !== undefined) {
-        this.commonService.clearUserState(ctx.from?.id);
+        await this.commonService.clearUserState(ctx.from?.id);
       }
     } catch (error) {
       console.error('Error in sendMessages:', error);
@@ -1668,7 +1669,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     if (!userId) return;
 
     const text = ctx.message.text;
-    const session = this.commonService.getUserState(Number(userId));
+    const session = await this.commonService.getUserState(Number(userId));
 
     if (!session || session.step !== 'creating_post') return;
 
@@ -1684,7 +1685,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         session.currentAction = undefined;
         session.currentMessageIndex = undefined;
         session.step = session.step ?? 'creating_post';
-        this.commonService.setUserState(Number(userId), session);
+        await this.commonService.setUserState(Number(userId), session);
         await ctx.reply(this.escapeMarkdown('✅ Action cancelled.'), {
           parse_mode: 'MarkdownV2',
           reply_markup: this.getKeyboardMarkup(),
@@ -1710,7 +1711,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         session.currentMessageIndex < session.messages.length
       ) {
         (session.messages[session.currentMessageIndex] as IPostMessage).urlButtons = buttons;
-        this.commonService.setUserState(Number(userId), session);
+        await this.commonService.setUserState(Number(userId), session);
 
         await ctx.reply(this.escapeMarkdown('✅ URL buttons added to your message.'), {
           parse_mode: 'MarkdownV2',
@@ -1733,7 +1734,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         session.currentAction = undefined;
         session.currentMessageIndex = undefined;
         session.step = session.step ?? 'creating_post';
-        this.commonService.setUserState(Number(userId), session);
+        await this.commonService.setUserState(Number(userId), session);
       } else {
         await ctx.reply(
           this.escapeMarkdown('❌ Invalid URL button format or message index. Please try again.'),
@@ -1760,7 +1761,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         session.messages = [];
       }
       session.messages.push(messageObj);
-      this.commonService.setUserState(Number(userId), {
+      await this.commonService.setUserState(Number(userId), {
         ...session,
         step: session.step ?? 'creating_post',
       });
@@ -1865,10 +1866,10 @@ You can register via: \`\\{unlock\\_link\\}\`
       }
       const userId = getContextTelegramUserId(ctx);
       if (userId) {
-        const session = this.commonService.getUserState(Number(userId));
+        const session = await this.commonService.getUserState(Number(userId));
         if (session?.messages) {
           session.messages[index] = messageObj;
-          this.commonService.setUserState(Number(userId), session);
+          await this.commonService.setUserState(Number(userId), session);
         }
       }
 
@@ -2009,7 +2010,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     const userId = getContextTelegramUserId(ctx);
     if (!userId) return;
 
-    const session = this.commonService.getUserState(Number(userId));
+    const session = await this.commonService.getUserState(Number(userId));
     if (!session || session.step !== 'creating_post') return;
 
     let fileId: string | undefined;
@@ -2086,7 +2087,7 @@ You can register via: \`\\{unlock\\_link\\}\`
 
         session.currentAction = undefined;
         session.currentMessageIndex = undefined;
-        this.commonService.setUserState(Number(userId), session);
+        await this.commonService.setUserState(Number(userId), session);
       } else {
         const messageObj: IPostMessage = {
           text,
@@ -2101,7 +2102,7 @@ You can register via: \`\\{unlock\\_link\\}\`
           session.messages = [];
         }
         session.messages.push(messageObj);
-        this.commonService.setUserState(Number(userId), session);
+        await this.commonService.setUserState(Number(userId), session);
 
         const messageIndex = session.messages.length - 1;
         await ctx.reply(
