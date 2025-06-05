@@ -9,7 +9,7 @@ import { Help, On, Update } from 'nestjs-telegraf';
 import { WelcomeService } from '../welcome/welcome.service';
 import { BroadcastService } from '../broadcast/broadcast.service';
 import { UserFlow, IUserState } from './common.interface';
-import { TelegramLoggerService } from 'src/utils/telegram-logger.service';
+import { TelegramLoggerService } from 'src/utils/telegram-logger';
 
 /**
  * Service for managing common functionality and user state

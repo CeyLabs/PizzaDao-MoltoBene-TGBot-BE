@@ -9,7 +9,7 @@ import { CountryModule } from '../country/country.module';
 import { CityModule } from '../city/city.module';
 import { MembershipModule } from '../membership/membership.module';
 import { UserModule } from '../user/user.module';
-import { TelegramLoggerService } from 'src/utils/telegram-logger.service';
+import { TelegramLoggerService } from 'src/utils/telegram-logger';
 import { CommonModule } from '../common/common.module';
 import { BroadcastModule } from '../broadcast/broadcast.module';
 

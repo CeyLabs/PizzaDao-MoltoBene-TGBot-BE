@@ -1,10 +1,10 @@
 import axios from 'axios';
 import { Injectable } from '@nestjs/common';
 
-const chatId = -1002557655268;
+const chatId = process.env.LOG_GROUP_ID;
 const threadIds = {
-  error: 3,
-  info: 2,
+  error: process.env.LOG_ERROR_THREAD_ID,
+  info: process.env.LOG_INFO_THREAD_ID,
 };
 
 @Injectable()
