@@ -11,7 +11,7 @@ import { WelcomeService } from '../welcome/welcome.service';
 import { BroadcastService } from '../broadcast/broadcast.service';
 import { TUserFlow, IUserState } from './common.interface';
 import { getContextTelegramUserId } from 'src/utils/context';
-import { TelegramLoggerService } from 'src/utils/telegram-logger';
+import { TelegramLogger } from 'src/utils/telegram-logger';
 
 /**
  * Service for managing common functionality and user state
@@ -30,7 +30,6 @@ export class CommonService {
     private readonly welcomeService: WelcomeService,
     @Inject(forwardRef(() => BroadcastService))
     private readonly broadcastService: BroadcastService,
-    private readonly telegramLogger: TelegramLoggerService,
   ) {}
 
   /**
@@ -78,10 +77,10 @@ export class CommonService {
       await this.broadcastService.handleBroadcatsMessages(ctx);
     } else if (state.flow === 'welcome') {
       await this.welcomeService.handlePrivateChat(ctx);
-      await this.telegramLogger.logEvent(`[WELCOME] <pre>${JSON.stringify(ctx.message)}</pre>`);
+      await TelegramLogger.info(`[WELCOME] <pre>${JSON.stringify(ctx.message)}</pre>`);
     } else {
       await this.welcomeService.handlePrivateChat(ctx);
-      await this.telegramLogger.logEvent(`[WELCOME] <pre>${JSON.stringify(ctx.message)}</pre>`);
+      await TelegramLogger.info(`[WELCOME] <pre>${JSON.stringify(ctx.message)}</pre>`);
     }
   }
 

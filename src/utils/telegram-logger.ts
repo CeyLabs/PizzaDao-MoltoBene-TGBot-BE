@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { Injectable } from '@nestjs/common';
 
 const chatId = process.env.LOG_GROUP_ID;
 const threadIds = {
@@ -7,20 +6,19 @@ const threadIds = {
   info: process.env.LOG_INFO_THREAD_ID,
 };
 
-@Injectable()
-export class TelegramLoggerService {
-  private readonly botToken = process.env.TELEGRAM_BOT_TOKEN;
-  private readonly isLocalhost = process.env.NODE_ENV === 'localhost';
+export class TelegramLogger {
+  private static readonly botToken = process.env.TELEGRAM_BOT_TOKEN;
+  private static readonly isLocalhost = process.env.NODE_ENV === 'localhost';
 
-  async logError(message: string) {
+  static async error(message: string) {
     await this.sendMessage('error', message);
   }
 
-  async logEvent(message: string) {
+  static async info(message: string) {
     await this.sendMessage('info', message);
   }
 
-  private async sendMessage(type: 'error' | 'info', message: string, reply_markup?: object) {
+  private static async sendMessage(type: 'error' | 'info', message: string, reply_markup?: object) {
     if (!this.botToken) {
       console.error('TELEGRAM_BOT_TOKEN is not set');
       return;
@@ -50,7 +48,7 @@ export class TelegramLoggerService {
     }
   }
 
-  private escapeHtml(text: string): string {
+  private static escapeHtml(text: string): string {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 }

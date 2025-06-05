@@ -16,7 +16,6 @@ import { CountryModule } from './modules/country/country.module';
 import { CityModule } from './modules/city/city.module';
 import { CommonModule } from './modules/common/common.module';
 import { PrivateChatMiddleware } from './middleware/chat-type.middleware';
-import { TelegramLoggerService } from 'src/utils/telegram-logger';
 import { BroadcastModule } from './modules/broadcast/broadcast.module';
 import { EventDetailModule } from './modules/event-detail/event-detail.module';
 
@@ -67,6 +66,6 @@ config();
   ],
 
   controllers: [AppController],
-  providers: [AppService, TelegramLoggerService],
+  providers: [AppService],
 })
 export class AppModule {}
