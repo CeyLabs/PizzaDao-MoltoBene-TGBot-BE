@@ -3,12 +3,14 @@
  * @module common.service
  */
 
+import RunCache from 'run-cache';
 import { Context } from 'telegraf';
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { Help, On, Update } from 'nestjs-telegraf';
 import { WelcomeService } from '../welcome/welcome.service';
 import { BroadcastService } from '../broadcast/broadcast.service';
-import { UserFlow, IUserState } from './common.interface';
+import { TUserFlow, IUserState } from './common.interface';
+import { getContextTelegramUserId } from 'src/utils/context';
 import { TelegramLoggerService } from 'src/utils/telegram-logger';
 
 /**
@@ -20,8 +22,8 @@ import { TelegramLoggerService } from 'src/utils/telegram-logger';
 @Update()
 @Injectable()
 export class CommonService {
-  /** Map storing user states by user ID */
-  private userState = new Map<number, IUserState>();
+  /** Cache key prefix for user state */
+  private readonly USER_STATE_PREFIX = 'user_state:';
 
   constructor(
     @Inject(forwardRef(() => WelcomeService))
@@ -67,10 +69,10 @@ export class CommonService {
    */
   @On('message')
   async handleMessage(ctx: Context) {
-    const userId = ctx.from?.id;
+    const userId = getContextTelegramUserId(ctx);
     if (!userId) return;
 
-    const state = this.userState.get(userId) || { flow: 'idle' };
+    const state = (await this.getUserState(Number(userId))) || { flow: 'idle' as TUserFlow };
 
     if (state.flow === 'broadcast') {
       await this.broadcastService.handleBroadcatsMessages(ctx);
@@ -84,17 +86,35 @@ export class CommonService {
   }
 
   /**
+   * Generates a cache key for user state
+   * @param {number} userId - The user's Telegram ID
+   * @returns {string} The cache key
+   * @private
+   */
+  private getUserStateCacheKey(userId: number): string {
+    return `${this.USER_STATE_PREFIX}${userId}`;
+  }
+
+  /**
    * Sets or updates a user's state
    * @param {number} userId - The user's Telegram ID
    * @param {Partial<IUserState>} state - The state to set or update
    */
-  setUserState(userId: number, state: Partial<IUserState>) {
-    const prev = this.userState.get(userId) || { flow: 'idle' as UserFlow };
+  async setUserState(userId: number, state: Partial<IUserState>) {
+    const cacheKey = this.getUserStateCacheKey(userId);
+    const cachedUserState = await RunCache.get(cacheKey);
+
+    let prev: IUserState = { flow: 'idle' as TUserFlow };
+
+    if (cachedUserState) {
+      prev = JSON.parse(cachedUserState as string) as IUserState;
+    }
+
     const merged = { ...prev, ...state };
     if (!merged.flow) {
       merged.flow = 'idle';
     }
-    this.userState.set(userId, merged as IUserState);
+    await RunCache.set({ key: cacheKey, value: JSON.stringify(merged) });
   }
 
   /**
@@ -102,15 +122,23 @@ export class CommonService {
    * @param {number} userId - The user's Telegram ID
    * @returns {IUserState | undefined} The user's state or undefined if not found
    */
-  getUserState(userId: number): IUserState | undefined {
-    return this.userState.get(userId);
+  async getUserState(userId: number): Promise<IUserState | undefined> {
+    const cacheKey = this.getUserStateCacheKey(userId);
+    const cachedUserState = await RunCache.get(cacheKey);
+
+    if (cachedUserState) {
+      return JSON.parse(cachedUserState as string) as IUserState;
+    }
+
+    return undefined;
   }
 
   /**
    * Clears a user's state
    * @param {number} userId - The user's Telegram ID
    */
-  clearUserState(userId: number) {
-    this.userState.delete(userId);
+  async clearUserState(userId: number) {
+    const cacheKey = this.getUserStateCacheKey(userId);
+    await RunCache.delete(cacheKey);
   }
 }

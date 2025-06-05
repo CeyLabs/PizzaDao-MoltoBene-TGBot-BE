@@ -53,6 +53,9 @@ importers:
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
+      run-cache:
+        specifier: ^1.6.1
+        version: 1.6.1
       rxjs:
         specifier: ^7.8.1
         version: 7.8.2
@@ -3127,6 +3130,9 @@ packages:
   router@2.2.0:
     resolution: {integrity: sha512-nLTrUKm2UyiL7rlhapu/Zl45FwNgkZGaCpZbIHajDYgwlJCOzLSk+cIPAnsEqV955GjILJnKbdQC1nVPz+gAYQ==}
     engines: {node: '>= 18'}
+
+  run-cache@1.6.1:
+    resolution: {integrity: sha512-6XCoOuW11+pUZ3oCuSYHSiAZtp71uHdaRGaBw4EydPKrJYZ4mZR79VGWnjZUTiF7IQN0qR47DNXafZ3uuqqxtQ==}
 
   run-parallel@1.2.0:
     resolution: {integrity: sha512-5l4VyZR86LZ/lDxZTR6jqL8AFE2S0IFLMP26AbjsLVADxHdhB/c0GUsH+y39UfCi3dzz8OlQuPmnaJOMoDHQBA==}
@@ -7007,6 +7013,8 @@ snapshots:
       path-to-regexp: 8.2.0
     transitivePeerDependencies:
       - supports-color
+
+  run-cache@1.6.1: {}
 
   run-parallel@1.2.0:
     dependencies:

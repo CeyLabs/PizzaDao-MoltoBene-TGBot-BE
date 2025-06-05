@@ -2,20 +2,63 @@
  * @fileoverview Service for managing access control
  * @module access.service
  */
-
+import RunCache from 'run-cache';
 import { Injectable } from '@nestjs/common';
 import { KnexService } from '../knex/knex.service';
 import { ICityAccess, ICountryAccess, IRegionAccess } from './access.interface';
+import { RegionService } from '../region/region.service';
+import { CountryService } from '../country/country.service';
+import { CityService } from '../city/city.service';
+import { IBroadcastMessageDetail } from '../broadcast/broadcast.type';
 
 /**
- * Type definition for city data
- * @typedef {Object} CityData
+ * Type representing user roles in the system
+ * @typedef {('admin' | 'underboss' | 'caporegime' | 'host')} TRole
+ * @description Defines the possible roles a user can have in the system:
+ * - admin: Full system access
+ * - underboss: Region-level access
+ * - caporegime: Country-level access
+ * - host: City-level access
+ */
+type TRole = 'admin' | 'underboss' | 'caporegime' | 'host';
+
+/**
+ * Type representing region data structure
+ * @typedef {Object} TRegionData
+ * @property {string} region_id - Unique identifier for the region
+ * @property {string} region_name - Name of the region
+ */
+type TRegionData = {
+  region_id: string;
+  region_name: string;
+};
+
+/**
+ * Type representing country data structure
+ * @typedef {Object} TCountryData
+ * @property {string} region_id - ID of the region the country belongs to
+ * @property {string} country_id - Unique identifier for the country
+ * @property {string} country_name - Name of the country
+ */
+type TCountryData = {
+  region_id: string;
+  country_id: string;
+  country_name: string;
+};
+
+/**
+ * Type representing city data structure
+ * @typedef {Object} TCityData
+ * @property {string} region_id - ID of the region the city belongs to
+ * @property {string} country_id - ID of the country the city belongs to
  * @property {string} city_id - Unique identifier for the city
  * @property {string} city_name - Name of the city
  * @property {string | null} group_id - Telegram group ID for the city
  * @property {string | null} telegram_link - Telegram link for the city's group
  */
-type CityData = {
+type TCityData = {
+  region_id?: string;
+  country_id: string;
   city_id: string;
   city_name: string;
   group_id: string | null;
@@ -23,102 +66,19 @@ type CityData = {
 };
 
 /**
- * Type definition for region data
- * @typedef {Object} RegionData
- * @property {string} region_id - Unique identifier for the region
- * @property {string} region_name - Name of the region
- * @property {string} country_id - ID of the country the region belongs to
- * @property {string} country_name - Name of the country
- * @property {string} city_id - ID of the city in the region
- * @property {string} city_name - Name of the city
- * @property {string | null} group_id - Telegram group ID for the city
- * @property {string | null} telegram_link - Telegram link for the city's group
+ * Type representing the complete access result for a user
+ * @typedef {Object} TAccessResult
+ * @property {TRole | null} role - The user's role in the system
+ * @property {TCountryData[]} country_data - Array of countries the user has access to
+ * @property {TRegionData[]} region_data - Array of regions the user has access to
+ * @property {TCityData[]} city_data - Array of cities the user has access to
  */
-type RegionData = {
-  region_id: string;
-  region_name: string;
-  country_id: string;
-  country_name: string;
-  city_id: string;
-  city_name: string;
-  group_id: string | null;
-  telegram_link: string | null;
+type TAccessResult = {
+  role: TRole | null;
+  country_data: TCountryData[];
+  region_data: TRegionData[];
+  city_data: TCityData[];
 };
-
-/**
- * Type definition for admin access result
- * @typedef {Object} AdminAccessResult
- * @property {'admin'} role - Role identifier for admin
- * @property {CityData[]} city_data - Array of city data
- * @property {RegionData[]} region_data - Array of region data
- * @property {Object[]} country_data - Array of country data with associated cities
- */
-type AdminAccessResult = {
-  role: 'admin';
-  city_data: CityData[];
-  region_data: RegionData[];
-  country_data: {
-    country_id: string;
-    country_name: string;
-    city_data: CityData[];
-  }[];
-};
-
-/**
- * Type definition for region access result
- * @typedef {Object} RegionAccessResult
- * @property {string} region_id - ID of the region
- * @property {string} region_name - Name of the region
- * @property {'underboss'} role - Role identifier for underboss
- * @property {RegionData[]} region_data - Array of region data
- */
-type RegionAccessResult = {
-  region_id: string;
-  region_name: string;
-  role: 'underboss';
-  region_data: RegionData[];
-};
-
-/**
- * Type definition for country access result
- * @typedef {Object} CountryAccessResult
- * @property {string} country_id - ID of the country
- * @property {string} country_name - Name of the country
- * @property {'caporegime'} role - Role identifier for caporegime
- * @property {CityData[]} city_data - Array of city data
- */
-type CountryAccessResult = {
-  country_id: string;
-  country_name: string;
-  role: 'caporegime';
-  city_data: CityData[];
-};
-
-/**
- * Type definition for city access result
- * @typedef {Object} CityAccessResult
- * @property {'host'} role - Role identifier for host
- * @property {CityData[]} city_data - Array of city data
- */
-type CityAccessResult = {
-  role: 'host';
-  city_data: CityData[];
-};
-
-/**
- * Type definition for region access
- * @typedef {Object} regionAccess
- * @property {string} telegram_id - Telegram ID of the user
- * @property {string} region_id - ID of the region
- */
-type regionAccess = {
-  telegram_id: string;
-  region_id: string;
-};
-
-type AccessEntry = AdminAccessResult | RegionAccessResult | CountryAccessResult | CityAccessResult;
-type AccessResult = AccessEntry[] | null;
-type Role = 'admin' | 'underboss' | 'caporegime' | 'host' | null;
 
 /**
  * Service for managing access control
@@ -128,88 +88,23 @@ type Role = 'admin' | 'underboss' | 'caporegime' | 'host' | null;
  */
 @Injectable()
 export class AccessService {
-  constructor(private readonly knexService: KnexService) {}
+  constructor(
+    private readonly knexService: KnexService,
+    private readonly regionService: RegionService,
+    private readonly countryService: CountryService,
+    private readonly cityService: CityService,
+  ) {}
 
-  /**
-   * Retrieves all regions from the database
-   * @returns {Promise<Array<{id: string, name: string}>>} Array of regions with their IDs and names
-   */
-  async getAllRegions(): Promise<{ id: string; name: string }[]> {
-    return this.knexService.knex('region').select('id', 'name');
+  async getRegionAccess(telegram_id: string): Promise<IRegionAccess[]> {
+    return this.knexService.knex('region_access').where('user_telegram_id', telegram_id);
   }
 
-  /**
-   * Retrieves a specific region by its ID
-   * @param {string} regionId - The unique identifier of the region
-   * @returns {Promise<{id: string, name: string} | undefined>} Region data or undefined if not found
-   */
-  async getRegionById(regionId: string): Promise<{ id: string; name: string } | undefined> {
-    return this.knexService.knex('region').where('id', regionId).first();
+  async getCountryAccess(telegram_id: string): Promise<ICountryAccess[]> {
+    return this.knexService.knex('country_access').where('user_telegram_id', telegram_id);
   }
 
-  /**
-   * Gets all cities belonging to a specific region
-   * @param {string} regionId - The unique identifier of the region
-   * @returns {Promise<CityData[]>} Array of cities with their details
-   */
-  async getCitiesByRegion(regionId: string): Promise<CityData[]> {
-    return this.knexService
-      .knex('city')
-      .join('country', 'city.country_id', 'country.id')
-      .where('country.region_id', regionId)
-      .select(
-        'city.id as city_id',
-        'city.name as city_name',
-        'city.group_id',
-        'city.telegram_link',
-      );
-  }
-
-  /**
-   * Gets the role of a user based on their Telegram ID
-   * @param {string} telegram_id - The Telegram ID of the user
-   * @returns {Promise<Role>} The user's role or null if no role is assigned
-   */
-  async getAccessRole(telegram_id: string): Promise<Role> {
-    const adminIds: string[] = process.env.ADMIN_IDS
-      ? process.env.ADMIN_IDS.split(',').map((id) => id.trim())
-      : [];
-
-    if (adminIds.includes(telegram_id)) {
-      return 'admin';
-    }
-
-    // Check region_access for underboss role
-    const regionAccess = await this.knexService
-      .knex<IRegionAccess>('region_access')
-      .where('user_telegram_id', telegram_id)
-      .first();
-
-    if (regionAccess) {
-      return 'underboss';
-    }
-
-    // Check country_access for caporegime role
-    const countryAccess = await this.knexService
-      .knex<ICountryAccess>('country_access')
-      .where('user_telegram_id', telegram_id)
-      .first();
-
-    if (countryAccess) {
-      return 'caporegime';
-    }
-
-    // Check user table for host role
-    const cityAccess = await this.knexService
-      .knex<ICityAccess>('city_access')
-      .where('user_telegram_id', telegram_id)
-      .first();
-
-    if (cityAccess) {
-      return 'host';
-    }
-
-    return null;
+  async getCityAccess(telegram_id: string): Promise<ICityAccess[]> {
+    return this.knexService.knex('city_access').where('user_telegram_id', telegram_id);
   }
 
   /**
@@ -217,161 +112,211 @@ export class AccessService {
    * @param {string} telegram_id - The Telegram ID of the user
    * @returns {Promise<AccessResult>} Detailed access information including cities, regions, and countries
    */
-  async getUserAccess(telegram_id: string): Promise<AccessResult> {
+  async getUserAccess(telegram_id: string): Promise<TAccessResult | null> {
+    const cacheKey = `access:user:${telegram_id}`;
+
+    const cachedUserAccess = await RunCache.get(cacheKey);
+
+    if (cachedUserAccess) {
+      return JSON.parse(cachedUserAccess as string) as TAccessResult;
+    }
+
     const adminIds: string[] = process.env.ADMIN_IDS
       ? process.env.ADMIN_IDS.split(',').map((id) => id.trim())
       : [];
 
-    const accessEntries: AccessEntry[] = [];
-
     if (adminIds.includes(telegram_id)) {
-      const cities: CityData[] = await this.knexService
-        .knex('city')
-        .select('id as city_id', 'name as city_name', 'group_id', 'telegram_link');
-
-      const regions: RegionData[] = await this.knexService
+      const allRegions: TRegionData[] = await this.knexService
         .knex('region')
-        .select('id as region_id', 'name as region_name');
+        .select('region.id as region_id', 'region.name as region_name');
 
-      const country_data: { country_id: string; country_name: string; city_data: CityData[] }[] =
-        [];
-      for (const region of regions) {
-        interface Country {
-          country_id: string;
-          country_name: string;
-        }
+      const allCountries: TCountryData[] = await this.knexService
+        .knex('country')
+        .select(
+          'country.id as country_id',
+          'country.name as country_name',
+          'country.region_id as region_id',
+        );
 
-        const countries: Country[] = await this.knexService
-          .knex<Country>('country')
-          .where('region_id', region.region_id)
-          .select('id as country_id', 'name as country_name');
+      const allCities: TCityData[] = await this.knexService
+        .knex('city')
+        .join('country', 'country.id', 'city.country_id')
+        .select(
+          'city.id as city_id',
+          'city.name as city_name',
+          'city.group_id as group_id',
+          'city.telegram_link as telegram_link',
+          'city.country_id as country_id',
+          'country.region_id as region_id',
+        );
 
-        for (const country of countries) {
-          const citiesInCountry: CityData[] = await this.knexService
-            .knex<CityData>('city')
-            .where('country_id', country.country_id)
-            .select('id as city_id', 'name as city_name', 'group_id', 'telegram_link');
-
-          country_data.push({
-            country_id: country.country_id,
-            country_name: country.country_name,
-            city_data: citiesInCountry,
-          });
-        }
-      }
-
-      accessEntries.push({
-        role: 'admin',
-        city_data: cities,
-        region_data: regions,
-        country_data,
+      await RunCache.set({
+        key: cacheKey,
+        value: JSON.stringify({
+          role: 'admin',
+          city_data: allCities,
+          region_data: allRegions,
+          country_data: allCountries,
+        }),
       });
 
-      return accessEntries;
+      return {
+        role: 'admin',
+        city_data: allCities,
+        region_data: allRegions,
+        country_data: allCountries,
+      };
     }
 
-    const regionAccesses = await this.knexService
-      .knex<regionAccess>('region_access')
-      .where('user_telegram_id', telegram_id);
+    const accessResult: TAccessResult = {
+      role: null,
+      city_data: [],
+      region_data: [],
+      country_data: [],
+    };
 
-    for (const regionAccess of regionAccesses) {
-      interface Region {
-        id: string;
-        name: string;
-      }
+    const regionAccess = await this.getRegionAccess(telegram_id);
 
-      const region: Region | undefined = await this.knexService
-        .knex<Region>('region')
-        .where('id', regionAccess.region_id)
-        .first();
+    if (regionAccess.length) {
+      const regions = await this.regionService.getRegionsByIds(
+        regionAccess.map((access) => access.region_id),
+      );
 
-      if (!region) {
-        continue;
-      }
-
-      const countries = await this.knexService.knex('country').where('region_id', region.id);
-
-      const region_data: RegionData[] = [];
-
-      for (const country of countries as { id: string; name: string }[]) {
-        const cities: CityData[] = await this.knexService
-          .knex('city')
-          .where('country_id', country.id)
-          .select('id as city_id', 'name as city_name', 'group_id', 'telegram_link');
-
-        for (const city of cities) {
-          region_data.push({
-            region_id: region.id,
-            region_name: region.name,
-            country_id: country.id,
-            country_name: country.name,
-            city_id: city.city_id,
-            city_name: city.city_name,
-            group_id: city.group_id,
-            telegram_link: city.telegram_link,
-          });
-        }
-      }
-
-      accessEntries.push({
+      accessResult.region_data = regions.map((region) => ({
         region_id: region.id,
         region_name: region.name,
-        role: 'underboss',
-        region_data,
-      });
-    }
+      }));
 
-    // Caporegime (country) access
-    const countryAccesses = await this.knexService
-      .knex<ICountryAccess>('country_access')
-      .where('user_telegram_id', telegram_id);
+      const countries = await this.countryService.getCountriesByRegionIds(
+        regions.map((region) => region.id),
+      );
 
-    for (const countryAccess of countryAccesses) {
-      interface ICountry {
-        id: string;
-        name: string;
-      }
-
-      const country = await this.knexService
-        .knex<ICountry>('country')
-        .where('id', countryAccess.country_id)
-        .first();
-
-      if (!country) {
-        continue;
-      }
-
-      const cities: CityData[] = await this.knexService
-        .knex('city')
-        .where('country_id', country.id)
-        .select('id as city_id', 'name as city_name', 'group_id', 'telegram_link');
-
-      accessEntries.push({
+      accessResult.country_data = countries.map((country) => ({
         country_id: country.id,
         country_name: country.name,
-        role: 'caporegime',
-        city_data: cities,
+        region_id: country.region_id,
+      }));
+
+      const cities = await this.cityService.getCitiesByCountryIds(
+        countries.map((country) => country.id),
+      );
+
+      accessResult.city_data = cities.map((city) => ({
+        city_id: city.id,
+        city_name: city.name,
+        country_id: city.country_id,
+        region_id: accessResult.country_data.find(
+          (country) => country.country_id === city.country_id,
+        )!.region_id,
+        group_id: city.group_id!,
+        telegram_link: city.telegram_link!,
+      }));
+
+      accessResult.role = 'underboss';
+
+      await RunCache.set({
+        key: cacheKey,
+        value: JSON.stringify(accessResult),
       });
+
+      return accessResult;
     }
 
-    // Host (city) access
-    const accessibleCityIds = await this.knexService
-      .knex('city_access')
-      .where('user_telegram_id', telegram_id)
-      .pluck('city_id');
+    const countryAccess = await this.getCountryAccess(telegram_id);
 
-    if (accessibleCityIds.length > 0) {
-      const cities: CityData[] = await this.knexService
-        .knex('city')
-        .whereIn('id', accessibleCityIds)
-        .select('id as city_id', 'name as city_name', 'group_id', 'telegram_link');
+    if (countryAccess.length) {
+      const countries = await this.countryService.getCountriesByCountryIds(
+        countryAccess.map((access) => access.country_id),
+      );
 
-      accessEntries.push({
-        role: 'host',
-        city_data: cities,
+      accessResult.country_data = countries.map((country) => ({
+        country_id: country.id,
+        country_name: country.name,
+        region_id: country.region_id,
+      }));
+
+      const cities = await this.cityService.getCitiesByCountryIds(
+        countries.map((country) => country.id),
+      );
+
+      accessResult.city_data = cities.map((city) => ({
+        city_id: city.id,
+        city_name: city.name,
+        country_id: city.country_id,
+        region_id: accessResult.country_data.find(
+          (country) => country.country_id === city.country_id,
+        )!.region_id,
+        group_id: city.group_id!, // TODO: ! needs to be removed
+        telegram_link: city.telegram_link!,
+      }));
+
+      accessResult.role = 'caporegime';
+
+      await RunCache.set({
+        key: cacheKey,
+        value: JSON.stringify(accessResult),
       });
+
+      return accessResult;
     }
 
-    return accessEntries.length > 0 ? accessEntries : null;
+    const cityAccess = await this.getCityAccess(telegram_id);
+
+    if (cityAccess.length) {
+      const cities = await this.cityService.getCitiesByCityIds(
+        cityAccess.map((access) => access.city_id),
+      );
+
+      accessResult.city_data = cities.map((city) => ({
+        city_id: city.id,
+        city_name: city.name,
+        country_id: city.country_id,
+        group_id: city.group_id!,
+        telegram_link: city.telegram_link!,
+      }));
+
+      accessResult.role = 'host';
+
+      await RunCache.set({
+        key: cacheKey,
+        value: JSON.stringify(accessResult),
+      });
+
+      return accessResult;
+    }
+
+    await RunCache.set({
+      key: cacheKey,
+      value: JSON.stringify(null),
+    });
+
+    return null;
+  }
+
+  /**
+   * Save broadcast message detail to the database
+   * @param {string} broadcastId - The ID of the existing broadcast record
+   * @param {Message} sentMessage - The sent Telegram message
+   * @param {Object} city - The city the message was sent to
+   * @param {boolean} isSent - Whether the message was successfully sent
+   * @private
+   */
+  private async saveMessageDetail(
+    broadcastId: string,
+    messageId: string | undefined,
+    city: { city_name: string; group_id?: string | null },
+    isSent: boolean,
+  ): Promise<void> {
+    try {
+      // Insert only the broadcast message detail
+      await this.knexService.knex<IBroadcastMessageDetail>('broadcast_message_detail').insert({
+        broadcast_id: broadcastId,
+        message_id: messageId,
+        group_id: city.group_id || '',
+        is_sent: isSent,
+      });
+    } catch (error) {
+      console.error(`Error saving broadcast detail: ${error}`);
+    }
   }
 }
