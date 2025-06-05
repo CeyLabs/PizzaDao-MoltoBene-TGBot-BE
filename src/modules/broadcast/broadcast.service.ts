@@ -38,6 +38,7 @@ import { IEventDetail } from '../event-detail/event-detail.interface';
 import { RegionService } from '../region/region.service';
 import { KnexService } from '../knex/knex.service';
 import { getContextTelegramUserId } from 'src/utils/context';
+import { TelegramLogger } from 'src/utils/telegram-logger';
 
 /**
  * Service for managing message broadcasting functionality
@@ -180,7 +181,11 @@ export class BroadcastService {
 
             return '';
           } catch (error) {
-            console.error('Error fetching region for country:', country.name, error);
+            await TelegramLogger.error(
+              `Error fetching region for country ${country.name}.`,
+              error,
+              userId,
+            );
             return '';
           }
         }),
@@ -417,7 +422,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         },
       });
     } catch (error) {
-      console.error('Error displaying broadcast menu:', error);
+      await TelegramLogger.error(`Error displaying broadcast menu.`, error);
       await ctx.reply(this.escapeMarkdown('❌ Failed to display post creation interface.'), {
         parse_mode: 'MarkdownV2',
       });
@@ -895,7 +900,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         );
       }
     } catch (error) {
-      console.log(error);
+      await TelegramLogger.error(`Error handling broadcast selection: ${callbackData}`, error);
       await ctx.answerCbQuery(this.escapeMarkdown('❌ Error processing your request'));
     }
   }
@@ -1420,7 +1425,7 @@ You can register via: \`\\{unlock\\_link\\}\`
           // Skip cities without group_id (double-check)
           if (!city.group_id) {
             failureCount++;
-            console.error(`❌ Failed: ${city.city_name} - No group ID`);
+            await TelegramLogger.error(`❌ Failed: ${city.city_name} - No group ID`);
             continue;
           }
 
@@ -1612,7 +1617,7 @@ You can register via: \`\\{unlock\\_link\\}\`
             },
           );
         } catch (error) {
-          console.error('Error sending log file to group:', error);
+          await TelegramLogger.error(`Error sending log file to group`, error);
         }
 
         // clean up the file after sending
@@ -1642,7 +1647,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         await this.commonService.clearUserState(ctx.from?.id);
       }
     } catch (error) {
-      console.error('Error in sendMessages:', error);
+      await TelegramLogger.error(`Error in sendMessages`, error);
       await ctx.reply(
         this.escapeMarkdown('❌ Error sending messages. Please check the logs and try again.'),
         {
@@ -2229,7 +2234,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         is_sent: isSent,
       });
     } catch (error) {
-      console.error(`Error saving broadcast detail: ${error}`);
+      await TelegramLogger.error(`Error saving broadcast detail.`, error);
     }
   }
 }

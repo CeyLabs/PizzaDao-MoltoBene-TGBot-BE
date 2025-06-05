@@ -16,6 +16,7 @@ import { IUserRegistrationData } from './welcome.interface';
 import OpenAI from 'openai';
 import { getContextTelegramUserId } from 'src/utils/context';
 import axios from 'axios';
+import { TelegramLogger } from 'src/utils/telegram-logger';
 
 /**
  * Service class that handles all welcome-related functionality
@@ -108,6 +109,11 @@ export class WelcomeService {
       const cityDetails = await this.cityService.getCityByGroupId(groupId || '');
       if (!cityDetails) {
         await ctx.reply('❌ City details not found for this group.');
+        await TelegramLogger.error(
+          `User attempted registration with invalid group ID: ${groupId}`,
+          undefined,
+          userId,
+        );
         return;
       }
 
@@ -261,6 +267,11 @@ export class WelcomeService {
 
     const user = await this.userService.findUser(userId);
     if (!user) {
+      await TelegramLogger.error(
+        `User not found while trying to display profile.`,
+        undefined,
+        userId,
+      );
       await ctx.replyWithMarkdownV2(
         '❌ *You are not registered yet\\!*\n\n' +
           'Please use the /register command to join PizzaDAO party group\\.',
@@ -337,18 +348,22 @@ export class WelcomeService {
     }
 
     const chatId = ctx.chat?.id ?? 0;
+    await TelegramLogger.info(`New member joining chat: ${chatId}`, undefined, String(chatId));
 
     try {
       await ctx.telegram.deleteMessage(chatId, message.message_id);
     } catch (error) {
-      console.error('Failed to delete the new member message:', error);
+      await TelegramLogger.error(`Failed to delete new member message`, error, String(chatId));
     }
 
     if (message?.new_chat_members) {
       for (const member of message.new_chat_members) {
         // Check if the city exists for the group id
         const cityDetails = await this.cityService.getCityByGroupId(String(chatId));
-        if (!cityDetails) return;
+        if (!cityDetails) {
+          await TelegramLogger.error(`City details not found for group ID: ${chatId}`);
+          return;
+        }
 
         // Check if the user already has a membership with the city
         const hasMembership = await this.membershipService.checkUserCityMembership(
@@ -403,8 +418,8 @@ export class WelcomeService {
           void (async () => {
             try {
               await ctx.telegram.deleteMessage(chatId, verificationMessage.message_id);
-            } catch {
-              console.error('Failed to delete message.');
+            } catch (error) {
+              await TelegramLogger.error('Failed to delete message.', error);
             }
           })();
         }, 60000);
@@ -424,7 +439,14 @@ export class WelcomeService {
       ctx.callbackQuery && 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : undefined;
     const userId = getContextTelegramUserId(ctx);
 
-    if (!userId) return;
+    if (!userId) {
+      await TelegramLogger.error(
+        'Failed to handle callback query: User ID not found',
+        undefined,
+        String(userId),
+      );
+      return;
+    }
 
     // CallBackQuery[Explore Parties]: Handle Explore Cities button
     if (callbackData === 'explore_cities') {
@@ -632,8 +654,22 @@ export class WelcomeService {
     const { message } = ctx;
     const chatId = ctx.chat?.id ?? 0;
 
-    if (message) {
-      await ctx.telegram.deleteMessage(chatId, message.message_id);
+    if (message && 'left_chat_member' in message) {
+      await TelegramLogger.info(
+        `User left chat: ${chatId}`,
+        undefined,
+        String(message.left_chat_member.id),
+      );
+
+      try {
+        await ctx.telegram.deleteMessage(chatId, message.message_id);
+      } catch (error) {
+        await TelegramLogger.error(
+          `Failed to delete left chat member message`,
+          error,
+          String(chatId),
+        );
+      }
     }
   }
 
@@ -649,7 +685,14 @@ export class WelcomeService {
     if (!userId) return;
 
     const userData = this.userGroupMap.get(userId);
-    if (!userData) return;
+    if (!userData) {
+      await TelegramLogger.error(
+        `Failed to register user: User data not found.`,
+        undefined,
+        userId,
+      );
+      return;
+    }
 
     // Save user data to the database
     const newUser: IUser = {
@@ -664,15 +707,25 @@ export class WelcomeService {
       pizza_topping: userData.pizza_topping,
     };
 
-    await this.userService.addUser(newUser);
-    await this.sendUserDataToGoogleScript(newUser, 'create');
+    try {
+      await this.userService.addUser(newUser);
+      await TelegramLogger.info('User registered successfully', undefined, userId);
+      await this.sendUserDataToGoogleScript(newUser, 'create');
+    } catch (error) {
+      await TelegramLogger.error(`Failed to add user.`, error, userId);
+    }
 
     const cityDetails = await this.cityService.getCityByGroupId(userData.group_id || '');
 
-    await this.membershipService.addUserToCityMembership(
-      userData.telegram_id,
-      cityDetails?.id || '',
-    );
+    try {
+      await this.membershipService.addUserToCityMembership(
+        userData.telegram_id,
+        cityDetails?.id || '',
+      );
+      await TelegramLogger.info(`User ${userId} added to city ${cityDetails?.name || 'Unknown'}`);
+    } catch (error) {
+      await TelegramLogger.error(`Failed to add user to city.`, error, userId);
+    }
 
     await this.commonService.clearUserState(Number(userId));
     this.userGroupMap.delete(userId);
@@ -772,8 +825,9 @@ export class WelcomeService {
         },
         parse_mode: 'MarkdownV2',
       });
+      await TelegramLogger.info('Sent Ninja Turtle selection menu to user', undefined, userId);
     } catch (error) {
-      console.error('Failed to send Ninja Turtle message:', error);
+      await TelegramLogger.error(`Failed to send Ninja Turtle message: ${error}`);
     }
   }
 
@@ -791,6 +845,11 @@ export class WelcomeService {
     const userData = await this.populateUserData(userId);
     if (!userData) {
       await ctx.reply('❌ User data not found. Please register again.');
+      await TelegramLogger.error(
+        'Failed to handle ninja turtle selection: User data not found',
+        undefined,
+        userId,
+      );
       return;
     }
 
@@ -895,6 +954,11 @@ export class WelcomeService {
     const userData = await this.populateUserData(userId);
     if (!userData) {
       await ctx.reply('❌ User data not found. Please register first.');
+      await TelegramLogger.error(
+        'Failed to confirm ninja turtle selection: User data not found',
+        undefined,
+        userId,
+      );
       return;
     }
 
@@ -904,12 +968,25 @@ export class WelcomeService {
 
     if (isRegistered) {
       // Update only the Ninja Turtle selection for existing users
-      await this.userService.updateUserField(userId, 'ninja_turtle_character', formattedArray);
+      try {
+        await this.userService.updateUserField(userId, 'ninja_turtle_character', formattedArray);
+        await TelegramLogger.info(
+          `Updated ninja turtle character for user: ${userId}`,
+          undefined,
+          userId,
+        );
 
-      // Fetch the updated user data
-      const updatedUser = await this.userService.findUser(userId);
-      if (updatedUser) {
-        await this.sendUserDataToGoogleScript(updatedUser, 'update');
+        // Fetch the updated user data
+        const updatedUser = await this.userService.findUser(userId);
+        if (updatedUser) {
+          await this.sendUserDataToGoogleScript(updatedUser, 'update');
+        }
+      } catch (error) {
+        await TelegramLogger.error(
+          `Failed to update user's ninja turtle character.`,
+          error,
+          userId,
+        );
       }
 
       // Acknowledge the confirmation
@@ -991,7 +1068,11 @@ export class WelcomeService {
       // Fetch user data from the database
       const user = await this.userService.findUser(userId);
       if (!user) {
-        console.error(`User with ID ${userId} not found in the database.`);
+        await TelegramLogger.error(
+          `User with ID ${userId} not found in the database.`,
+          undefined,
+          userId,
+        );
         return null;
       }
 
@@ -1036,8 +1117,11 @@ export class WelcomeService {
         action,
         ...userData,
       });
+      await TelegramLogger.info(
+        `Successfully synced user data with Google Apps Script (${action})`,
+      );
     } catch (error) {
-      console.error('Failed to sync user data with Google Apps Script:', error);
+      await TelegramLogger.error(`Failed to sync user data with Google Apps Script.`, error);
     }
   }
 
@@ -1057,7 +1141,7 @@ export class WelcomeService {
     attempt: number = 1,
   ): Promise<string | null> {
     if (attempt > 5) {
-      console.warn('Exceeded maximum attempts to generate a unique pizza name.');
+      await TelegramLogger.warning('Exceeded maximum attempts to generate a unique pizza name.');
       return null; // Return null if the recursion limit is reached
     }
 
@@ -1088,7 +1172,7 @@ export class WelcomeService {
 
       return generatedPizzaName;
     } catch (error) {
-      console.error('Error generating pizza name:', error);
+      await TelegramLogger.error(`Error generating pizza name.`, error);
       return 'Unknown Pizza Name';
     }
   }
@@ -1101,6 +1185,7 @@ export class WelcomeService {
    */
   private async validateMafiaMovie(movieName: string): Promise<boolean> {
     const prompt = `is ${movieName} a mafia movie, output only 'yes' or 'no'`;
+    await TelegramLogger.info(`Validating mafia movie: "${movieName}"`);
 
     try {
       const response = await this.openAi.chat.completions.create({
@@ -1111,10 +1196,19 @@ export class WelcomeService {
       });
 
       const result = response.choices[0]?.message?.content?.trim().toLowerCase();
+      const isValid = result === 'yes';
 
-      return result === 'yes';
+      if (isValid) {
+        await TelegramLogger.info(`Mafia movie validation success: "${movieName}" is valid`);
+      } else {
+        await TelegramLogger.info(
+          `Mafia movie validation failed: "${movieName}" is not a mafia movie`,
+        );
+      }
+
+      return isValid;
     } catch (error) {
-      console.error('Error validating mafia movie:', error);
+      await TelegramLogger.error(`Failed to validate mafia movie "${movieName}".`, error);
       return false;
     }
   }
@@ -1127,6 +1221,7 @@ export class WelcomeService {
    */
   private async validatePizzaTopping(pizzaTopping: string): Promise<boolean> {
     const prompt = `is ${pizzaTopping} a pizza topping, output only 'yes' or 'no'`;
+    await TelegramLogger.info(`Validating pizza topping: "${pizzaTopping}"`);
 
     try {
       const response = await this.openAi.chat.completions.create({
@@ -1137,10 +1232,19 @@ export class WelcomeService {
       });
 
       const result = response.choices[0]?.message?.content?.trim().toLowerCase();
+      const isValid = result === 'yes';
 
-      return result === 'yes';
+      if (isValid) {
+        await TelegramLogger.info(`Pizza topping validation success: "${pizzaTopping}" is valid`);
+      } else {
+        await TelegramLogger.info(
+          `Pizza topping validation failed: "${pizzaTopping}" is not a valid topping`,
+        );
+      }
+
+      return isValid;
     } catch (error) {
-      console.error('Error validating mafia movie:', error);
+      await TelegramLogger.error(`Failed to validate pizza topping "${pizzaTopping}".`, error);
       return false;
     }
   }
@@ -1244,6 +1348,26 @@ export class WelcomeService {
         return;
       }
 
+      // For discord_name field, check if it already exists
+      // if (field === 'discord_name') {
+      //   const isDiscordNameExists = await this.userService.isDiscordNameExists(newValue);
+
+      //   if (isDiscordNameExists) {
+      //     await ctx.reply(
+      //       '❌ This Discord username is already taken. Please enter a different one.',
+      //     );
+      //     await ctx.reply('Please enter your new Discord name:', {
+      //       reply_markup: {
+      //         force_reply: true,
+      //       },
+      //     });
+      //     await TelegramLogger.info(
+      //       `User ${userId} attempted to use an existing Discord username: ${newValue} while editing profile`,
+      //     );
+      //     return;
+      //   }
+      // }
+
       await this.userService.updateUserField(userId, field, newValue);
 
       // Fetch the updated user data
@@ -1262,7 +1386,27 @@ export class WelcomeService {
 
     if (step === 'discord_pizza_name') {
       if ('text' in ctx.message!) {
-        userData.pizza_name = ctx.message.text;
+        const enteredPizzaName = ctx.message.text;
+
+        const isPizzaNameExists = await this.userService.isPizzaNameExists(enteredPizzaName);
+
+        if (isPizzaNameExists) {
+          await ctx.reply('❌ This pizza name is already taken. Please enter a different one.');
+          await ctx.reply('🍕 What is your Pizza Name?', {
+            reply_markup: {
+              force_reply: true,
+            },
+            parse_mode: 'MarkdownV2',
+          });
+          await TelegramLogger.info(
+            `User attempted to use an existing pizza name: ${enteredPizzaName}`,
+            undefined,
+            userId,
+          );
+          return;
+        }
+
+        userData.pizza_name = enteredPizzaName;
       } else {
         await ctx.reply('Invalid input. Please provide a valid pizza name.');
         return;
@@ -1280,7 +1424,30 @@ export class WelcomeService {
       });
     } else if (step === 'discord_username') {
       if ('text' in ctx.message!) {
-        userData.discord_name = ctx.message.text;
+        const enteredDiscordName = ctx.message.text;
+
+        // Check if the Discord username already exists in the database
+        const isDiscordNameExists = await this.userService.isDiscordNameExists(enteredDiscordName);
+
+        if (isDiscordNameExists) {
+          await ctx.reply(
+            '❌ This Discord username is already taken. Please enter a different one.',
+          );
+          await ctx.reply('What is your Discord Username?', {
+            reply_markup: {
+              force_reply: true,
+            },
+            parse_mode: 'MarkdownV2',
+          });
+          await TelegramLogger.info(
+            `User attempted to use an existing Discord username: ${enteredDiscordName}`,
+            undefined,
+            userId,
+          );
+          return;
+        }
+
+        userData.discord_name = enteredDiscordName;
       } else {
         await ctx.reply('Invalid input. Please provide a valid Discord username.');
         return;
@@ -1362,7 +1529,14 @@ export class WelcomeService {
     if (!userId) return;
 
     const userData = this.userGroupMap.get(userId);
-    if (!userData) return;
+    if (!userData) {
+      await TelegramLogger.error(
+        'Failed to generate pizza name: User data not found',
+        undefined,
+        userId,
+      );
+      return;
+    }
 
     const { tg_first_name, pizza_topping, mafia_movie } = userData;
 
@@ -1381,6 +1555,7 @@ export class WelcomeService {
       await ctx.reply(
         '❌ Failed to generate a unique pizza name. Please try again with another topping or mafia movie.',
       );
+      await TelegramLogger.error('Failed to generate unique pizza name after multiple attempts');
       await this.commonService.setUserState(Number(userId), {
         flow: 'welcome',
         step: 'pizza_topping',
@@ -1412,7 +1587,7 @@ export class WelcomeService {
         disable_notification: true, // Set to false if you want to notify users
       });
     } catch (error) {
-      console.error('Failed to pin the message:', error);
+      await TelegramLogger.error(`Failed to pin the message.`, error, userId);
     }
 
     // Delay the call to handleNinjaTurtleMessage by 3 seconds

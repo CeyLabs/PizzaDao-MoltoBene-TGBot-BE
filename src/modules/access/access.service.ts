@@ -6,6 +6,7 @@ import RunCache from 'run-cache';
 import { Injectable } from '@nestjs/common';
 import { KnexService } from '../knex/knex.service';
 import { ICityAccess, ICountryAccess, IRegionAccess } from './access.interface';
+import { TelegramLogger } from 'src/utils/telegram-logger';
 import { RegionService } from '../region/region.service';
 import { CountryService } from '../country/country.service';
 import { CityService } from '../city/city.service';
@@ -316,7 +317,7 @@ export class AccessService {
         is_sent: isSent,
       });
     } catch (error) {
-      console.error(`Error saving broadcast detail: ${error}`);
+      await TelegramLogger.error(`Error saving broadcast detail.`, error);
     }
   }
 }
