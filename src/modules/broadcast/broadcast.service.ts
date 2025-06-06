@@ -85,11 +85,6 @@ export class BroadcastService {
       return;
     }
 
-    await TelegramLogger.info(
-      `User ${userId} accessing broadcast menu with role: ${accessRole.role}`,
-      undefined,
-      userId,
-    );
     await this.showBroadcastMenu(ctx, accessRole.role);
   }
 
@@ -461,6 +456,11 @@ You can register via: \`\\{unlock\\_link\\}\`
     }
 
     if (['scheduled_posts', 'broadcast_edit_post', 'settings'].includes(callbackData)) {
+      await TelegramLogger.info(
+        '🚧 User clicked on a feature under construction',
+        undefined,
+        userId,
+      );
       await ctx.reply('This feature is under construction 🚧');
       return;
     }
@@ -554,25 +554,6 @@ You can register via: \`\\{unlock\\_link\\}\`
           reply_markup: this.getKeyboardMarkup(),
         },
       );
-      return;
-    }
-
-    if (
-      callbackData === 'host_specific_city' ||
-      callbackData === 'host_specific_country' ||
-      callbackData === 'host_create_post'
-    ) {
-      const buttonNameMap: Record<string, string> = {
-        host_specific_city: 'Specific City',
-        host_specific_country: 'Specific Country',
-        host_create_post: 'Create post',
-      };
-      await ctx.answerCbQuery(
-        this.escapeMarkdown(`You clicked on ${buttonNameMap[callbackData] || 'Unknown button'}`),
-      );
-      if (callbackData === 'host_create_post') {
-        await this.onCreatePost(ctx);
-      }
       return;
     }
 
@@ -1658,6 +1639,7 @@ You can register via: \`\\{unlock\\_link\\}\`
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
+      await TelegramLogger.info(`✅ Broadcast completed successfully!`, undefined, userId);
       await ctx.reply(
         this.escapeMarkdown(
           `✅ Broadcast completed!\n\n` +
@@ -1798,6 +1780,11 @@ You can register via: \`\\{unlock\\_link\\}\`
       const messageIndex = session.messages.length - 1;
       await this.displayMessageWithActions(ctx, messageIndex, messageObj, variableIncluded);
     } catch {
+      await TelegramLogger.error(
+        `Error processing message from user ${userId}: ${text}`,
+        undefined,
+        userId,
+      );
       await ctx.reply(this.escapeMarkdown('❌ Error processing your message. Please try again.'), {
         parse_mode: 'MarkdownV2',
       });
@@ -1972,29 +1959,6 @@ You can register via: \`\\{unlock\\_link\\}\`
       }
     }
     return buttons;
-  }
-
-  /**
-   * Handles the creation of a new post
-   * @param {Context} ctx - The Telegraf context
-   * @returns {Promise<void>}
-   */
-  async onCreatePost(@Ctx() ctx: Context): Promise<void> {
-    try {
-      await ctx.reply(
-        this.escapeMarkdown(
-          "📝 Let's create a new post! Please send me the message you want to broadcast.",
-        ),
-        {
-          parse_mode: 'MarkdownV2',
-          reply_markup: this.getKeyboardMarkup(),
-        },
-      );
-    } catch {
-      await ctx.reply(this.escapeMarkdown('❌ Failed to start post creation. Please try again.'), {
-        parse_mode: 'MarkdownV2',
-      });
-    }
   }
 
   /**
