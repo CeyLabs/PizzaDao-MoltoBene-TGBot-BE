@@ -105,4 +105,18 @@ export class UserService {
 
     return !!existingPizzaName;
   }
+
+  /**
+   * Checks if a Discord username already exists in the database
+   * @param {string} discordName - The Discord username to check
+   * @returns {Promise<boolean>} True if the Discord username exists
+   */
+  async isDiscordNameExists(discordName: string): Promise<boolean> {
+    const existingDiscordName: IUser | undefined = await this.knexService
+      .knex<IUser>('user')
+      .where('discord_name', discordName)
+      .first();
+
+    return !!existingDiscordName;
+  }
 }
