@@ -1348,26 +1348,6 @@ export class WelcomeService {
         return;
       }
 
-      // For discord_name field, check if it already exists
-      // if (field === 'discord_name') {
-      //   const isDiscordNameExists = await this.userService.isDiscordNameExists(newValue);
-
-      //   if (isDiscordNameExists) {
-      //     await ctx.reply(
-      //       '❌ This Discord username is already taken. Please enter a different one.',
-      //     );
-      //     await ctx.reply('Please enter your new Discord name:', {
-      //       reply_markup: {
-      //         force_reply: true,
-      //       },
-      //     });
-      //     await TelegramLogger.info(
-      //       `User ${userId} attempted to use an existing Discord username: ${newValue} while editing profile`,
-      //     );
-      //     return;
-      //   }
-      // }
-
       await this.userService.updateUserField(userId, field, newValue);
 
       // Fetch the updated user data
