@@ -38,7 +38,7 @@ export class TelegramLogger {
     const timestamp = new Date().toISOString();
 
     let header = `${emoji} <b>[${level}]</b> | <i>${timestamp}</i>`;
-    if (userId) header += ` | <code>User: ${userId}</code>`;
+    if (userId) header += ` | 👤 <b>User</b>: #id${userId}`;
     let body = `<pre>${TelegramLogger.escapeHtml(message)}</pre>`;
     if (context && level === 'INFO') {
       body += `\n<b>Context:</b> <pre>${TelegramLogger.escapeHtml(context)}</pre>`;

@@ -67,21 +67,29 @@ export class BroadcastService {
    */
   @Command('broadcast')
   async onBroadcast(@Ctx() ctx: Context): Promise<void> {
-    if (!ctx.from?.id) {
+    const userId = getContextTelegramUserId(ctx);
+
+    if (!userId) {
       await ctx.reply(this.escapeMarkdown('❌ User ID is undefined.'), {
         parse_mode: 'MarkdownV2',
       });
       return;
     }
 
-    const accessRole = await this.accessService.getUserAccess(String(ctx.from.id));
+    const accessRole = await this.accessService.getUserAccess(userId);
     if (!accessRole || !accessRole.role) {
+      await TelegramLogger.info(`User denied access to broadcast - no role`, undefined, userId);
       await ctx.reply(this.escapeMarkdown('❌ You do not have access to broadcast messages.'), {
         parse_mode: 'MarkdownV2',
       });
       return;
     }
 
+    await TelegramLogger.info(
+      `User ${userId} accessing broadcast menu with role: ${accessRole.role}`,
+      undefined,
+      userId,
+    );
     await this.showBroadcastMenu(ctx, accessRole.role);
   }
 
@@ -99,6 +107,7 @@ export class BroadcastService {
     const itemsPerPage = 10;
 
     if (!userId) {
+      await TelegramLogger.warning(`Inline query received but userId is undefined`, undefined);
       await ctx.answerInlineQuery([], { cache_time: 1 });
       return;
     }
@@ -435,10 +444,13 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @returns {Promise<void>}
    */
   async handleCallbackQuery(ctx: Context) {
+    const userId = getContextTelegramUserId(ctx);
+
     const callbackData =
       ctx.callbackQuery && 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : undefined;
 
-    if (!callbackData || !ctx.from?.id) {
+    if (!callbackData || !userId) {
+      await TelegramLogger.error(`Invalid callback or user ID in handleCallbackQuery`, undefined);
       await ctx.answerCbQuery(this.escapeMarkdown('❌ Invalid callback or user ID'));
       return;
     }
@@ -460,7 +472,7 @@ You can register via: \`\\{unlock\\_link\\}\`
 
     if (callbackData.startsWith('confirm_country_')) {
       const countryId = callbackData.replace('confirm_country_', '');
-      const session = await this.commonService.getUserState(ctx.from.id);
+      const session = await this.commonService.getUserState(Number(userId));
       if (!session) {
         await ctx.answerCbQuery('❌ No active session found\\.');
         return;
@@ -476,7 +488,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       // Fetch all cities for this country
       const cities = await this.cityService.getCitiesByCountry(countryId);
 
-      await this.commonService.setUserState(ctx.from.id, {
+      await this.commonService.setUserState(Number(userId), {
         step: 'creating_post',
         ...session,
         selectedCountry: [
@@ -490,7 +502,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       });
 
       await ctx.telegram.sendMessage(
-        ctx.from.id,
+        userId,
         `📢 You are broadcasting to all cities in *${this.escapeMarkdown(selectedCountry[0]?.name || 'Unknown Country')}*\\.\n\n` +
           `This will send messages to *${cities.length}* cities\\.\n\n` +
           `Send me one or multiple messages you want to include in the post\\. It can be anything — a text, photo, video, even a sticker\\.\n\n` +
@@ -508,7 +520,7 @@ You can register via: \`\\{unlock\\_link\\}\`
     }
 
     if (callbackData.startsWith('confirm_city_')) {
-      const session = await this.commonService.getUserState(ctx.from.id);
+      const session = await this.commonService.getUserState(Number(userId));
       if (!session) {
         await ctx.answerCbQuery('❌ No active session found\\.');
         return;
@@ -521,14 +533,14 @@ You can register via: \`\\{unlock\\_link\\}\`
         return;
       }
 
-      await this.commonService.setUserState(ctx.from.id, {
+      await this.commonService.setUserState(Number(userId), {
         step: 'creating_post',
         ...session,
         selectedCity: selectedCity,
       });
 
       await ctx.telegram.sendMessage(
-        ctx.from.id,
+        userId,
         `📢 You are assigned as admin to *Pizza DAO*\\.\n\n` +
           `City Name: *${selectedCity[0]?.name}*\n\n` +
           `Send me one or multiple messages you want to include in the post\\. It can be anything — a text, photo, video, even a sticker\\.\n\n` +
@@ -586,15 +598,11 @@ You can register via: \`\\{unlock\\_link\\}\`
    * @private
    */
   private async handleRegionSelection(ctx: Context, regionId: string): Promise<void> {
-    if (!ctx.from?.id) {
-      await ctx.answerCbQuery('User ID not found');
-      return;
-    }
-    // delete the previous message
-    await ctx.deleteMessage();
-
     const userId = getContextTelegramUserId(ctx);
     if (!userId) return;
+
+    // delete the previous message
+    await ctx.deleteMessage();
 
     const region = await this.regionService.getRegionById(regionId);
     const regionName = region ? region.name : 'Unknown Region';
@@ -633,7 +641,20 @@ You can register via: \`\\{unlock\\_link\\}\`
     if (!userId) return;
 
     const accessInfo = await this.accessService.getUserAccess(userId);
-    if (!accessInfo) return;
+    if (!accessInfo) {
+      await TelegramLogger.error(
+        `User ${userId} attempted to create post without access`,
+        undefined,
+        userId,
+      );
+      return;
+    }
+
+    await TelegramLogger.info(
+      `User ${userId} initiating post creation with role: ${accessInfo.role}`,
+      undefined,
+      userId,
+    );
 
     await ctx.deleteMessage().catch(() => {});
 
@@ -962,6 +983,7 @@ You can register via: \`\\{unlock\\_link\\}\`
 
     const session = await this.commonService.getUserState(Number(userId));
     if (!session) {
+      await TelegramLogger.warning(`No active session found for user ${userId}`, undefined, userId);
       await ctx.answerCbQuery(this.escapeMarkdown('❌ No active session found.'));
       return;
     }
@@ -1145,6 +1167,11 @@ You can register via: \`\\{unlock\\_link\\}\`
    */
   private async previewMessages(ctx: Context, session: IBroadcastSession): Promise<void> {
     try {
+      const userId = getContextTelegramUserId(ctx);
+      if (!userId) return;
+
+      await TelegramLogger.info(`Previewing messages for user`, undefined, userId);
+
       const previewCity = {
         city_name: 'Berlin',
         group_id: '-1001751302723',
@@ -1279,6 +1306,8 @@ You can register via: \`\\{unlock\\_link\\}\`
   private async sendMessages(ctx: Context, session: IBroadcastSession): Promise<void> {
     const userId = getContextTelegramUserId(ctx);
     if (!userId) return;
+
+    await TelegramLogger.info(`Broadcasting messages initiated by user`, undefined, userId);
 
     let broadcastId: string;
 
@@ -1790,6 +1819,15 @@ You can register via: \`\\{unlock\\_link\\}\`
     messageObj: IPostMessage,
     variableIncluded?: boolean,
   ): Promise<void> {
+    const userId = getContextTelegramUserId(ctx);
+    if (!userId) return;
+
+    await TelegramLogger.info(
+      `Displaying message with actions - index: ${index}, mediaType: ${messageObj.mediaType || 'none'}`,
+      undefined,
+      userId,
+    );
+
     try {
       const chatId = ctx.chat?.id;
       if (!chatId) {
@@ -1864,7 +1902,7 @@ You can register via: \`\\{unlock\\_link\\}\`
       if (sentMessage && 'message_id' in sentMessage) {
         messageObj.messageId = (sentMessage as { message_id: number }).message_id;
       }
-      const userId = getContextTelegramUserId(ctx);
+
       if (userId) {
         const session = await this.commonService.getUserState(Number(userId));
         if (session?.messages) {
@@ -1889,7 +1927,12 @@ You can register via: \`\\{unlock\\_link\\}\`
           },
         );
       }
-    } catch {
+    } catch (error) {
+      await TelegramLogger.error(
+        `Error displaying message with actions for index: ${index}`,
+        error,
+        userId,
+      );
       await ctx.reply(this.escapeMarkdown('❌ Error displaying message. Please try again.'), {
         parse_mode: 'MarkdownV2',
       });
