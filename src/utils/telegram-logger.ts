@@ -12,18 +12,18 @@ export class TelegramLogger {
   private static readonly isLocalhost = process.env.NODE_ENV === 'localhost';
 
   static async error(message: string, context?: any, userId?: string) {
-    const formatted = this.formatLog('ERROR', message, String(context), userId);
-    await this.sendMessage('error', formatted);
+    const formatted = TelegramLogger.formatLog('ERROR', message, String(context), userId);
+    await TelegramLogger.sendMessage('error', formatted);
   }
 
   static async info(message: string, context?: string, userId?: string) {
-    const formatted = this.formatLog('INFO', message, context, userId);
-    await this.sendMessage('info', formatted);
+    const formatted = TelegramLogger.formatLog('INFO', message, context, userId);
+    await TelegramLogger.sendMessage('info', formatted);
   }
 
   static async warning(message: string, context?: string, userId?: string) {
-    const formatted = this.formatLog('WARNING', message, context, userId);
-    await this.sendMessage('warning', formatted);
+    const formatted = TelegramLogger.formatLog('WARNING', message, context, userId);
+    await TelegramLogger.sendMessage('warning', formatted);
   }
 
   private static formatLog(
@@ -39,11 +39,11 @@ export class TelegramLogger {
 
     let header = `${emoji} <b>[${level}]</b> | <i>${timestamp}</i>`;
     if (userId) header += ` | <code>User: ${userId}</code>`;
-    let body = `<pre>${this.escapeHtml(message)}</pre>`;
+    let body = `<pre>${TelegramLogger.escapeHtml(message)}</pre>`;
     if (context && level === 'INFO') {
-      body += `\n<b>Context:</b> <pre>${this.escapeHtml(context)}</pre>`;
+      body += `\n<b>Context:</b> <pre>${TelegramLogger.escapeHtml(context)}</pre>`;
     } else if (context && level === 'ERROR') {
-      body += `\n<b>ERROR:</b> <code>${this.escapeHtml(context)}</code>`;
+      body += `\n<b>ERROR:</b> <code>${TelegramLogger.escapeHtml(context)}</code>`;
     }
 
     return `${header}\n${body}`;
@@ -54,25 +54,24 @@ export class TelegramLogger {
     message: string,
     reply_markup?: object,
   ) {
-    if (!this.botToken) {
+    if (!TelegramLogger.botToken) {
       console.error('TELEGRAM_BOT_TOKEN is not set');
       return;
     }
     const threadId = threadIds[type];
     let formattedMessage = message;
-    if (this.isLocalhost) {
+    if (TelegramLogger.isLocalhost) {
       if (type === 'info') formattedMessage = '💬 Info:\n'.concat(message);
       else if (type === 'error') formattedMessage = '❗ Error:\n'.concat(message);
       else if (type === 'warning') formattedMessage = '⚠️ Warning:\n'.concat(message);
     }
-    const url = `https://api.telegram.org/bot${this.botToken}/sendMessage`;
+    const url = `https://api.telegram.org/bot${TelegramLogger.botToken}/sendMessage`;
     const body: Record<string, unknown> = {
       chat_id: chatId,
       text: `${formattedMessage}`,
       message_thread_id: threadId,
       parse_mode: 'HTML',
     };
-    console.log('🚀 ~ TelegramLogger ~ sendMessage ~ body:', body);
 
     if (reply_markup) {
       body['reply_markup'] = reply_markup;
