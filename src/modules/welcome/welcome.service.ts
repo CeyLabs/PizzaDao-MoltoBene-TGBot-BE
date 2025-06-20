@@ -385,16 +385,16 @@ export class WelcomeService {
         //   }
         // }
 
+        // Fetch city (group) name for the welcome message
+        const cityName = cityDetails?.name || 'Unknown City';
         const botUsername = process.env.BOT_USERNAME;
         const deepLink = `https://t.me/${botUsername}?start=register_${member.id}_${chatId}`;
 
         const verificationMessage = await ctx.replyWithMarkdownV2(
-          `👋 *Welcome\\, ${`[${member.first_name}](tg://user?id=${member.id})`}\\!*\n\n` +
-            `🤖 Please verify you are not a robot by clicking the button below\\.\n\n` +
-            `⏳ *You have 30 seconds to verify\\.*`,
+          `👋 Welcome, ${`[${member.first_name}](tg://user?id=${member.id})`} to *${cityName}* PizzaDAO\n\nClick button Complete Profile 🔽`,
           {
             reply_markup: {
-              inline_keyboard: [[{ text: '✅ Verify', url: deepLink }]],
+              inline_keyboard: [[{ text: 'Complete Profile', url: deepLink }]],
             },
           },
         );
