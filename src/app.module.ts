@@ -69,3 +69,27 @@ config();
   providers: [AppService],
 })
 export class AppModule {}
+
+export function createAppModule(
+  bots: Array<{ id: string; name: string; bot_token: string; is_active: boolean }>,
+) {
+  const token = bots && bots.length > 0 ? bots[0].bot_token : '';
+  process.env.TELEGRAM_BOT_TOKEN = token;
+
+  @Module({
+    imports: [
+      ConfigModule.forRoot({
+        isGlobal: true,
+        load: [() => ({ TELEGRAM_BOT_TOKEN: token })],
+      }),
+      TelegrafModule.forRoot({
+        token,
+      }),
+    ],
+    controllers: [AppController],
+    providers: [AppService],
+  })
+  class DynamicAppModule {}
+
+  return DynamicAppModule;
+}

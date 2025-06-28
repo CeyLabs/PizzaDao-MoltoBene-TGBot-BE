@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { AppModule } from './../src/app.module';
+import { createAppModule } from './../src/app.module';
 import { getBotToken } from 'nestjs-telegraf';
 import { ConfigModule } from '@nestjs/config';
 import * as express from 'express';
@@ -39,7 +39,9 @@ describe('AppController (e2e)', () => {
         ConfigModule.forRoot({
           isGlobal: true,
         }),
-        AppModule,
+        createAppModule([
+          { id: 'test', name: 'test', bot_token: 'token', is_active: true },
+        ]),
       ],
     })
       .overrideProvider(getBotToken())
