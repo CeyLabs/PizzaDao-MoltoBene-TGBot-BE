@@ -18,6 +18,7 @@ import { CommonModule } from './modules/common/common.module';
 import { PrivateChatMiddleware } from './middleware/chat-type.middleware';
 import { BroadcastModule } from './modules/broadcast/broadcast.module';
 import { EventDetailModule } from './modules/event-detail/event-detail.module';
+import { TenantModule } from './modules/tenant/tenant.module';
 
 // Load environment variables
 config();
@@ -62,6 +63,7 @@ config();
     KnexModule,
     CountryModule,
     CityModule,
+    TenantModule,
     EventDetailModule,
   ],
 

@@ -8,6 +8,7 @@ import { AppModule } from './app.module';
 import { getBotToken } from 'nestjs-telegraf';
 import { Telegraf } from 'telegraf';
 import { json } from 'express';
+import { TenantService } from './modules/tenant/tenant.service';
 
 /**
  * Bootstraps the NestJS application and configures the Telegram bot
@@ -18,6 +19,10 @@ import { json } from 'express';
  */
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  const tenantService = app.get(TenantService);
+  const activeTenants = await tenantService.getActiveTenants();
+  console.log('Active tenants loaded:', activeTenants.length);
 
   // Get the bot instance
   const bot = app.get<Telegraf>(getBotToken());
