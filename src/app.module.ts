@@ -18,6 +18,7 @@ import { CommonModule } from './modules/common/common.module';
 import { PrivateChatMiddleware } from './middleware/chat-type.middleware';
 import { BroadcastModule } from './modules/broadcast/broadcast.module';
 import { EventDetailModule } from './modules/event-detail/event-detail.module';
+import { ManagerBotModule } from './modules/manager-bot/manager-bot.module';
 
 // Load environment variables
 config();
@@ -63,6 +64,7 @@ config();
     CountryModule,
     CityModule,
     EventDetailModule,
+    ManagerBotModule,
   ],
 
   controllers: [AppController],

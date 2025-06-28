@@ -80,3 +80,15 @@ npm run unlock:sync
 ```bash
 npm run serve:local
 ```
+
+## 🛠 Management Bot
+
+Set the `MANAGER_BOT_TOKEN` in your `.env` file to enable the management bot.
+This bot exposes a `/register` command for creating new tenants:
+
+```text
+/register <name> <token> [username]
+```
+
+Running this command will call `TenantService.createTenant` and store the
+provided bot details.
