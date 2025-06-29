@@ -3,9 +3,9 @@
  * @module app.module
  */
 
-import { Module } from '@nestjs/common';
+import { Module, Type } from '@nestjs/common';
 import { TelegrafModule } from 'nestjs-telegraf';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { config } from 'dotenv';
 import { AppService } from './app.service';
 import { AppController } from './app.controller';
@@ -18,54 +18,48 @@ import { CommonModule } from './modules/common/common.module';
 import { PrivateChatMiddleware } from './middleware/chat-type.middleware';
 import { BroadcastModule } from './modules/broadcast/broadcast.module';
 import { EventDetailModule } from './modules/event-detail/event-detail.module';
+import { ITenant } from './modules/tenant/tenant.interface';
+import { TenantModule } from './modules/tenant/tenant.module';
 
 // Load environment variables
 config();
 
-/**
- * Root module of the application that configures and bootstraps all required modules
- * @class AppModule
- * @description Configures the main application module with all necessary dependencies,
- * including the Telegram bot, database connection, and various feature modules.
- */
-@Module({
-  imports: [
-    ConfigModule.forRoot(),
-    TelegrafModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => {
-        const token = configService.get<string>('TELEGRAM_BOT_TOKEN');
-        if (!token) {
-          throw new Error('TELEGRAM_BOT_TOKEN is not defined in the environment variables');
-        }
-        return {
-          token,
-          launchOptions:
-            process.env.ENABLE_WEBHOOK === 'true'
-              ? {
-                  webhook: {
-                    domain: configService.get<string>('WEBHOOK_DOMAIN') || '',
-                    path: '/webhook',
-                  },
-                }
-              : {},
-          middlewares: [new PrivateChatMiddleware().use()],
-        };
-      },
-      inject: [ConfigService],
+export function createAppModule(tenants: ITenant[]): Type<any> {
+  const botModules = tenants.map((tenant) =>
+    TelegrafModule.forRoot({
+      token: tenant.bot_token,
+      botName: tenant.name,
+      launchOptions:
+        process.env.ENABLE_WEBHOOK === 'true'
+          ? {
+              webhook: {
+                domain: process.env.WEBHOOK_DOMAIN || '',
+                path: '/webhook',
+              },
+            }
+          : {},
+      middlewares: [new PrivateChatMiddleware().use()],
     }),
+  );
 
-    UserModule,
-    WelcomeModule,
-    BroadcastModule,
-    CommonModule,
-    KnexModule,
-    CountryModule,
-    CityModule,
-    EventDetailModule,
-  ],
+  @Module({
+    imports: [
+      ConfigModule.forRoot(),
+      ...botModules,
+      TenantModule,
+      UserModule,
+      WelcomeModule,
+      BroadcastModule,
+      CommonModule,
+      KnexModule,
+      CountryModule,
+      CityModule,
+      EventDetailModule,
+    ],
+    controllers: [AppController],
+    providers: [AppService],
+  })
+  class AppModule {}
 
-  controllers: [AppController],
-  providers: [AppService],
-})
-export class AppModule {}
+  return AppModule;
+}

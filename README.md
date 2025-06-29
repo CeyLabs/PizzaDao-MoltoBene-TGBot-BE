@@ -24,6 +24,7 @@ This bot serves as the registration and management system for PizzaDAO's telegra
   - Automated welcome messages
   - User permission management
   - Multi-city group support
+  - Multi-tenant support with separate bot tokens
   - Message cleanup and organization
 
 ## 🛠 Tech Stack
@@ -68,8 +69,18 @@ docker-compose up -d
 5. Run database migrations:
 ```bash
 npm run migrate
-npm run fixtures
+ npm run fixtures
 ```
+
+### Register Tenants
+
+To onboard a new client, register a tenant with its Telegram bot token:
+
+```bash
+npm run register:tenant -- <TENANT_NAME> <BOT_TOKEN> [BOT_USERNAME]
+```
+
+Run migrations and fixtures after adding tenants to ensure the table exists.
 
 6. Sync unlock events:
 ```bash
