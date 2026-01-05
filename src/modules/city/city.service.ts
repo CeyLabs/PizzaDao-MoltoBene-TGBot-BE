@@ -150,4 +150,16 @@ export class CityService {
       .first()) as ICity | undefined;
     return city || null;
   }
+
+  /**
+   * Updates the last active timestamp for a city group
+   * @param {string | number} groupId - The Telegram group ID
+   * @returns {Promise<void>}
+   */
+  async updateLastActive(groupId: string | number): Promise<void> {
+    await this.knexService
+      .knex('city')
+      .where('group_id', groupId)
+      .update({ last_active_at: this.knexService.knex.fn.now() });
+  }
 }

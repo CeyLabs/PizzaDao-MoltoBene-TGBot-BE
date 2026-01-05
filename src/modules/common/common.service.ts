@@ -9,6 +9,7 @@ import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { Help, On, Update } from 'nestjs-telegraf';
 import { WelcomeService } from '../welcome/welcome.service';
 import { BroadcastService } from '../broadcast/broadcast.service';
+import { CityService } from '../city/city.service';
 import { TUserFlow, IUserState } from './common.interface';
 import { getContextTelegramUserId } from 'src/utils/context';
 
@@ -29,6 +30,7 @@ export class CommonService {
     private readonly welcomeService: WelcomeService,
     @Inject(forwardRef(() => BroadcastService))
     private readonly broadcastService: BroadcastService,
+    private readonly cityService: CityService,
   ) {}
 
   /**
@@ -67,6 +69,11 @@ export class CommonService {
    */
   @On('message')
   async handleMessage(ctx: Context) {
+    // Track last active timestamp for group messages
+    if (ctx.chat?.type !== 'private' && ctx.chat?.id) {
+      await this.trackGroupActivity(ctx.chat.id.toString());
+    }
+
     const userId = getContextTelegramUserId(ctx);
     if (!userId) return;
 
@@ -136,5 +143,20 @@ export class CommonService {
   async clearUserState(userId: number) {
     const cacheKey = this.getUserStateCacheKey(userId);
     await RunCache.delete(cacheKey);
+  }
+
+  /**
+   * Tracks group activity by updating the last active timestamp
+   * @param {string} groupId - The Telegram group ID
+   * @returns {Promise<void>}
+   * @private
+   */
+  private async trackGroupActivity(groupId: string): Promise<void> {
+    try {
+      await this.cityService.updateLastActive(groupId);
+    } catch (error) {
+      // Silently fail if the group is not registered
+      // This prevents errors for groups that aren't in our database
+    }
   }
 }
