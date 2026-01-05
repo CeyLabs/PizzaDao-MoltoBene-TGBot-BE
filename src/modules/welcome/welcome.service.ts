@@ -350,6 +350,13 @@ export class WelcomeService {
     const chatId = ctx.chat?.id ?? 0;
     await TelegramLogger.info(`New member joining chat: ${chatId}`, undefined, String(chatId));
 
+    // Track group activity
+    try {
+      await this.cityService.updateLastActive(String(chatId));
+    } catch (error) {
+      // Silently fail if the group is not registered
+    }
+
     try {
       await ctx.telegram.deleteMessage(chatId, message.message_id);
     } catch (error) {
@@ -653,6 +660,13 @@ export class WelcomeService {
   async handleLeftChatMember(ctx: Context) {
     const { message } = ctx;
     const chatId = ctx.chat?.id ?? 0;
+
+    // Track group activity
+    try {
+      await this.cityService.updateLastActive(String(chatId));
+    } catch (error) {
+      // Silently fail if the group is not registered
+    }
 
     if (message && 'left_chat_member' in message) {
       await TelegramLogger.info(

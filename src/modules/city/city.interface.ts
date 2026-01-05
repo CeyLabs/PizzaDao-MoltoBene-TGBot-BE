@@ -41,6 +41,13 @@ export interface ICity {
    * @optional
    */
   telegram_link?: string;
+
+  /**
+   * Timestamp of the last activity in the group
+   * @type {Date}
+   * @optional
+   */
+  last_active_at?: Date;
 }
 
 /**
