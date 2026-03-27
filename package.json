@@ -15,7 +15,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/src/main.js",
-    "serve:local": "export $(xargs < ./.env) && npm run start:dev",
+    "serve:local": "export $(grep -v '^#' ./.env | grep -v '^$' | xargs) && npm run start:dev",
     "migrate:create": "npx knex migrate:make",
     "migrate": "npx knex migrate:latest",
     "migrate:rollback": "npx knex migrate:rollback --all",

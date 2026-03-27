@@ -323,6 +323,20 @@ export class WelcomeService {
       return;
     }
 
+    this.userGroupMap.set(userId, {
+      telegram_id: userId,
+      username: ctx.message?.from?.username || null,
+      tg_first_name: ctx.message?.from?.first_name || null,
+      tg_last_name: ctx.message?.from?.last_name || null,
+      pizza_name: null,
+      discord_name: null,
+      region_id: null,
+      mafia_movie: null,
+      ninja_turtle_character: [],
+      pizza_topping: null,
+      group_id: null,
+    });
+
     await this.handleRegionSelection(ctx);
   }
 
@@ -1151,7 +1165,7 @@ export class WelcomeService {
 
     try {
       const response = await this.openAi.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7,
         max_tokens: 50,
@@ -1189,7 +1203,7 @@ export class WelcomeService {
 
     try {
       const response = await this.openAi.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0,
         max_tokens: 5,
@@ -1225,7 +1239,7 @@ export class WelcomeService {
 
     try {
       const response = await this.openAi.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0,
         max_tokens: 5,
